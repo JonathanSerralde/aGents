@@ -1,0 +1,16 @@
+{
+  "name": "oficina-multiagente",
+  "version": "0.2.0",
+  "description": "Diagnóstico local de pymes con tablero de departamentos y agentes. Todo se queda en tu equipo.",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

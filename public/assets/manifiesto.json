@@ -1,0 +1,172 @@
+[
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-01.png",
+    "original": "Agente de compras con panel holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-02.png",
+    "original": "Analista de marketing con panel holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-03.png",
+    "original": "Analista de Riesgos con Panel de Seguridad.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-04.png",
+    "original": "Analista financiero con dashboard holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-05.png",
+    "original": "Asesor legal con interfaz holográfica.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-06.png",
+    "original": "Asesora de ventas con panel holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-07.png",
+    "original": "Asistente digital con panel holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-08.png",
+    "original": "Asistente holográfico de operaciones empresariales.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-09.png",
+    "original": "Avatar de RR. HH. con Panel Holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-10.png",
+    "original": "Educación digital en acción.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-11.png",
+    "original": "Ingeniero de soporte técnico con hologramas.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-12.png",
+    "original": "Liderazgo estratégico con tablero de estrategia.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-13.png",
+    "original": "Profesional Ágil con Tablero Holográfico.png"
+  },
+  {
+    "tipo": "avatar",
+    "archivo": "avatares/avatar-14.png",
+    "original": "Supervisora industrial con panel holográfico.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-01.png",
+    "original": "Agente Operaciones_ Centro de Control.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-02.png",
+    "original": "Centro de Análisis de Datos Futurista.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-03.png",
+    "original": "Centro de Capacitación Futurista.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-04.png",
+    "original": "Centro de Certificación aGents.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-05.png",
+    "original": "Centro de Comunicación Futurista en aGents.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-06.png",
+    "original": "Centro de Operaciones Tecnológicas.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-07.png",
+    "original": "Centro de Operaciones y Datos aGents.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-08.png",
+    "original": "Centro de Planificación Futurista.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-09.png",
+    "original": "Centro de Recursos Humanos futurista.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-10.png",
+    "original": "Centro Financiero Agente de Finanzas.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-11.png",
+    "original": "Centro Futurista de Educación Digital.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-12.png",
+    "original": "Centro Futurista de Gestión de Proyectos (1).png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-13.png",
+    "original": "Centro futurista de gestión de proyectos.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-14.png",
+    "original": "Centro Futurista de Operaciones ахҭыс.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-15.png",
+    "original": "Centro Futurista de Ventas.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-16.png",
+    "original": "Centro Tecnológico de Operaciones Neon.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-17.png",
+    "original": "Sede del Agente Analista.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-18.png",
+    "original": "Sede futurista de analítica de datos.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-19.png",
+    "original": "Sede futurista de Tecnología e Innovación.png"
+  },
+  {
+    "tipo": "edificio",
+    "archivo": "edificios/edificio-20.png",
+    "original": "Sede futurista del Coordinador.png"
+  }
+]

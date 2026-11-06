@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oficina Multiagente · Diagnóstico</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="menu">
+      <div class="menu-marca">
+        <svg class="marca-icono" viewBox="0 0 24 24" fill="none" stroke="url(#gradiente-marca)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <defs>
+            <linearGradient id="gradiente-marca" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#3fd3ff"/>
+              <stop offset="1" stop-color="#8b6cff"/>
+            </linearGradient>
+          </defs>
+          <path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/>
+        </svg>
+        <div>
+          <p class="menu-titulo">Oficina</p>
+          <p class="menu-subtitulo">Multiagente</p>
+        </div>
+      </div>
+
+      <nav class="menu-nav" aria-label="Principal">
+        <button class="menu-item activo" type="button" data-vista="dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"/><path d="M9 20v-6h6v6"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="asistente">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M9 11h6M9 15h6"/></svg>
+          <span>Diagnóstico</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="agentes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5 6.5-5s5.7 1.5 6.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.2 1.8 4.8 4.5"/></svg>
+          <span>Agentes</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="campanas">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>
+          <span>Campañas</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="actividad">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-6 4 12 3-8 2 2h3"/></svg>
+          <span>Actividad</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="reportes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
+          <span>Reportes</span>
+        </button>
+        <button class="menu-item" type="button" data-vista="configuracion">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
+          <span>Configuración</span>
+        </button>
+      </nav>
+
+      <div class="menu-pie">
+        <span id="estado" class="chip">Conectando…</span>
+        <p>Todo se queda en tu equipo.</p>
+      </div>
+    </aside>
+
+    <div class="principal">
+      <header class="cabecera">
+        <div class="bienvenida">
+          <h1>Bienvenido a <span class="acento">Oficina Multiagente</span></h1>
+          <p>Tu equipo de agentes de IA para diagnosticar, analizar y fortalecer tu negocio.</p>
+        </div>
+        <div class="usuario">
+          <img id="logo" class="logo" alt="" hidden>
+          <div>
+            <p id="marca-nombre" class="usuario-nombre">Tu negocio</p>
+            <p id="ia-estado" class="usuario-rol">Instalación local · sin cuentas</p>
+            <p id="trabajando" class="trabajando" hidden aria-live="polite"></p>
+          </div>
+        </div>
+      </header>
+
+      <main class="contenedor">
+        <!-- ===================== DASHBOARD ===================== -->
+        <section id="vista-dashboard" data-vista-panel>
+          <section id="primeros-pasos" class="tarjeta" hidden>
+            <div class="panel-encabezado">
+              <h3>Primeros pasos</h3>
+              <p class="subtitulo">Lo que conviene dejar listo para que los agentes trabajen con tu negocio.</p>
+            </div>
+            <ul id="pasos-lista" class="pasos-lista"></ul>
+          </section>
+
+          <section id="informe-card" class="tarjeta" hidden>
+            <div class="panel-encabezado">
+              <h3>Informe del Orquestador</h3>
+              <p class="subtitulo">Lo arma el cerebro de la oficina con reglas, sin IA: estado del negocio, contradicciones entre áreas, acciones vencidas, mercado y sitio, y el siguiente paso.</p>
+              <div class="acciones-inline">
+                <a class="boton secundario compacto" href="/api/informe/reporte.docx">Word</a>
+                <a class="boton secundario compacto" href="/api/informe/reporte.html" target="_blank" rel="noopener">PDF</a>
+              </div>
+            </div>
+            <ul id="informe-lista" class="informe-lista"></ul>
+          </section>
+
+          <section id="permisos-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Accesos y permisos</h3>
+              <p class="subtitulo">Tú decides qué puede hacer la aplicación y qué sale de tu computadora. Cada interruptor corta esa capacidad al instante; nada más cambia. Las claves se guardan solo aquí y se muestran enmascaradas.</p>
+            </div>
+            <details class="plegable"><summary>Ver y ajustar los permisos</summary>
+              <ul id="permisos-lista" class="permisos-lista"></ul>
+            </details>
+          </section>
+
+          <div id="dashboard-vacio" class="tarjeta vacio-card">
+            <p class="etiqueta-seccion">Dashboard</p>
+            <h2>Aún no hay un diagnóstico</h2>
+            <p class="subtitulo">Responde el asistente guiado (unos 15 minutos) y aquí verás tu ciudad de agentes, el semáforo por área y el plan de acción.</p>
+            <div class="acciones-inline">
+              <button id="vacio-empezar" class="boton" type="button">Empezar diagnóstico</button>
+            </div>
+          </div>
+
+          <section id="vista-resultados" hidden>
+          <div class="kpis">
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="layers" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Diagnósticos guardados</span><span id="kpi-guardados" class="kpi-valor">0</span></div>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="check" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Áreas evaluadas</span><span id="kpi-evaluadas" class="kpi-valor">0</span></div>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="signal" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Acciones en plan</span><span id="kpi-acciones" class="kpi-valor">0</span></div>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="chart" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Nivel de madurez</span><span id="kpi-madurez" class="kpi-valor">0<small> / 5</small></span></div>
+            </div>
+          </div>
+
+          <div class="tarjeta escena">
+            <div class="escena-cabecera">
+              <div>
+                <p class="etiqueta-seccion">Ciudad de agentes</p>
+                <h2 id="resultado-nombre">Tu negocio</h2>
+                <p id="resultado-fecha" class="subtitulo"></p>
+              </div>
+              <button id="nuevo" class="boton secundario" type="button">Nuevo diagnóstico</button>
+            </div>
+            <canvas id="oficina" role="img" aria-label="Ciudad en 3D. Cada edificio es un área del negocio; su agente muestra si está listo o en revisión. Usa la rueda del ratón para acercar."></canvas>
+            <div id="estado-area" class="estado-area"></div>
+            <p id="prioridades" class="prioridades"></p>
+
+            <div id="detalle-fondo" class="detalle-fondo" hidden></div>
+            <aside id="detalle" class="detalle cajon" hidden aria-live="polite" role="dialog" aria-labelledby="detalle-titulo">
+              <div class="detalle-cabecera">
+                <img id="detalle-foto" class="detalle-foto" alt="" src="">
+                <div class="detalle-texto">
+                  <p id="detalle-etiqueta" class="etiqueta-seccion">Área seleccionada</p>
+                  <h3 id="detalle-titulo"></h3>
+                  <p id="detalle-estado" class="detalle-estado"></p>
+                  <p id="detalle-agente" class="subtitulo"></p>
+                  <p id="detalle-rol" class="subtitulo"></p>
+                </div>
+                <button id="detalle-cerrar" class="boton secundario compacto" type="button" aria-label="Cerrar panel">Cerrar</button>
+              </div>
+              <div class="detalle-columnas">
+                <div>
+                  <h4 id="detalle-h-hallazgos">Hallazgos</h4>
+                  <ul id="detalle-hallazgos" class="detalle-lista"></ul>
+                </div>
+                <div>
+                  <h4 id="detalle-h-acciones">Acciones</h4>
+                  <ul id="detalle-acciones" class="detalle-lista"></ul>
+                </div>
+              </div>
+
+              <section id="chat-area" class="chat" data-area="">
+                <div class="chat-cabecera">
+                  <h4 class="chat-titulo">Habla con tu agente</h4>
+                  <p class="chat-nota subtitulo"></p>
+                </div>
+                <ol class="chat-lista" aria-live="polite"></ol>
+                <form class="chat-form">
+                  <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Dale una orden a este agente. Ctrl+Enter para enviar." aria-label="Orden para el agente"></textarea>
+                  <button class="boton compacto" type="submit">Enviar</button>
+                </form>
+              </section>
+            </aside>
+          </div>
+
+          <section id="motor" class="tarjeta motor">
+            <div class="panel-encabezado">
+              <h3>Motor de crecimiento</h3>
+              <span id="motor-meta" class="pildora"></span>
+            </div>
+            <p id="motor-preparado" class="motor-preparado"></p>
+            <div class="motor-ejes">
+              <div class="eje">
+                <div class="eje-cabecera"><strong>Vertical</strong><span class="subtitulo">Vender más al mercado actual</span><span id="eje-vertical-nivel" class="eje-nivel"></span></div>
+                <div class="eje-barra"><span id="eje-vertical-relleno" class="eje-relleno"></span></div>
+                <ul id="eje-vertical-lista" class="eje-lista"></ul>
+              </div>
+              <div class="eje">
+                <div class="eje-cabecera"><strong>Horizontal</strong><span class="subtitulo">Abrir nuevos mercados o puntos</span><span id="eje-horizontal-nivel" class="eje-nivel"></span></div>
+                <div class="eje-barra"><span id="eje-horizontal-relleno" class="eje-relleno"></span></div>
+                <ul id="eje-horizontal-lista" class="eje-lista"></ul>
+              </div>
+            </div>
+          </section>
+
+          <div class="fila-equipo">
+            <section id="equipo" class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Equipo de agentes</h3>
+                <span id="equipo-contador" class="pildora"></span>
+                <button id="editar-equipo" class="boton secundario compacto" type="button">Editar equipo</button>
+              </div>
+              <div id="agentes" class="equipo-grid"></div>
+            </section>
+
+            <section class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Madurez organizacional</h3>
+              </div>
+              <div class="radar-wrap">
+                <svg id="radar" viewBox="0 0 300 300" role="img" aria-label="Radar de madurez por área"></svg>
+              </div>
+              <div class="nivel-global">
+                <span class="nivel-titulo">Nivel global: <strong id="nivel-global">0</strong> / 5</span>
+                <div id="nivel-segmentos" class="nivel-segmentos"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="fila-inferior">
+            <section class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Análisis recientes</h3>
+                <button id="ver-reportes" class="boton secundario compacto" type="button">Ver todos</button>
+              </div>
+              <ul id="historial" class="lista-simple"></ul>
+            </section>
+
+            <section class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Áreas de oportunidad (Top 3)</h3>
+              </div>
+              <div id="oportunidades" class="oportunidades"></div>
+            </section>
+
+            <section class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Acciones rápidas</h3>
+              </div>
+              <div class="acciones-rapidas">
+                <button id="accion-nuevo" class="boton accion" type="button">Nuevo diagnóstico</button>
+                <button id="accion-plan" class="boton accion violeta" type="button">Ver plan de mejora</button>
+                <button id="accion-reporte" class="boton accion verde" type="button">Descargar reporte en Word</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="fila-detalle">
+            <section id="plan-card" class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Plan de acción</h3>
+                <span id="plan-contador" class="pildora"></span>
+              </div>
+              <div id="plan" class="plan"></div>
+            </section>
+
+            <section class="tarjeta">
+              <div class="panel-encabezado">
+                <h3>Análisis por área</h3>
+                <p class="subtitulo">Hallazgos clave de cada área del negocio.</p>
+              </div>
+              <div id="distritos" class="distritos"></div>
+            </section>
+
+            <aside class="tarjeta feed">
+              <div class="panel-encabezado">
+                <h3>En vivo</h3>
+                <p class="subtitulo">Actividad del diagnóstico</p>
+              </div>
+              <ol id="linea" class="linea"></ol>
+              <div class="feed-actividad">
+                <h3>Registro</h3>
+                <ul id="feed"><li class="vacio">Sin actividad todavía.</li></ul>
+              </div>
+            </aside>
+          </div>
+
+          <div id="resumen-ia" class="tarjeta" hidden></div>
+          </section>
+        </section>
+
+        <!-- ===================== DIAGNÓSTICO (asistente) ===================== -->
+        <section id="vista-asistente" class="tarjeta asistente" data-vista-panel hidden>
+          <div class="progreso" aria-hidden="true"><div id="barra"></div></div>
+
+          <div class="cabecera-paso">
+            <div id="icono-paso" class="icono-paso" aria-hidden="true"></div>
+            <div class="cabecera-texto">
+              <p id="contador" class="contador"></p>
+              <h2 id="titulo-paso" class="titulo-paso"></h2>
+              <p id="descripcion-paso" class="descripcion-paso"></p>
+            </div>
+          </div>
+
+          <form id="formulario" novalidate>
+            <div id="paso"></div>
+            <p id="errores" class="errores" role="alert" hidden></p>
+            <div class="nav">
+              <button id="atras" class="boton secundario" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+                <span>Atrás</span>
+              </button>
+              <button id="siguiente" class="boton" type="submit">
+                <span id="texto-siguiente">Siguiente</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ===================== AGENTES ===================== -->
+        <section id="vista-agentes" data-vista-panel hidden>
+          <nav class="pestanas" aria-label="Secciones de Agentes" role="tablist">
+            <button type="button" class="pestana" data-pestana="hablar" role="tab">Hablar</button>
+            <button type="button" class="pestana" data-pestana="equipo" role="tab">Equipo</button>
+            <button type="button" class="pestana" data-pestana="bitacora" role="tab">Bitácora y calendario</button>
+            <button type="button" class="pestana" data-pestana="piloto" role="tab">Piloto automático</button>
+            <button type="button" class="pestana" data-pestana="rutinas" role="tab">Rutinas</button>
+            <button type="button" class="pestana" data-pestana="laboral" role="tab">RH y nómina</button>
+            <button type="button" class="pestana" data-pestana="mercado" role="tab">Mercado y sitio</button>
+            <button type="button" class="pestana" data-pestana="documentos" role="tab">Documentos</button>
+            <button type="button" class="pestana" data-pestana="propios" role="tab">Mis agentes</button>
+            <button type="button" class="pestana" data-pestana="jerarquia" role="tab">Jerarquía</button>
+            <button type="button" class="pestana" data-pestana="ajustes" role="tab">Ajustes</button>
+          </nav>
+
+          <section id="equipo-editor-card" class="tarjeta" data-pestana="equipo">
+            <div class="panel-encabezado">
+              <h3>Equipo y agentes</h3>
+              <p class="subtitulo">Quién responde por cada área y cómo se llama el agente que la acompaña. Los agentes apoyan a tu gente, no la sustituyen. Si eres solo tú, déjalo vacío.</p>
+            </div>
+            <input id="equipo-filtro" type="search" class="filtro" placeholder="Buscar agente o área (ej. nómina, ventas, Rosa)" aria-label="Filtrar agentes">
+            <div id="equipo-editor"></div>
+            <div class="acciones-inline">
+              <button id="guardar-equipo" class="boton" type="button">Guardar equipo</button>
+              <span id="equipo-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
+          <section id="hablar" class="tarjeta" data-pestana="hablar">
+            <div class="panel-encabezado">
+              <h3>Habla con un agente</h3>
+              <label class="selector-area">
+                <span class="subtitulo">Área</span>
+                <select id="chat-selector" aria-label="Elegir agente"></select>
+              </label>
+            </div>
+            <section id="chat-agentes" class="chat" data-area="">
+              <div class="chat-cabecera">
+                <h4 class="chat-titulo">Habla con tu agente</h4>
+                <p class="chat-nota subtitulo"></p>
+              </div>
+              <ol class="chat-lista" aria-live="polite"></ol>
+              <form class="chat-form">
+                <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Dale una orden a este agente. Ctrl+Enter para enviar." aria-label="Orden para el agente"></textarea>
+                <button class="boton compacto" type="submit">Enviar</button>
+              </form>
+            </section>
+          </section>
+
+          <section id="documentos" class="tarjeta" data-pestana="documentos">
+            <div class="panel-encabezado">
+              <h3>Documentos para analizar</h3>
+              <p class="subtitulo">Sube contratos, estados de cuenta, facturas, reportes o fotos. El Orquestador los analiza y reparte el trabajo a los agentes. Word y texto se leen completos; PDF solo si tiene texto (no escaneado); imágenes solo con IA activa. Con IA, el contenido sale de tu equipo hacia el proveedor.</p>
+            </div>
+            <div class="acciones-inline">
+              <label class="boton secundario compacto subir">
+                Subir documento
+                <input id="doc-archivo" type="file" class="archivo" accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,image/png,image/jpeg,image/webp">
+              </label>
+              <span id="doc-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <ul id="doc-lista" class="doc-lista"></ul>
+          </section>
+
+          <section id="bitacora" class="tarjeta" data-pestana="bitacora">
+            <div class="panel-encabezado">
+              <h3>Bitácora compartida</h3>
+              <p class="subtitulo">La memoria común de la oficina: cada acción que propone un agente queda aquí como tarea abierta y el Orquestador la ve antes de repartir trabajo. Marca lo hecho para que los agentes den seguimiento en vez de repetirlo. Las notas son lo que un agente le informó a otro sin gastar IA.</p>
+            </div>
+            <div id="bitacora-resumen" class="bitacora-resumen"></div>
+            <ul id="bitacora-acciones" class="bitacora-lista"></ul>
+            <div class="memoria-tipos">
+              <details class="bitacora-notas" open>
+                <summary>Hechos de la empresa <span id="hechos-contador" class="pildora"></span></summary>
+                <p class="subtitulo">Información real del negocio con su fuente. Sale de lo que escribes a los agentes, de lo que ellos descubren y de lo que agregues aquí. Los agentes la tratan como verdad; borra lo que no sea cierto.</p>
+                <ul id="bitacora-hechos"></ul>
+                <div class="acciones-inline">
+                  <input id="hecho-texto" type="text" maxlength="240" placeholder="Ej. Vendemos 60% a crédito a 30 días" aria-label="Dato de la empresa">
+                  <select id="hecho-area" aria-label="Área del dato"></select>
+                  <button id="hecho-agregar" class="boton secundario compacto" type="button">Agregar hecho</button>
+                </div>
+              </details>
+              <details class="bitacora-notas" open>
+                <summary>Ideas en evaluación <span id="ideas-contador" class="pildora"></span></summary>
+                <p class="subtitulo">Propuestas tuyas o de los agentes que todavía no son decisiones. Márcalas como aprobadas (se vuelven decisión para todos los agentes) o descartadas.</p>
+                <ul id="bitacora-ideas"></ul>
+              </details>
+              <details class="bitacora-notas">
+                <summary>Glosario <span id="conceptos-contador" class="pildora"></span></summary>
+                <p class="subtitulo">Conceptos generales que los agentes te han explicado. No describen a tu empresa: son conocimiento para entender sus propuestas.</p>
+                <ul id="bitacora-conceptos"></ul>
+              </details>
+            </div>
+            <details class="bitacora-notas"><summary>Notas entre agentes</summary><ul id="bitacora-notas"></ul></details>
+          </section>
+
+          <section id="calendario" class="tarjeta" data-pestana="bitacora">
+            <div class="panel-encabezado">
+              <h3>Calendario</h3>
+              <p class="subtitulo">Sin cuentas ni permisos: la oficina exporta sus fechas (acciones con vencimiento, plan del diagnóstico, tareas semanales) como archivo .ics que Google Calendar, Outlook o Calendario de Apple importan, o al que te suscribes con la URL local mientras la aplicación esté abierta. Si importas tu propio .ics, el Orquestador, Proyectos, Dirección y Planificador conocen tu agenda al proponer plazos.</p>
+            </div>
+            <div class="acciones-inline">
+              <a class="boton compacto" href="/api/calendario.ics">Descargar mis fechas (.ics)</a>
+              <label class="boton secundario compacto subir">Importar mi calendario (.ics)<input id="cal-archivo" type="file" class="archivo" accept=".ics,text/calendar"></label>
+              <button id="cal-borrar" class="boton secundario compacto" type="button">Quitar agenda importada</button>
+              <span id="cal-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <p class="subtitulo">URL para suscribirte desde Outlook o Apple en esta misma computadora: <code id="cal-url">http://127.0.0.1:4791/api/calendario.ics</code>. En Google Calendar usa "Importar" con el archivo descargado (Google no puede leer direcciones locales).</p>
+            <p id="cal-estado" class="subtitulo"></p>
+            <ul id="cal-lista" class="bitacora-lista"></ul>
+          </section>
+
+          <section id="piloto" class="tarjeta" data-pestana="piloto">
+            <div class="panel-encabezado">
+              <h3>Piloto automático</h3>
+              <p class="subtitulo">Cada agente tiene su revisión periódica y la hace solo: Finanzas revisa caja y cobranza cada semana, Fiscal el calendario del mes, Ventas la oferta de la semana, el Orquestador reparte lo que detecte… Se coordinan entre ellos (consultas, notas, encargos) y dejan sus acciones en la bitácora; tú lees el resultado en la conversación de cada agente y en Actividad. Enciende el piloto, elige qué agentes van y con qué frecuencia; las corridas se reparten de lunes a viernes a las 8:00 y como máximo 3 agentes por minuto.</p>
+              <div class="acciones-inline">
+                <label class="interruptor"><input id="piloto-global" type="checkbox" aria-label="Encender el piloto automático"><span id="piloto-global-texto">Apagado</span></label>
+                <span id="piloto-estado" class="mensaje-estado" role="status"></span>
+              </div>
+            </div>
+            <ul id="piloto-lista" class="bitacora-lista"></ul>
+          </section>
+
+          <section id="rutinas" class="tarjeta" data-pestana="rutinas">
+            <div class="panel-encabezado">
+              <h3>Rutinas automáticas</h3>
+              <p class="subtitulo">Cuando pides lo mismo (o casi) tres veces al mismo agente, la oficina lo detecta y te ofrece automatizarlo: la orden se envía sola cada día, semana o mes y la respuesta queda en la conversación de ese agente. Tú aceptas, ajustas o descartas; también puedes crear rutinas a mano.</p>
+            </div>
+            <div id="rutinas-sugerencias" class="propuestas"></div>
+            <ul id="rutinas-lista" class="bitacora-lista"></ul>
+            <details class="importar"><summary>Crear una rutina a mano</summary>
+              <div class="form-grid">
+                <div class="campo"><label for="rut-area">Agente</label><select id="rut-area"></select></div>
+                <div class="campo"><label for="rut-nombre">Nombre</label><input id="rut-nombre" type="text" maxlength="80" placeholder="Ej. Reporte semanal de ventas"></div>
+                <div class="campo ancho"><label for="rut-texto">Orden que se enviará</label><textarea id="rut-texto" rows="2" maxlength="2000" placeholder="Ej. Dame el resumen de ventas de la semana y qué ajustar"></textarea></div>
+                <div class="campo"><label for="rut-frecuencia">Frecuencia</label><select id="rut-frecuencia"><option value="diaria">Diaria</option><option value="semanal" selected>Semanal</option><option value="mensual">Mensual</option></select></div>
+                <div class="campo"><label for="rut-dia">Día (semana: lunes…; mes: 1 a 28)</label><input id="rut-dia" type="number" min="0" max="28" value="1"></div>
+                <div class="campo"><label for="rut-hora">Hora</label><input id="rut-hora" type="number" min="0" max="23" value="9"></div>
+              </div>
+              <div class="acciones-inline"><button id="rut-crear" class="boton compacto" type="button">Crear rutina</button><span id="rut-mensaje" class="mensaje-estado" role="status"></span></div>
+            </details>
+          </section>
+
+          <section id="laboral" class="tarjeta" data-pestana="laboral">
+            <div class="panel-encabezado">
+              <h3>RH y nómina: calculadora laboral</h3>
+              <p class="subtitulo">Resuelve sin IA, con la Ley Federal del Trabajo: aguinaldo, vacaciones y prima, finiquito, liquidación, PTU, fondo de ahorro, vales de despensa, descuento INFONAVIT y la lista de altas y bajas. Las retenciones de ISR y los casos especiales los confirma tu contador.</p>
+            </div>
+            <div class="form-grid">
+              <div class="campo"><label for="lab-tipo">Qué calcular</label><select id="lab-tipo"></select></div>
+              <div class="campo"><label for="lab-trabajador">Trabajador (opcional, para registrarlo como hecho)</label><input id="lab-trabajador" type="text" maxlength="80" placeholder="Ej. Juan Pérez, cajero"></div>
+            </div>
+            <div id="lab-campos" class="form-grid"></div>
+            <div class="acciones-inline">
+              <button id="lab-calcular" class="boton compacto" type="button">Calcular</button>
+              <button id="lab-registrar" class="boton secundario compacto" type="button" hidden>Registrar como hecho</button>
+              <span id="lab-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <div id="lab-resultado"></div>
+          </section>
+
+          <section id="investigacion" class="tarjeta" data-pestana="mercado">
+            <div class="panel-encabezado">
+              <h3>Investigación semanal de mercado</h3>
+              <p class="subtitulo">Cada semana el agente de Investigación de mercado busca en internet al menos 10 competidores de tu sector y resume al menos 5 comentarios positivos y 5 negativos de clientes de cada uno. Informa al Orquestador qué buscan y qué rechazan los clientes, y él reparte el trabajo a Ventas, Marketing y a las áreas que lo necesiten. Usa la búsqueda web de tu proveedor de IA con tu misma clave; cada búsqueda se cobra aparte en tu cuenta del proveedor.</p>
+            </div>
+            <div class="form-grid tres">
+              <div class="campo"><label for="inv-activa">Programación</label><select id="inv-activa"><option value="1">Activa, cada semana</option><option value="0">Pausada</option></select></div>
+              <div class="campo"><label for="inv-dia">Día</label><select id="inv-dia"></select></div>
+              <div class="campo"><label for="inv-hora">Hora</label><select id="inv-hora"></select></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="inv-guardar" class="boton secundario compacto" type="button">Guardar programación</button>
+              <button id="inv-ejecutar" class="boton compacto" type="button">Investigar ahora</button>
+              <span id="inv-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <p id="inv-estado" class="subtitulo"></p>
+            <details class="importar"><summary>Sin IA: capturar reseñas a mano</summary>
+              <p class="subtitulo">Pega las reseñas con este formato (una línea por dato). Sin IA, las conclusiones salen de las palabras más repetidas y el informe queda pendiente para las personas responsables de Ventas y Marketing.</p>
+              <textarea id="inv-importar" rows="7" placeholder="COMPETIDOR: Ferretería El Clavo | Guadalajara | Google Maps&#10;POSITIVO: atienden rápido y tienen todo en existencia&#10;NEGATIVO: precios más altos que en el centro&#10;LO QUE BUSCAN LOS CLIENTES:&#10;- surtido y rapidez"></textarea>
+              <div class="acciones-inline"><button id="inv-importar-boton" class="boton compacto" type="button">Guardar e informar a los agentes</button></div>
+            </details>
+            <ul id="inv-lista" class="doc-lista"></ul>
+            <div id="inv-detalle"></div>
+          </section>
+
+          <section id="sitio" class="tarjeta" data-pestana="mercado">
+            <div class="panel-encabezado">
+              <h3>Análisis del sitio web</h3>
+              <p class="subtitulo">Revisa la página principal de tu sitio desde esta computadora, sin IA: conexión segura, encabezados de seguridad, versión para celular, botón de WhatsApp, aviso de privacidad, medición de visitas, textos para Google y velocidad. Con IA, el Orquestador reparte los hallazgos a Ciberseguridad, Tecnología, Marketing, Ventas y quien corresponda. Corre también cada semana junto con la investigación.</p>
+            </div>
+            <div class="form-grid">
+              <div class="campo ancho"><label for="sitio-url">Dirección del sitio</label><input id="sitio-url" type="text" maxlength="300" placeholder="https://miempresa.mx (si está vacío, se usa el de la ficha de la empresa)"></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="sitio-analizar" class="boton compacto" type="button">Analizar mi sitio</button>
+              <span id="sitio-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <p id="sitio-estado" class="subtitulo"></p>
+            <ul id="sitio-lista" class="doc-lista"></ul>
+            <div id="sitio-detalle"></div>
+          </section>
+
+          <section id="propios" class="tarjeta" data-pestana="propios">
+            <div class="panel-encabezado">
+              <h3>Mis agentes</h3>
+              <p class="subtitulo">Crea agentes propios con su especialidad. Elige qué áreas ven; el resto funciona igual que los demás (nombre, responsable, órdenes). Máximo 20. Cuando pides "Optimizar agentes con IA", el Orquestador también puede proponer aquí subagentes nuevos que tu negocio necesite; nada se crea sin tu aprobación.</p>
+            </div>
+            <div id="propuestas-agentes" class="propuestas"></div>
+            <ul id="propios-lista" class="propios-lista"></ul>
+            <form id="form-propio" class="form-propio">
+              <input type="hidden" id="propio-id" value="">
+              <div class="form-grid">
+                <div class="campo"><label for="propio-nombre">Nombre del agente *</label><input id="propio-nombre" type="text" maxlength="200" placeholder="Ej. Gerente de sucursal Norte" required></div>
+                <div class="campo"><label for="propio-rol">Rol</label><input id="propio-rol" type="text" maxlength="200" placeholder="Ej. Supervisa la sucursal y su equipo"></div>
+                <div class="campo ancho"><label for="propio-especialidad">Especialidad</label><input id="propio-especialidad" type="text" maxlength="200" placeholder="En una frase: en qué ayuda"></div>
+                <div class="campo"><label for="propio-preguntas">Qué pregunta primero (una por línea)</label><textarea id="propio-preguntas" rows="3" maxlength="1600"></textarea></div>
+                <div class="campo"><label for="propio-marcos">Marcos o métodos que usa (uno por línea)</label><textarea id="propio-marcos" rows="3" maxlength="1600"></textarea></div>
+                <div class="campo"><label for="propio-acciones">Lo que sabe hacer (una por línea)</label><textarea id="propio-acciones" rows="3" maxlength="1600"></textarea></div>
+                <div class="campo"><label for="propio-limites">Límites (uno por línea)</label><textarea id="propio-limites" rows="3" maxlength="1600"></textarea></div>
+                <div class="campo ancho">
+                  <span class="etiqueta-campo">Áreas que puede ver</span>
+                  <div id="propio-areas" class="areas-check"></div>
+                </div>
+                <div class="campo"><label for="propio-avatar">Avatar</label><select id="propio-avatar"></select></div>
+                <div class="campo avatar-preview-wrap"><img id="propio-avatar-preview" class="agente-foto chica" alt="" hidden></div>
+              </div>
+              <div class="acciones-inline">
+                <button id="propio-guardar" class="boton" type="submit">Crear agente</button>
+                <button id="propio-cancelar" class="boton secundario" type="button" hidden>Cancelar edición</button>
+                <span id="propio-mensaje" class="mensaje-estado" role="status"></span>
+              </div>
+            </form>
+          </section>
+
+          <section id="jerarquia" class="tarjeta" data-pestana="jerarquia">
+            <div class="panel-encabezado">
+              <h3>Jerarquía</h3>
+              <p class="subtitulo">Quién reporta a quién. Tiene efecto real: el Orquestador delega a cualquiera; los demás solo a quienes reportan a ellos. Consultar, todos a todos.</p>
+            </div>
+            <div id="organigrama" class="organigrama"></div>
+          </section>
+
+          <section id="ajustes-card" class="tarjeta" data-pestana="ajustes">
+            <div class="panel-encabezado">
+              <h3>Ajustes por negocio</h3>
+              <p class="subtitulo">Los agentes se adaptan a tu empresa: escribe indicaciones para cada uno, o pide al Orquestador que proponga ajustes a partir del diagnóstico y las conversaciones. Nada se aplica sin tu aprobación.</p>
+              <button id="optimizar-agentes" class="boton compacto" type="button">Optimizar agentes con IA</button>
+            </div>
+            <div id="propuestas" class="propuestas"></div>
+            <div class="form-grid">
+              <div class="campo"><label for="ajuste-agente">Agente</label><select id="ajuste-agente"></select></div>
+              <div class="campo ancho"><label for="ajuste-notas">Indicaciones de tu negocio para este agente</label><textarea id="ajuste-notas" rows="3" maxlength="800" placeholder="Ej. Vendemos solo de contado; la temporada fuerte es diciembre; nunca ofrecer descuentos mayores a 15%."></textarea></div>
+              <div class="campo"><label for="ajuste-marcos">Marcos adicionales (uno por línea)</label><textarea id="ajuste-marcos" rows="2" maxlength="1200"></textarea></div>
+              <div class="campo"><label for="ajuste-acciones">Acciones adicionales (una por línea)</label><textarea id="ajuste-acciones" rows="2" maxlength="1200"></textarea></div>
+              <div class="campo ancho"><label for="ajuste-limites">Límites adicionales (uno por línea)</label><textarea id="ajuste-limites" rows="2" maxlength="1200"></textarea></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="ajuste-guardar" class="boton" type="button">Guardar ajustes</button>
+              <span id="ajuste-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
+          <section id="orquestador" class="tarjeta" data-pestana="hablar">
+            <div class="panel-encabezado">
+              <h3>Orquestador</h3>
+              <p class="subtitulo">Coordina a todos los agentes. Pídele prioridades o repartir órdenes entre áreas.</p>
+            </div>
+            <section id="chat-orquestador" class="chat" data-area="orquestador">
+              <div class="chat-cabecera">
+                <h4 class="chat-titulo">Habla con el Orquestador</h4>
+                <p class="chat-nota subtitulo"></p>
+              </div>
+              <ol class="chat-lista" aria-live="polite"></ol>
+              <form class="chat-form">
+                <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Por ejemplo: ¿qué atiendo primero este mes? Ctrl+Enter para enviar." aria-label="Orden para el orquestador"></textarea>
+                <button class="boton compacto" type="submit">Enviar</button>
+              </form>
+            </section>
+          </section>
+        </section>
+
+        <!-- ===================== CAMPAÑAS (dentro de Agentes: jerarquía y ajustes van antes) ===================== -->
+        <section id="vista-campanas" data-vista-panel hidden>
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Piezas para campañas</h3>
+              <p class="subtitulo">Genera imágenes con los tamaños correctos de cada plataforma, con tu logotipo y tus colores. Se crean en tu navegador y se descargan como PNG. Para la estrategia y el presupuesto, habla con el agente de Tráfico digital.</p>
+            </div>
+            <div class="campanas-grid">
+              <form id="form-campana" class="form-grid campanas-form">
+                <div class="campo ancho"><label for="camp-titular">Titular *</label><input id="camp-titular" type="text" maxlength="70" placeholder="Ej. 20% de descuento en tu primera compra" required></div>
+                <div class="campo ancho"><label for="camp-subtitulo">Texto de apoyo</label><input id="camp-subtitulo" type="text" maxlength="110" placeholder="Ej. Solo hasta el 30 de noviembre. Envío gratis en Puebla."></div>
+                <div class="campo"><label for="camp-cta">Llamada a la acción</label><input id="camp-cta" type="text" maxlength="24" placeholder="Ej. Escríbenos por WhatsApp"></div>
+                <div class="campo"><label for="camp-marca">Nombre de marca (si no hay logotipo)</label><input id="camp-marca" type="text" maxlength="40"></div>
+                <div class="campo"><label for="camp-estilo">Fondo</label><select id="camp-estilo"><option value="solido">Color sólido</option><option value="degradado">Degradado</option></select></div>
+                <div class="campo colores"><span class="etiqueta-campo">Colores</span>
+                  <div class="color-fila">
+                    <label>Fondo <input id="camp-fondo" type="color" value="#0b1a3a"></label>
+                    <label>Fondo 2 <input id="camp-fondo2" type="color" value="#3f2b96"></label>
+                    <label>Texto <input id="camp-texto" type="color" value="#ffffff"></label>
+                    <label>Acento <input id="camp-acento" type="color" value="#3fd3ff"></label>
+                  </div>
+                </div>
+                <div class="campo"><label for="camp-plataforma">Plataforma</label><select id="camp-plataforma"></select></div>
+                <div class="campo"><label for="camp-pieza">Pieza</label><select id="camp-pieza"></select></div>
+                <p id="camp-logo-estado" class="ayuda ancho"></p>
+                <div class="acciones-inline ancho">
+                  <button id="camp-descargar" class="boton" type="submit">Descargar esta pieza</button>
+                  <button id="camp-descargar-todas" class="boton secundario" type="button">Descargar todas las de la plataforma</button>
+                  <span id="camp-mensaje" class="mensaje-estado" role="status"></span>
+                </div>
+              </form>
+              <div class="campanas-preview">
+                <p class="etiqueta-seccion">Vista previa</p>
+                <p id="camp-tamano" class="subtitulo"></p>
+                <canvas id="camp-canvas" aria-label="Vista previa de la pieza"></canvas>
+                <p class="ayuda">En formatos verticales (Historias, Reels, TikTok) se deja libre el 15% superior e inferior, donde la interfaz tapa el contenido.</p>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ===================== REPORTES ===================== -->
+        <section id="vista-actividad" data-vista-panel hidden>
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Actividad de los agentes</h3>
+              <p class="subtitulo">Todo lo que hacen los agentes, en vivo y guardado en tu equipo: órdenes, consultas y encargos entre ellos, búsquedas en internet (con cada consulta y sus fuentes), tareas semanales y rutinas. Aquí ves si trabajan solos y coordinados, y cuánto tardan.</p>
+              <div class="acciones-inline">
+                <select id="act-filtro" aria-label="Filtrar por agente"><option value="">Todos los agentes</option></select>
+                <button id="act-recargar" class="boton secundario compacto" type="button">Actualizar</button>
+              </div>
+            </div>
+            <div id="act-trabajando" class="act-trabajando"></div>
+            <ol id="act-lista" class="act-lista"></ol>
+          </section>
+        </section>
+
+        <section id="vista-reportes" data-vista-panel hidden>
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Historial de diagnósticos</h3>
+              <p class="subtitulo">Cada diagnóstico queda guardado en tu equipo. Puedes volver a verlo o descargarlo.</p>
+            </div>
+            <ul id="reportes-lista" class="reportes-lista"></ul>
+          </section>
+
+          <section id="bandeja-card" class="tarjeta" hidden>
+            <div class="panel-encabezado">
+              <h3>Archivos del diagnóstico en pantalla</h3>
+              <p class="subtitulo">Word para editar y compartir; PDF desde el cuadro de impresión del navegador. Nada sale de tu equipo.</p>
+            </div>
+            <ul id="bandeja" class="bandeja-lista"></ul>
+          </section>
+        </section>
+
+        <!-- ===================== CONFIGURACIÓN ===================== -->
+        <section id="vista-configuracion" data-vista-panel hidden>
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Identidad</h3>
+              <p class="subtitulo">Nombre comercial y logotipo. Solo se guardan en tu equipo.</p>
+            </div>
+            <div id="config-identidad"></div>
+            <div class="acciones-inline">
+              <button id="guardar-identidad" class="boton" type="button">Guardar identidad</button>
+              <span id="identidad-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Ficha de la empresa</h3>
+              <p class="subtitulo">Lo que todos los agentes deben saber del negocio: datos fiscales, domicilio, productos, clientes, proveedores y reglas propias. Todo es opcional. Con IA activa, esta ficha sale de tu equipo hacia el proveedor con cada orden.</p>
+            </div>
+            <form id="form-empresa" class="form-grid"></form>
+            <div class="acciones-inline">
+              <button id="empresa-guardar" class="boton" type="button">Guardar ficha</button>
+              <span id="empresa-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Bóvedas de notas (Obsidian u otras carpetas)</h3>
+              <p class="subtitulo">Conecta carpetas con notas en Markdown de este equipo. Al dar una orden, los agentes consultan las notas relacionadas (solo lectura; nunca escriben en la bóveda). Con IA activa, los fragmentos consultados salen hacia el proveedor.</p>
+            </div>
+            <ul id="fuentes-lista" class="fuentes-lista"></ul>
+            <div class="form-grid">
+              <div class="campo ancho"><label for="fuente-ruta">Carpeta de la bóveda (ruta completa en este equipo)</label><input id="fuente-ruta" type="text" maxlength="500" placeholder="Ej. C:\Users\TuNombre\Documents\MiBoveda"></div>
+              <div class="campo"><label for="fuente-nombre">Nombre (opcional)</label><input id="fuente-nombre" type="text" maxlength="80" placeholder="Ej. Wiki de la empresa"></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="fuente-agregar" class="boton" type="button">Conectar bóveda</button>
+              <span id="fuente-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <div class="form-grid">
+              <div class="campo ancho"><label for="fuente-prueba">Probar una búsqueda</label><input id="fuente-prueba" type="search" maxlength="200" placeholder="Ej. política de cobranza"></div>
+            </div>
+            <ul id="fuente-resultados" class="fuente-resultados"></ul>
+          </section>
+
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Inteligencia artificial</h3>
+              <p class="subtitulo">La aplicación funciona completa sin IA. Si activas un proveedor con tu propia clave, los agentes responderán; lo que escribas y el contexto del área saldrán de tu equipo hacia ese proveedor.</p>
+            </div>
+            <form id="config-ia" class="config-form">
+              <div class="campo">
+                <label for="cfg-proveedor">Proveedor</label>
+                <select id="cfg-proveedor">
+                  <option value="ninguno">Sin IA (solo reglas)</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </div>
+              <div id="cfg-anthropic" class="config-grupo" hidden>
+                <div class="campo">
+                  <label for="cfg-anthropic-key">Clave de API de Anthropic</label>
+                  <input id="cfg-anthropic-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+                </div>
+                <div class="campo">
+                  <label for="cfg-anthropic-modelo">Modelo</label>
+                  <input id="cfg-anthropic-modelo" type="text" autocomplete="off" placeholder="claude-haiku-5-5">
+                </div>
+                <div class="campo">
+                  <label for="cfg-anthropic-modelo-automatico">Modelo económico (piloto automático, rutinas y consultas entre agentes)</label>
+                  <input id="cfg-anthropic-modelo-automatico" type="text" autocomplete="off" placeholder="Vacío = claude-haiku-5-5">
+                </div>
+                <div class="campo">
+                  <label for="cfg-anthropic-modelo-busqueda">Modelo para búsquedas en internet (investigación de mercado e inversiones)</label>
+                  <input id="cfg-anthropic-modelo-busqueda" type="text" autocomplete="off" placeholder="Vacío = el económico">
+                  <p class="ayuda">Las búsquedas reenvían sus resultados como tokens de entrada en cada vuelta: con un modelo grande una investigación puede costar cientos de miles de tokens.</p>
+                </div>
+              </div>
+              <div class="campo">
+                <label for="cfg-modo-ahorro">Modo de ahorro</label>
+                <select id="cfg-modo-ahorro">
+                  <option value="equilibrado">Equilibrado: tu chat con el modelo principal; lo automático con el económico (recomendado)</option>
+                  <option value="maximo">Máximo ahorro: todo con el modelo económico</option>
+                  <option value="calidad">Calidad: todo con el modelo principal (el más caro)</option>
+                </select>
+              </div>
+              <label class="interruptor campo-linea"><input id="cfg-lotes" type="checkbox" checked><span>Enviar el piloto automático por lotes (Anthropic cobra la mitad; las respuestas llegan en minutos u horas, no al instante)</span></label>
+              <div id="cfg-openai" class="config-grupo" hidden>
+                <div class="campo">
+                  <label for="cfg-openai-key">Clave de API de OpenAI</label>
+                  <input id="cfg-openai-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…">
+                </div>
+                <div class="campo">
+                  <label for="cfg-openai-modelo">Modelo</label>
+                  <input id="cfg-openai-modelo" type="text" autocomplete="off" placeholder="Escribe el nombre del modelo">
+                </div>
+              </div>
+              <p class="ayuda">La clave se guarda en texto plano en <code>data/config.json</code>, dentro de tu equipo. No se envía a nadie más que al proveedor que elijas. Para obtener una clave necesitas una cuenta en el sitio del proveedor; la aplicación no crea cuentas.</p>
+              <div class="acciones-inline">
+                <button id="cfg-probar" class="boton secundario" type="button">Probar conexión</button>
+                <button id="cfg-guardar" class="boton" type="submit">Guardar</button>
+                <button id="cfg-quitar" class="boton secundario" type="button">Quitar claves</button>
+              </div>
+              <p id="cfg-mensaje" class="mensaje-estado" role="status"></p>
+            </form>
+          </section>
+
+          <section id="uso-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Consumo de IA</h3>
+              <p class="subtitulo">Tokens usados este mes con tu clave, por agente y por modelo. El límite mensual detiene las llamadas al proveedor cuando se alcanza; las órdenes quedan pendientes.</p>
+            </div>
+            <div class="kpis kpis-uso">
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Modelo activo</span><span id="uso-modelo" class="kpi-valor chico">—</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Tokens este mes</span><span id="uso-total" class="kpi-valor">0</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Llamadas</span><span id="uso-llamadas" class="kpi-valor">0</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Límite mensual</span><span id="uso-limite" class="kpi-valor chico">Sin límite</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Hoy</span><span id="uso-hoy" class="kpi-valor">0</span></div></div>
+            </div>
+            <div class="uso-barra"><span id="uso-relleno"></span></div>
+            <p id="uso-aviso" class="subtitulo"></p>
+            <p id="uso-ahorro" class="subtitulo"></p>
+            <div class="form-grid">
+              <div class="campo"><label for="cfg-limite">Límite mensual de tokens (0 = sin límite)</label><input id="cfg-limite" type="number" min="0" step="1000" value="0"></div>
+              <div class="campo"><label for="cfg-limite-diario">Límite diario de tokens (0 = sin límite; sugerido: 150,000)</label><input id="cfg-limite-diario" type="number" min="0" step="1000" value="0"></div>
+              <div class="campo"><span class="etiqueta-campo">Por agente este mes</span><ul id="uso-agentes" class="lista-datos compacta"></ul></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="uso-guardar" class="boton" type="button">Guardar límite</button>
+              <span id="uso-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Tus datos</h3>
+            </div>
+            <ul class="lista-datos">
+              <li><strong>Dónde:</strong> carpeta <code>data/</code> junto a la aplicación. Cópiala para respaldar; bórrala para empezar de cero.</li>
+              <li><strong>Qué:</strong> diagnósticos, borrador en curso, nombre y logotipo, equipo y conversaciones con los agentes.</li>
+              <li><strong>Cuentas:</strong> ninguna. No hay inicio de sesión ni servidor en internet; esta instalación es de un solo negocio.</li>
+              <li><strong>Versión:</strong> <span id="cfg-version">—</span></li>
+            </ul>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

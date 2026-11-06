@@ -1,0 +1,39 @@
+OFICINA MULTIAGENTE
+Diagnóstico y plan de crecimiento para tu negocio. Todo se queda en tu equipo.
+
+CÓMO EMPEZAR
+1. Descomprime esta carpeta donde quieras (por ejemplo, en Documentos).
+2. Haz doble clic en Iniciar.cmd.
+3. Se abrirá tu navegador en http://127.0.0.1:4791. Si no se abre, escribe esa
+   dirección en cualquier navegador.
+4. Deja abierta la ventana negra mientras uses la aplicación.
+
+CÓMO CERRAR
+Haz doble clic en Detener.cmd, o cierra la ventana negra.
+
+TUS DATOS
+Todo lo que respondes se guarda en la carpeta "data" dentro de esta misma
+carpeta. No hay cuentas, no hay servidor en internet y nada se envía a nadie.
+Si quieres respaldar o borrar tu información, copia o elimina la carpeta "data".
+
+INTELIGENCIA ARTIFICIAL (OPCIONAL)
+La aplicación funciona completa sin IA. Si quieres que los agentes respondan,
+entra a Configuración, elige un proveedor, pega tu propia clave de API y pulsa
+"Probar conexión". Con una clave activa, lo que escribas y el contexto del área
+salen de tu equipo hacia ese proveedor. Sin clave, nada sale.
+
+TAREAS SEMANALES (CON IA)
+Mientras la aplicación esté abierta, una vez por semana el agente de Investigación
+de mercado busca en internet a tu competencia (usa la búsqueda web del proveedor
+con tu misma clave; cada búsqueda se cobra aparte en tu cuenta) y se revisa tu
+sitio web. Día y hora se cambian en Agentes › Mercado. Si la computadora estaba
+apagada a esa hora, corre al encenderla.
+
+SI WINDOWS MUESTRA UNA ADVERTENCIA
+La aplicación no está firmada digitalmente. Si aparece "Windows protegió su PC",
+elige "Más información" y luego "Ejecutar de todas formas". Puedes revisar el
+código en la carpeta "src": es texto legible.
+
+REQUISITOS
+Windows 10 u 11 de 64 bits. No necesitas instalar nada más: el programa trae su
+propio motor (Node.js) en la carpeta "node".

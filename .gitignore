@@ -1,0 +1,22 @@
+# Datos de empresas: nunca se versionan
+data/
+.env
+
+# Imágenes originales (76 MB): las versiones reducidas que usa la app están en public/assets
+IMagenes/
+
+# Logotipos o imágenes del negocio dejados en la raíz: son del usuario, no del proyecto
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+
+# Paquetes construidos por instalador/construir.ps1 y construir-mac.mjs, y Node descargado para macOS
+dist/
+instalador/cache/
+
+# Dependencias y temporales
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
