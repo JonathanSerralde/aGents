@@ -4,9 +4,16 @@ import { modeloPara } from './configuracion.js';
 // Sin clave configurada no se llama a nadie: el diagnóstico funciona solo con reglas y las órdenes quedan pendientes.
 // Lo que se envía al proveedor es el contexto del área y la conversación, nunca el formulario completo.
 
-// Las respuestas llevan estructura (entendí, análisis, propuesta) más secciones ACCIONES/HECHOS/IDEAS/CONCEPTOS: 700 se quedaba corto.
-const MAX_TOKENS = 1100;
-const MAX_TOKENS_DOCUMENTO = 1400;
+// Las respuestas llevan estructura (entendí, análisis, propuesta) más secciones ACCIONES/HECHOS/IDEAS/CONCEPTOS.
+// Los modelos Claude 4.5+ "piensan" antes de responder y ese pensamiento se descuenta de max_tokens: con 1100, hasta
+// 900 se iban en pensar y el texto visible llegaba cortado a media frase (stop_reason max_tokens). Se apaga el
+// pensamiento (los prompts ya dan la estructura), sube el tope y, si aun así se corta, se pide UNA continuación.
+const MAX_TOKENS = 2500;
+const MAX_TOKENS_DOCUMENTO = 3000;
+const MAX_CONTINUACIONES_TEXTO = 1;
+const CONTINUAR = 'Tu respuesta anterior se cortó. Continúa exactamente donde te quedaste, sin repetir nada de lo ya escrito.';
+// Claude 3.x no acepta el parámetro thinking; de Claude 3.7 en adelante sí.
+const sinPensamiento = (modelo) => (/claude-3-(5|haiku|opus|sonnet)/.test(modelo) ? {} : { thinking: { type: 'disabled' } });
 
 export function proveedorActivo(config) {
   if (typeof config.llamarIA === 'function') return 'prueba'; // inyección para pruebas automáticas
@@ -58,9 +65,11 @@ function mensajesAnthropic(mensajes) {
 
 // Cuerpo de una petición a Messages (lo usan las llamadas directas y los lotes).
 export function cuerpoAnthropic(config, sistema, mensajes, nivel = 'principal') {
+  const model = modeloPara(config, nivel);
   return {
-    model: modeloPara(config, nivel),
+    model,
     max_tokens: mensajes.some((m) => m.imagen) ? MAX_TOKENS_DOCUMENTO : MAX_TOKENS,
+    ...sinPensamiento(model),
     system: sistemaConCache(sistema),
     messages: mensajesAnthropic(mensajes),
   };
@@ -70,11 +79,20 @@ const CABECERAS = (config) => ({ 'content-type': 'application/json', 'x-api-key'
 
 async function llamarAnthropic(config, sistema, mensajes, nivel) {
   const cuerpo = cuerpoAnthropic(config, sistema, mensajes, nivel);
-  const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: CABECERAS(config), body: JSON.stringify(cuerpo) });
-  if (!res.ok) throw new Error(`Anthropic respondió ${res.status}`);
-  const data = await res.json();
-  usoAnthropic(config, cuerpo.model, data);
-  return data.content?.map((b) => b.text).join('\n') ?? null;
+  let messages = cuerpo.messages;
+  let texto = '';
+  for (let vuelta = 0; vuelta <= MAX_CONTINUACIONES_TEXTO; vuelta++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: CABECERAS(config), body: JSON.stringify({ ...cuerpo, messages }) });
+    if (!res.ok) throw new Error(`Anthropic respondió ${res.status}`);
+    const data = await res.json();
+    usoAnthropic(config, cuerpo.model, data);
+    const parte = textoDeBloques(data.content);
+    texto += (texto && parte && !texto.endsWith('\n') && !parte.startsWith('\n') ? '\n' : '') + parte;
+    if (data.stop_reason !== 'max_tokens' || !parte) break;
+    // Se cortó por el tope: se le enseña lo que lleva y sigue (el sistema y el historial ya están en caché).
+    messages = [...cuerpo.messages, { role: 'assistant', content: texto.trimEnd() }, { role: 'user', content: CONTINUAR }];
+  }
+  return texto || null;
 }
 
 // ---- Lotes (Message Batches): trabajo que no urge (piloto automático) al 50% del precio ----
@@ -132,7 +150,9 @@ export async function resultadosLote(config, loteId, agentePorId = () => '') {
       const u = msg.usage || {};
       const cacheLeido = u.cache_read_input_tokens || 0;
       registrarUso(config, { proveedor: 'anthropic', modelo: `${msg.model || ''} (lote)`, entrada: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + cacheLeido, salida: u.output_tokens, cacheLeido, agente: agentePorId(id) });
-      salida.push({ id, ok: true, texto: msg.content?.map((b) => b.text).filter(Boolean).join('\n') || null });
+      const texto = textoDeBloques(msg.content);
+      // En un lote no hay segunda vuelta: si se cortó, que el agente lo sepa en vez de quedarse a media frase.
+      salida.push({ id, ok: true, texto: texto ? (msg.stop_reason === 'max_tokens' ? `${texto}\n\n(La respuesta se cortó por el tope de tokens.)` : texto) : null });
     } else {
       salida.push({ id, ok: false, error: r.result?.error?.message || r.result?.type || 'error en el lote' });
     }
@@ -147,25 +167,36 @@ function registrarUso(config, uso) {
 
 async function llamarOpenAI(config, sistema, mensajes, nivel) {
   const modelo = modeloPara(config, nivel);
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${config.openaiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelo,
-      max_tokens: mensajes.some((m) => m.imagen) ? MAX_TOKENS_DOCUMENTO : MAX_TOKENS,
-      messages: [
-        { role: 'system', content: sistema },
-        ...mensajes.map((m) => ({ role: m.rol === 'agente' ? 'assistant' : 'user', content: contenidoOpenAI(m) })),
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenAI respondió ${res.status}`);
-  const data = await res.json();
-  registrarUso(config, { proveedor: 'openai', modelo, entrada: data.usage?.prompt_tokens, salida: data.usage?.completion_tokens, cacheLeido: data.usage?.prompt_tokens_details?.cached_tokens });
-  return data.choices?.[0]?.message?.content ?? null;
+  const base = [
+    { role: 'system', content: sistema },
+    ...mensajes.map((m) => ({ role: m.rol === 'agente' ? 'assistant' : 'user', content: contenidoOpenAI(m) })),
+  ];
+  let messages = base;
+  let texto = '';
+  for (let vuelta = 0; vuelta <= MAX_CONTINUACIONES_TEXTO; vuelta++) {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${config.openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelo,
+        // max_completion_tokens cubre también el razonamiento de los modelos o-series y GPT-5 (max_tokens ya no se acepta ahí).
+        max_completion_tokens: mensajes.some((m) => m.imagen) ? MAX_TOKENS_DOCUMENTO : MAX_TOKENS,
+        messages,
+      }),
+    });
+    if (!res.ok) throw new Error(`OpenAI respondió ${res.status}`);
+    const data = await res.json();
+    registrarUso(config, { proveedor: 'openai', modelo, entrada: data.usage?.prompt_tokens, salida: data.usage?.completion_tokens, cacheLeido: data.usage?.prompt_tokens_details?.cached_tokens });
+    const eleccion = data.choices?.[0];
+    const parte = eleccion?.message?.content || '';
+    texto += (texto && parte && !texto.endsWith('\n') && !parte.startsWith('\n') ? '\n' : '') + parte;
+    if (eleccion?.finish_reason !== 'length' || !parte) break;
+    messages = [...base, { role: 'assistant', content: texto.trimEnd() }, { role: 'user', content: CONTINUAR }];
+  }
+  return texto || null;
 }
 
 // Conversación con el proveedor activo. mensajes: [{ rol: 'usuario' | 'agente', texto }]. Lanza si falla.
@@ -233,6 +264,7 @@ async function buscarAnthropic(config, sistema, mensajes, maxBusquedas) {
       body: JSON.stringify({
         model: modelo,
         max_tokens: MAX_TOKENS_INVESTIGACION,
+        ...sinPensamiento(modelo),
         system: sistemaConCache(sistema),
         messages: historial,
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxBusquedas }],

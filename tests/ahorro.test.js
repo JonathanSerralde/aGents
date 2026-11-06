@@ -134,3 +134,13 @@ test('lo automático usa el modelo económico y el piloto va por lotes que se co
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('las respuestas no se cortan: pensamiento apagado y tope de salida suficiente para la estructura completa', () => {
+  const cfg = { proveedor: 'anthropic', anthropicModelo: 'claude-haiku-5-5', modoAhorro: 'equilibrado' };
+  const cuerpo = cuerpoAnthropic(cfg, 'sistema', [{ rol: 'usuario', texto: 'a' }], 'principal');
+  // Con pensamiento encendido, hasta 900 de los 1100 tokens se iban en pensar y el texto llegaba a media frase.
+  assert.deepEqual(cuerpo.thinking, { type: 'disabled' });
+  assert.ok(cuerpo.max_tokens >= 2500);
+  // Claude 3.5 no acepta el parámetro: no se envía.
+  assert.equal(cuerpoAnthropic({ ...cfg, anthropicModelo: 'claude-3-5-sonnet-latest', modoAhorro: 'calidad' }, 's', [{ rol: 'usuario', texto: 'a' }], 'principal').thinking, undefined);
+});
