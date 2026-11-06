@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { situacionOficina, situacionParaPrompt, resumirRespuesta, bloquesSituacion } from '../src/situacion.js';
-import { crearMemoria } from '../src/memoria.js';
+import { crearMemoria, extraerEstado, extraerConclusion } from '../src/memoria.js';
 import { informeOficina } from '../src/informe.js';
 import { crearServidor } from '../src/server.js';
 import { opcionesTemporales } from './_servidor.js';
@@ -89,13 +89,13 @@ test('el Orquestador y Dirección reciben la situación de los demás agentes en
     assert.ok(fin_, `no se capturó el prompt de Finanzas: ${Object.keys(sistemas)}`);
     assert.doesNotMatch(fin_, /Estado actual de la oficina/);
 
-    r = await fetch(`${base}/api/agentes/orquestador/mensajes`, json('POST', { texto: '¿Qué está haciendo cada agente?' })).then((x) => x.json());
+    r = await fetch(`${base}/api/agentes/orquestador/mensajes`, json('POST', { texto: 'Prioriza el trabajo de los agentes para esta semana' })).then((x) => x.json());
     assert.equal(r.ok, true);
     assert.match(sistemas.orquestador, /Estado actual de la oficina/);
     assert.match(sistemas.orquestador, /- Finanzas: última actividad .*orden del usuario; último reporte .*Finanzas revisó la caja y falta el saldo de hoy/);
     assert.match(sistemas.orquestador, /Sin actividad registrada todavía/);
 
-    r = await fetch(`${base}/api/agentes/direccion/mensajes`, json('POST', { texto: 'Dame un resumen de lo que hacen los demás' })).then((x) => x.json());
+    r = await fetch(`${base}/api/agentes/direccion/mensajes`, json('POST', { texto: 'Analiza qué áreas van atrasadas y propón cómo apoyarlas' })).then((x) => x.json());
     assert.equal(r.ok, true);
     const dir_ = Object.entries(sistemas).find(([k]) => /Direcci/.test(k))?.[1] || '';
     assert.match(dir_, /Estado actual de la oficina/);
@@ -111,6 +111,74 @@ test('el Orquestador y Dirección reciben la situación de los demás agentes en
     assert.ok(inf.bloques.some((b) => b.texto === 'Qué está haciendo cada agente'));
   } finally {
     await new Promise((r) => servidor.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('la pregunta de estado se contesta con reglas: sin IA, sin tokens y aunque la IA esté apagada', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'situacion-reglas-'));
+  let llamadas = 0;
+  const servidor = crearServidor(opcionesTemporales(dir, { llamarIA: async ({ mensajes }) => { llamadas++; return `Respuesta a: ${mensajes.at(-1).texto}\n\nESTADO: bloqueado — falta el saldo de caja de hoy.`; } }));
+  await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${servidor.address().port}`;
+  try {
+    // Sin clave: la IA está bloqueada y aun así el estado se responde.
+    let r = await fetch(`${base}/api/agentes/orquestador/mensajes`, json('POST', { texto: '¿Qué está haciendo cada agente?' })).then((x) => x.json());
+    assert.equal(r.ok, true);
+    assert.equal(r.reglas, true);
+    assert.equal(r.pendiente, false);
+    assert.match(r.respuesta, /Estado de la oficina al/);
+    assert.match(r.respuesta, /Ningún agente ha trabajado todavía/);
+    assert.equal(r.mensajes.at(-1).reglas, true);
+    assert.equal(r.mensajes.at(-2).pendiente, undefined); // la pregunta no queda "pendiente para una persona"
+    assert.equal(llamadas, 0);
+
+    // Con IA: una orden normal sí llama a la IA y deja su ESTADO en la memoria; la pregunta de estado lo usa sin llamar.
+    await fetch(`${base}/api/configuracion`, json('PUT', { proveedor: 'anthropic', anthropicKey: 'sk-ant-1234567890' }));
+    r = await fetch(`${base}/api/agentes/finanzas/mensajes`, json('POST', { texto: '¿Qué atiendo primero en tu área?' })).then((x) => x.json());
+    assert.equal(r.ok, true);
+    assert.equal(llamadas, 1);
+    assert.equal(r.memoria.estado.estado, 'bloqueado');
+    const mem = await fetch(`${base}/api/memoria`).then((x) => x.json());
+    assert.equal(mem.acciones.length, 0);
+    r = await fetch(`${base}/api/agentes/direccion/mensajes`, json('POST', { texto: 'Dame un resumen de los demás agentes que están haciendo' })).then((x) => x.json());
+    assert.equal(r.reglas, true);
+    assert.equal(llamadas, 1);
+    assert.match(r.respuesta, /Bloqueados o con pendientes:\*\* Finanzas/);
+    assert.match(r.respuesta, /- Finanzas: .*ESTADO reportado .*"bloqueado: falta el saldo de caja de hoy\."/);
+    assert.doesNotMatch(r.respuesta, /- Dirección:/);
+    const s = await fetch(`${base}/api/situacion`).then((x) => x.json());
+    assert.equal(s.agentes.find((a) => a.id === 'finanzas').estado, 'bloqueado');
+    assert.match(s.texto, /ESTADO reportado/);
+    assert.doesNotMatch(s.texto, /registro local de actividad, \d\d\/\d\d \d/); // solo fecha, sin hora: cacheable
+    const act = await fetch(`${base}/api/actividad`).then((x) => x.json());
+    assert.ok(act.eventos.some((e) => e.tipo === 'respuesta_reglas'));
+  } finally {
+    await new Promise((r) => servidor.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('ESTADO se extrae de la respuesta y las notas INFORMAR caducan', () => {
+  assert.deepEqual(extraerEstado('texto\n\n**ESTADO:** en curso — revisando la cobranza de noviembre.'), { estado: 'en curso', texto: 'revisando la cobranza de noviembre.' });
+  assert.deepEqual(extraerEstado('ESTADO: Entregado'), { estado: 'entregado', texto: '' });
+  assert.equal(extraerEstado('sin estado'), null);
+  assert.equal(extraerConclusion('ESTADO: en curso — x\nLa caja va bien.'), 'La caja va bien.');
+  const dir = mkdtempSync(join(tmpdir(), 'notas-'));
+  try {
+    const archivo = join(dir, 'memoria.json');
+    const vieja = new Date(Date.now() - 20 * 86400000).toISOString();
+    const reciente = new Date(Date.now() - 2 * 86400000).toISOString();
+    writeFileSync(archivo, JSON.stringify({ notas: [
+      { id: 'n1', destino: 'ventas', origen: 'marketing', texto: 'vieja sin leer', momento: vieja, leida: false },
+      { id: 'n2', destino: 'ventas', origen: 'marketing', texto: 'reciente', momento: reciente, leida: false },
+    ] }));
+    const memoria = crearMemoria(archivo);
+    assert.deepEqual(memoria.notasPara('ventas').map((n) => n.texto), ['reciente']);
+    assert.doesNotMatch(memoria.resumenParaPrompt('ventas'), /vieja sin leer/);
+    memoria.agregarNota('ventas', 'finanzas', 'nueva');
+    assert.deepEqual(JSON.parse(readFileSync(archivo, 'utf8')).notas.map((n) => n.texto), ['reciente', 'nueva']); // la caducada se purgó
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });

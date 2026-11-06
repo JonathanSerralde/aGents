@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { modeloPara, sanitizarConfiguracion, MODELO_ECONOMICO_ANTHROPIC } from '../src/configuracion.js';
-import { cuerpoAnthropic, enviarLote, resultadosLote } from '../src/agentes.js';
+import { cuerpoAnthropic, enviarLote, resultadosLote, conversar } from '../src/agentes.js';
+import { bloquesDeSistema, sistemaPlano } from '../src/prompts.js';
 import { crearUso, diaActual } from '../src/uso.js';
 import { sistemaPara } from '../src/prompts.js';
 import { crearServidor } from '../src/server.js';
@@ -143,4 +144,31 @@ test('las respuestas no se cortan: pensamiento apagado y tope de salida suficien
   assert.ok(cuerpo.max_tokens >= 2500);
   // Claude 3.5 no acepta el parámetro: no se envía.
   assert.equal(cuerpoAnthropic({ ...cfg, anthropicModelo: 'claude-3-5-sonnet-latest', modoAhorro: 'calidad' }, 's', [{ rol: 'usuario', texto: 'a' }], 'principal').thinking, undefined);
+});
+
+test('el prompt va en dos bloques: lo estable con caché y lo dinámico (memoria, situación, agenda) aparte', async () => {
+  const cfg = { proveedor: 'anthropic', anthropicModelo: 'claude-haiku-5-5', modoAhorro: 'equilibrado' };
+  const sistema = sistemaPara('fiscal', null, null, null, null, null, { memoria: 'Memoria: acciones abiertas X', situacion: 'Estado actual de la oficina: Y', agenda: 'Agenda: Z' });
+  const { estable, dinamico } = bloquesDeSistema(sistema);
+  assert.match(estable, /Referencias para pymes/);
+  assert.doesNotMatch(estable, /acciones abiertas X|oficina: Y|Agenda: Z/);
+  assert.match(dinamico, /Contexto del momento/);
+  assert.match(dinamico, /acciones abiertas X[\s\S]*oficina: Y[\s\S]*Agenda: Z/);
+  // Lo que el servidor añade después del prompt (instrucción del tipo de mensaje, bóvedas) queda en el bloque dinámico.
+  const conExtra = bloquesDeSistema(`${sistema}\n\nEl mensaje actual del usuario es una orden.`);
+  assert.equal(conExtra.estable, estable);
+  assert.match(conExtra.dinamico, /mensaje actual del usuario/);
+  const cuerpo = cuerpoAnthropic(cfg, sistema, [{ rol: 'usuario', texto: 'a' }], 'principal');
+  assert.equal(cuerpo.system.length, 2);
+  assert.equal(cuerpo.system[0].text, estable);
+  assert.deepEqual(cuerpo.system[0].cache_control, { type: 'ephemeral' });
+  assert.equal(cuerpo.system[1].text, dinamico);
+  assert.deepEqual(cuerpo.system[1].cache_control, { type: 'ephemeral' });
+  // Sin parte dinámica, un solo bloque; y el separador nunca llega al proveedor ni a la IA de prueba.
+  assert.equal(cuerpoAnthropic(cfg, 'solo estable', [{ rol: 'usuario', texto: 'a' }]).system.length, 1);
+  assert.doesNotMatch(sistemaPlano(sistema), /<<dinamico>>/);
+  let recibido = '';
+  await conversar({ llamarIA: async ({ sistema: s }) => { recibido = s; return 'ok'; } }, sistema, [{ rol: 'usuario', texto: 'a' }]);
+  assert.doesNotMatch(recibido, /<<dinamico>>/);
+  assert.match(recibido, /Referencias para pymes[\s\S]*acciones abiertas X/);
 });

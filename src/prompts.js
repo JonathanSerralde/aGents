@@ -23,6 +23,7 @@ const REGLAS_COMUNES = [
   'Cuando propongas acciones, termina con una sección "ACCIONES:" y una línea por acción con este formato exacto: "- [área] qué hacer — responsable — plazo". Si no propones acciones, omite la sección.',
   'Si para responder bien necesitas algo que solo otro agente sabe, escribe una línea aparte con este formato exacto: "CONSULTAR: [nombre del área o agente] — pregunta concreta". El sistema le hará la pregunta y te devolverá su respuesta. Máximo dos consultas por orden; no consultes lo que ya tienes en el contexto.',
   'Si descubres algo que otro agente debe saber pero no necesitas su respuesta, escribe una línea aparte: "INFORMAR: [nombre del área o agente] — dato concreto". Le quedará como nota en la memoria compartida y la verá en su siguiente orden. Máximo tres notas por orden.',
+  'Termina SIEMPRE con una última línea con este formato exacto: "ESTADO: en curso | entregado | bloqueado — una frase con qué estás haciendo, qué entregaste o qué te falta". Elige una sola de las tres palabras. Es lo que el Orquestador y Dirección usan para saber qué hace cada agente.',
 ];
 
 const REGLA_DELEGAR = 'Para repartir trabajo entre los agentes escribe una línea por encargo con este formato exacto: "DELEGAR: [nombre del área o agente] — orden concreta". El sistema la entregará y te devolverá lo que respondan. Máximo cuatro encargos por orden; después consolida sus respuestas en una propuesta única.';
@@ -74,10 +75,28 @@ function encabezadoEmpresa(diagnostico, marca, empresa) {
 // extras también puede traer textos ya armados: investigacion (última investigación de mercado), sitio (último análisis
 // del sitio), memoria (acciones abiertas y notas de la memoria compartida) y situacion (qué hace cada agente, solo para
 // quienes coordinan). Van después de la ficha para todos los agentes.
+// El prompt se parte en dos bloques para la caché del proveedor: lo ESTABLE (rol, reglas, skill, ficha, diagnóstico,
+// sector, investigación, sitio, referencias) es idéntico entre órdenes y se cachea; lo DINÁMICO (memoria, situación,
+// agenda y lo que el servidor añade por orden) va después del separador y no invalida la caché de lo estable.
+export const SEPARADOR_DINAMICO = '\n\n<<dinamico>>\n\n';
+export function bloquesDeSistema(sistema) {
+  const texto = String(sistema || '');
+  const i = texto.indexOf(SEPARADOR_DINAMICO);
+  if (i < 0) return { estable: texto.trim(), dinamico: '' };
+  return { estable: texto.slice(0, i).trim(), dinamico: texto.slice(i + SEPARADOR_DINAMICO.length).trim() };
+}
+export function sistemaPlano(sistema) {
+  const { estable, dinamico } = bloquesDeSistema(sistema);
+  return dinamico ? `${estable}\n\n${dinamico}` : estable;
+}
+const conDinamico = (partes, dinamico) => `${partes.filter(Boolean).join('\n\n')}${SEPARADOR_DINAMICO}${dinamico}`;
+
 export function sistemaPara(area, diagnostico, equipo, marca, personalizado = null, ficha = null, extras = {}) {
+  const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio].filter(Boolean).join('\n\n');
   // situacion (estado de cada agente) va también en el prompt compacto: cuando Dirección consulta al Orquestador
   // "qué hacen los demás", la respuesta sale de ahí.
-  const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio, extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda].filter(Boolean).join('\n\n');
+  const momento = [extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda].filter(Boolean);
+  const dinamico = momento.length ? `Contexto del momento (cambia con cada orden):\n\n${momento.join('\n\n')}` : '';
   // "personalizado" es un agente propio solo si trae sus áreas; para el Orquestador llega la lista de nombres propios.
   const nombresPropios = personalizado?.nombresPropios || [];
   if (personalizado && !Array.isArray(personalizado.areas)) personalizado = null;
@@ -92,7 +111,7 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
     const contexto = veTodas
       ? resumenTodas(diagnostico, equipo)
       : personalizado.areas.map((id) => resumenArea(id, diagnostico, equipo)).join('\n\n');
-    return [
+    return conDinamico([
       `Eres ${nombre}, un agente creado por la empresa. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Orquestador.`,
       empresa,
       describirHabilidadDe(personalizado) || 'Tu rol lo define la persona responsable en cada orden.',
@@ -101,14 +120,14 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
       ...REGLAS_COMUNES,
       veTodas ? 'Estado de las áreas según el último diagnóstico:' : 'Solo conoces estas áreas. Contexto del último diagnóstico:',
       contexto,
-    ].filter(Boolean).join('\n\n');
+    ], dinamico);
   }
 
   // compacto: para consultas y encargos entre agentes se omiten las referencias largas (ya las tiene quien pregunta).
   const referencias = extras.compacto ? '' : conocimientoPara(area);
 
   if (area === ORQUESTADOR) {
-    return [
+    return conDinamico([
       `Eres el Orquestador: coordinas a los agentes de todas las áreas de la empresa y ayudas a ${responsable('direccion', equipo)} a priorizar.`,
       empresa,
       describirHabilidad(ORQUESTADOR),
@@ -120,12 +139,12 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
       'Estado de las áreas según el último diagnóstico:',
       resumenTodas(diagnostico, equipo),
       referencias,
-    ].filter(Boolean).join('\n\n');
+    ], dinamico);
   }
 
   // Agentes de apoyo: ven todas las áreas, pero no son dueños de ninguna.
   if (AGENTES_APOYO.includes(area)) {
-    return [
+    return conDinamico([
       `Eres ${nombreAgente(area, equipo)}, agente de apoyo de ${NOMBRES_APOYO[area]}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Orquestador.`,
       empresa,
       describirHabilidad(area),
@@ -135,11 +154,11 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
       'Estado de las áreas según el último diagnóstico (no eres responsable de ninguna; cuando una acción sea de un área, dilo):',
       resumenTodas(diagnostico, equipo),
       referencias,
-    ].filter(Boolean).join('\n\n');
+    ], dinamico);
   }
 
   const nombre = NOMBRES_DISTRITOS[area] || area;
-  return [
+  return conDinamico([
     `Eres ${nombreAgente(area, equipo)}, el agente del área de ${nombre}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide.`,
     empresa,
     describirHabilidad(area),
@@ -148,5 +167,5 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
     `Solo conoces tu área. Contexto del último diagnóstico:\n${resumenArea(area, diagnostico, equipo)}`,
     ...REGLAS_COMUNES,
     referencias,
-  ].filter(Boolean).join('\n\n');
+  ], dinamico);
 }

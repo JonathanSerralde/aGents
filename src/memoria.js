@@ -71,14 +71,22 @@ export function extraerAcciones(respuesta) {
 export function extraerConclusion(respuesta) {
   for (const linea of String(respuesta || '').split('\n')) {
     const l = linea.trim().replace(/^[#*\-•\d.)\s]+/, '');
-    if (!l || /^(ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS)\s*:/i.test(l)) continue;
+    if (!l || /^(ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS|ESTADO)\s*:/i.test(l)) continue;
     return recortar(l);
   }
   return '';
 }
 
+// Línea final "ESTADO: en curso | entregado | bloqueado — por qué": el estado estructurado que cada agente reporta.
+export const ESTADOS_AGENTE = ['en curso', 'entregado', 'bloqueado'];
+export function extraerEstado(respuesta) {
+  const m = String(respuesta || '').match(/^[ \t]*\**[ \t]*ESTADO[ \t]*\**[ \t]*:[ \t]*\**[ \t]*(en curso|entregado|bloqueado)\b\**[ \t]*(?:[—–:-][ \t]*)?(.*)$/im);
+  if (!m) return null;
+  return { estado: m[1].toLowerCase(), texto: recortar(m[2].replace(/\*\*/g, '').trim(), 200) };
+}
+
 // Viñetas de una sección con encabezado "CLAVE:" (HECHOS, IDEAS, CONCEPTOS). Cada viñeta se parte en "texto — detalle".
-const ENCABEZADOS = 'ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS';
+const ENCABEZADOS = 'ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS|ESTADO';
 export function extraerSeccion(respuesta, clave) {
   const texto = String(respuesta || '');
   const cabecera = texto.match(new RegExp(`^[ \\t]*${clave}[ \\t]*:[^\\n]*\\n?`, 'im'));
@@ -111,17 +119,25 @@ export function extraerConceptos(respuesta) {
 }
 
 export function crearMemoria(archivo) {
-  const VACIO = () => ({ acciones: [], conclusiones: {}, notas: [], hechos: [], ideas: [], conceptos: [] });
+  const VACIO = () => ({ acciones: [], conclusiones: {}, estados: {}, notas: [], hechos: [], ideas: [], conceptos: [] });
   function leerTodo() {
     if (!existsSync(archivo)) return VACIO();
     try {
       const d = JSON.parse(readFileSync(archivo, 'utf8'));
       const lista = (k) => (Array.isArray(d[k]) ? d[k] : []);
-      return { acciones: lista('acciones'), conclusiones: d.conclusiones && typeof d.conclusiones === 'object' ? d.conclusiones : {}, notas: lista('notas'), hechos: lista('hechos'), ideas: lista('ideas'), conceptos: lista('conceptos') };
+      const objeto = (k) => (d[k] && typeof d[k] === 'object' ? d[k] : {});
+      return { acciones: lista('acciones'), conclusiones: objeto('conclusiones'), estados: objeto('estados'), notas: lista('notas'), hechos: lista('hechos'), ideas: lista('ideas'), conceptos: lista('conceptos') };
     } catch {
       return VACIO();
     }
   }
+  // Las notas INFORMAR caducan: sin leer a los 14 días (ya no son "lo último"), leídas a los 30.
+  const DIAS_NOTA = 14;
+  const DIAS_NOTA_LEIDA = 30;
+  const notaVigente = (n, ahora = new Date()) => {
+    const dias = (ahora - new Date(n.momento || 0)) / 86400000;
+    return n.leida ? dias <= DIAS_NOTA_LEIDA : dias <= DIAS_NOTA;
+  };
   const MAX_HECHOS = 150;
   const MAX_IDEAS = 80;
   const MAX_CONCEPTOS = 80;
@@ -163,6 +179,8 @@ export function crearMemoria(archivo) {
       const datos = leerTodo();
       const conclusion = extraerConclusion(respuesta);
       if (conclusion) datos.conclusiones[area] = { texto: conclusion, momento: new Date().toISOString() };
+      const estado = extraerEstado(respuesta);
+      if (estado) datos.estados[area] = { ...estado, momento: new Date().toISOString() };
       let nuevas = 0;
       for (const a of extraerAcciones(respuesta)) {
         const destino = (a.areaTexto && resolverAgente(a.areaTexto, propios)) || area;
@@ -180,8 +198,11 @@ export function crearMemoria(archivo) {
       // Lo que el agente distinguió como hecho, idea o concepto se guarda en su lista.
       const tipos = guardarTipos(datos, { area, origen: area, hechos: extraerHechos(respuesta), ideas: extraerIdeas(respuesta), conceptos: extraerConceptos(respuesta) });
       escribir(datos);
-      return { conclusion, nuevas, ...tipos };
+      return { conclusion, estado, nuevas, ...tipos };
     },
+
+    // Último ESTADO reportado por cada agente: { area: { estado, texto, momento } }.
+    estados() { return leerTodo().estados; },
 
     // Hechos que aporta el usuario en una orden (fuente "usuario") o a mano desde la bitácora.
     agregarHechos(area, textos, fuente = 'usuario') {
@@ -218,7 +239,7 @@ export function crearMemoria(archivo) {
     agregarNota(destino, origen, texto) {
       const datos = leerTodo();
       const nota = { id: nuevoId(), destino, origen, texto: recortar(texto, 400), momento: new Date().toISOString(), leida: false };
-      datos.notas = [...datos.notas, nota].slice(-MAX_NOTAS);
+      datos.notas = [...datos.notas.filter((n) => notaVigente(n)), nota].slice(-MAX_NOTAS);
       escribir(datos);
       return nota;
     },
@@ -252,7 +273,7 @@ export function crearMemoria(archivo) {
 
     notasPara(area, { marcarLeidas = false } = {}) {
       const datos = leerTodo();
-      const lista = datos.notas.filter((n) => n.destino === area && !n.leida);
+      const lista = datos.notas.filter((n) => n.destino === area && !n.leida && notaVigente(n));
       if (marcarLeidas && lista.length) {
         for (const n of lista) n.leida = true;
         escribir(datos);
@@ -287,7 +308,7 @@ export function crearMemoria(archivo) {
       } else {
         const mias = pendientes.filter((a) => a.area === area).slice(-8).reverse();
         if (mias.length) lineas.push(`Tus acciones abiertas (dales seguimiento antes de proponer nuevas): ${mias.map((a) => `${a.texto}${a.vence ? (a.vence < hoy ? ` (VENCIDA el ${a.vence})` : ` (vence ${a.vence})`) : a.plazo ? ` (${a.plazo})` : ''}`).join(' | ')}`);
-        const notas = datos.notas.filter((n) => n.destino === area && !n.leida).slice(-6);
+        const notas = datos.notas.filter((n) => n.destino === area && !n.leida && notaVigente(n)).slice(-6);
         if (notas.length) lineas.push(`Notas que te dejaron otros agentes: ${notas.map((n) => `${nombreDe(n.origen, propios)}: ${n.texto}`).join(' | ')}`);
       }
       // Hechos e ideas van a todos: son la diferencia entre lo que la empresa ES y lo que alguien PROPUSO.

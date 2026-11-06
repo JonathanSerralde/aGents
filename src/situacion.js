@@ -22,15 +22,6 @@ const fechaCorta = (iso) => {
 };
 const fechaLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-function haceCuanto(iso, ahora) {
-  const min = Math.max(0, Math.round((ahora - new Date(iso)) / 60000));
-  if (min < 1) return 'hace un momento';
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  return `hace ${Math.round(h / 24)} días`;
-}
-
 // Lo esencial de una respuesta de agente: sin "qué entendí", sin las respuestas de otros ni las secciones de bitácora.
 export function resumirRespuesta(texto, largo = 220) {
   const t = String(texto || '').split(/\n— Respuestas de otros agentes —/)[0];
@@ -42,6 +33,7 @@ export function resumirRespuesta(texto, largo = 220) {
     // Sin marcadores de lista ni negritas: "1) **Qué entendí:**" y "**Análisis:**" se reconocen igual.
     const plano = l.replace(/\*\*/g, '').replace(/^[#\-•*\d.)\s]+/, '');
     if (/^(qué entend|entendido|entendí)/i.test(plano)) continue;
+    if (/^ESTADO\s*:/i.test(plano) || /^\(La respuesta se cortó/.test(plano)) continue;
     if (/^(ACCIONES|HECHOS|IDEAS|CONCEPTOS|CONSULTAR|DELEGAR|INFORMAR)\s*:/i.test(plano)) { enSeccion = true; continue; }
     if (enSeccion && /^[-•*]/.test(l)) continue;
     enSeccion = false;
@@ -56,6 +48,8 @@ export function situacionOficina({ ids = [], propios = {}, eventos = [], trabaja
   const hoy = fechaLocal(ahora);
   const limiteActivo = new Date(ahora.getTime() - DIAS_ACTIVO * 86400000).toISOString();
   const abiertas = memoria?.acciones?.({ estado: 'pendiente' }) || [];
+  // ESTADO estructurado que cada agente reporta al final de su respuesta (más fiable que resumir el texto libre).
+  const estados = memoria?.estados?.() || {};
   const agentes = ids.map((id) => {
     const nombre = nombreDe(id, propios);
     const enCurso = trabajando.find((t) => t.area === id) || null;
@@ -70,6 +64,9 @@ export function situacionOficina({ ids = [], propios = {}, eventos = [], trabaja
       if (m.rol === 'agente') { ultimaRespuesta = { momento: m.momento, resumen: resumirRespuesta(m.texto) }; break; }
       if (m.pendiente) pendientes++;
     }
+    // Si el agente reportó ESTADO en su última respuesta, ese es su reporte (y "bloqueado" cuenta como bloqueo).
+    const reportado = estados[id] && (!ultimaRespuesta || estados[id].momento >= ultimaRespuesta.momento.slice(0, 19)) ? estados[id] : null;
+    if (reportado) ultimaRespuesta = { momento: reportado.momento, resumen: reportado.texto ? `${reportado.estado}: ${reportado.texto}` : reportado.estado, reportado: reportado.estado };
     const mias = abiertas.filter((a) => a.area === id);
     const vencidas = mias.filter((a) => a.vence && a.vence < hoy);
     const proxima = mias.filter((a) => a.vence && a.vence >= hoy).sort((a, b) => a.vence.localeCompare(b.vence))[0] || null;
@@ -79,7 +76,7 @@ export function situacionOficina({ ids = [], propios = {}, eventos = [], trabaja
     const pilotoInfo = p ? { activo: Boolean(p.activo), ultimaEjecucion: p.ultimaEjecucion || null, ultimoResultado: p.ultimoResultado || null, proxima: p.proxima || null } : null;
     const ultimaActividad = [ultimo?.momento, ultimaRespuesta?.momento, pilotoInfo?.ultimaEjecucion].filter(Boolean).sort().pop() || null;
     const estado = enCurso ? 'trabajando'
-      : pendientes || (ultimo && !ultimo.ok) ? 'bloqueado'
+      : pendientes || (ultimo && !ultimo.ok) || reportado?.estado === 'bloqueado' ? 'bloqueado'
         : ultimaActividad && ultimaActividad >= limiteActivo ? 'activo'
           : ultimaActividad ? 'inactivo' : 'sin_actividad';
     return {
@@ -98,12 +95,13 @@ export function situacionOficina({ ids = [], propios = {}, eventos = [], trabaja
   return { generado: ahora.toISOString(), agentes, resumen };
 }
 
-// Línea de un agente para el prompt o el informe.
-function lineaDe(a, ahora) {
+// Línea de un agente para el prompt o el informe. Sin "hace N minutos": el texto debe ser idéntico entre órdenes
+// cercanas para que el proveedor lo lea de caché.
+function lineaDe(a) {
   const partes = [];
-  if (a.enCurso) partes.push(`AHORA MISMO: ${NOMBRE_TIPO_TRABAJO[a.enCurso.tipo] || a.enCurso.tipo}${a.enCurso.detalle ? ` "${a.enCurso.detalle.slice(0, 90)}"` : ''} (desde ${haceCuanto(a.enCurso.desde, ahora)})`);
+  if (a.enCurso) partes.push(`AHORA MISMO: ${NOMBRE_TIPO_TRABAJO[a.enCurso.tipo] || a.enCurso.tipo}${a.enCurso.detalle ? ` "${a.enCurso.detalle.slice(0, 90)}"` : ''} (desde las ${fechaCorta(a.enCurso.desde).slice(6)})`);
   if (a.ultimo) partes.push(`última actividad ${fechaCorta(a.ultimo.momento)}: ${NOMBRE_TIPO_TRABAJO[a.ultimo.tipo] || a.ultimo.tipo}${a.ultimo.ok ? '' : ` (FALLÓ: ${a.ultimo.error || 'error'})`}`);
-  if (a.ultimaRespuesta?.resumen) partes.push(`último reporte (${fechaCorta(a.ultimaRespuesta.momento)}): "${a.ultimaRespuesta.resumen}"`);
+  if (a.ultimaRespuesta?.resumen) partes.push(`${a.ultimaRespuesta.reportado ? 'ESTADO reportado' : 'último reporte'} (${fechaCorta(a.ultimaRespuesta.momento)}): "${a.ultimaRespuesta.resumen}"`);
   if (a.pendientes) partes.push(`${a.pendientes} orden(es) pendiente(s) sin responder (sin IA)`);
   if (a.acciones.abiertas) partes.push(`acciones abiertas ${a.acciones.abiertas}${a.acciones.vencidas ? ` (${a.acciones.vencidas} VENCIDA${a.acciones.vencidas > 1 ? 'S' : ''})` : ''}${a.acciones.proxima ? `, próxima "${a.acciones.proxima.texto}" vence ${a.acciones.proxima.vence}` : ''}`);
   if (a.piloto?.activo) partes.push(`piloto encendido${a.piloto.ultimaEjecucion ? `, última revisión ${fechaCorta(a.piloto.ultimaEjecucion)}` : ', sin revisión todavía'}`);
@@ -114,14 +112,14 @@ function lineaDe(a, ahora) {
 // Texto para el prompt del Orquestador, Dirección y staff. excepto: el propio agente (no se describe a sí mismo).
 export function situacionParaPrompt(sit, { excepto = null, maximo = 3000 } = {}) {
   if (!sit?.agentes?.length) return '';
-  const ahora = new Date(sit.generado);
   const otros = sit.agentes.filter((a) => a.id !== excepto);
   const conDatos = otros.filter((a) => a.estado !== 'sin_actividad');
   const sinDatos = otros.filter((a) => a.estado === 'sin_actividad');
-  const lineas = [`Estado actual de la oficina (registro local de actividad al ${fechaCorta(sit.generado)}; son HECHOS: cuando te pregunten qué hace cada agente, responde con esto, agente por agente, y nunca digas que no tienes registro):`];
+  // Solo la fecha (no la hora): así el bloque no cambia entre órdenes del mismo día y el proveedor lo lee de caché.
+  const lineas = [`Estado actual de la oficina (registro local de actividad, ${fechaCorta(sit.generado).slice(0, 5)}; son HECHOS: cuando te pregunten qué hace cada agente, responde con esto, agente por agente, y nunca digas que no tienes registro):`];
   const ahoraMismo = otros.filter((a) => a.enCurso);
   lineas.push(ahoraMismo.length ? `Trabajando en este momento: ${ahoraMismo.map((a) => `${a.nombre} (${NOMBRE_TIPO_TRABAJO[a.enCurso.tipo] || a.enCurso.tipo})`).join(', ')}.` : 'Nadie está ejecutando algo en este instante.');
-  for (const a of conDatos.slice(0, MAX_DETALLADOS)) lineas.push(lineaDe(a, ahora));
+  for (const a of conDatos.slice(0, MAX_DETALLADOS)) lineas.push(lineaDe(a));
   if (conDatos.length > MAX_DETALLADOS) lineas.push(`- Con actividad más antigua: ${conDatos.slice(MAX_DETALLADOS).map((a) => a.nombre).join(', ')}.`);
   if (sinDatos.length) {
     const nombres = sinDatos.map((a) => a.nombre);
@@ -135,10 +133,30 @@ export function situacionParaPrompt(sit, { excepto = null, maximo = 3000 } = {})
 export function bloquesSituacion(sit) {
   const b = [];
   if (!sit?.agentes?.length) return b;
-  const ahora = new Date(sit.generado);
   const conDatos = sit.agentes.filter((a) => a.estado !== 'sin_actividad');
   b.push({ tipo: 'parrafo', texto: `${sit.resumen.trabajando} trabajando ahora, ${sit.resumen.activo} con actividad en los últimos ${DIAS_ACTIVO} días, ${sit.resumen.bloqueado} con órdenes sin responder o errores, ${sit.resumen.sin_actividad} sin actividad.` });
-  for (const a of conDatos.slice(0, MAX_DETALLADOS)) b.push({ tipo: 'vineta', texto: lineaDe(a, ahora).slice(2) });
+  for (const a of conDatos.slice(0, MAX_DETALLADOS)) b.push({ tipo: 'vineta', texto: lineaDe(a).slice(2) });
   if (!conDatos.length) b.push({ tipo: 'parrafo', texto: 'Ningún agente ha trabajado todavía: da una orden o enciende el piloto automático.' });
   return b;
+}
+
+// Respuesta directa para el usuario cuando pregunta "¿qué están haciendo los agentes?": se arma con reglas, sin IA
+// ni tokens, en el chat de cualquier agente. excepto: el agente al que se le preguntó (habla de los demás).
+export function respuestaDeEstado(sit, { excepto = null } = {}) {
+  if (!sit?.agentes?.length) return 'Todavía no hay agentes registrados.';
+  const otros = sit.agentes.filter((a) => a.id !== excepto);
+  const ahoraMismo = otros.filter((a) => a.enCurso);
+  const bloqueados = otros.filter((a) => a.estado === 'bloqueado');
+  const conDatos = otros.filter((a) => !['sin_actividad'].includes(a.estado));
+  const sinDatos = otros.filter((a) => a.estado === 'sin_actividad');
+  const lineas = [`**Estado de la oficina al ${fechaCorta(sit.generado)}** (armado con reglas a partir del registro de actividad, sin gastar tokens).`, ''];
+  lineas.push(ahoraMismo.length ? `**Trabajando ahora:** ${ahoraMismo.map((a) => `${a.nombre} (${NOMBRE_TIPO_TRABAJO[a.enCurso.tipo] || a.enCurso.tipo}${a.enCurso.detalle ? `: ${a.enCurso.detalle.slice(0, 80)}` : ''})`).join('; ')}.` : '**Trabajando ahora:** nadie está ejecutando algo en este instante.');
+  if (bloqueados.length) lineas.push(`**Bloqueados o con pendientes:** ${bloqueados.map((a) => a.nombre).join(', ')}.`);
+  lineas.push('', '**Por agente:**');
+  for (const a of conDatos.slice(0, MAX_DETALLADOS)) lineas.push(lineaDe(a));
+  if (conDatos.length > MAX_DETALLADOS) lineas.push(`- Con actividad más antigua: ${conDatos.slice(MAX_DETALLADOS).map((a) => a.nombre).join(', ')}.`);
+  if (!conDatos.length) lineas.push('- Ningún agente ha trabajado todavía.');
+  if (sinDatos.length) lineas.push('', `**Sin actividad todavía (${sinDatos.length}):** ${sinDatos.map((a) => a.nombre).join(', ')}. Dales una orden o enciende su piloto automático en Agentes › Piloto.`);
+  lineas.push('', 'Si quieres análisis o decisiones sobre esto, pídemelo con palabras como "analiza", "prioriza" o "reparte" (eso sí usa la IA).');
+  return lineas.join('\n');
 }

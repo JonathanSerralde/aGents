@@ -159,3 +159,13 @@ test('el servidor clasifica cada orden, guarda los hechos del usuario y ajusta l
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+import { esPreguntaDeEstado } from '../src/clasificador.js';
+test('reconoce cuando el usuario pregunta qué están haciendo los agentes (se contesta con reglas)', () => {
+  for (const t of ['¿Qué está haciendo cada agente?', 'Dame un resumen de los demás agentes que están haciendo', 'qué hacen mis agentes', '¿Quién está trabajando ahora?', 'estado actual de los agentes', 'en qué andan los demás departamentos', '¿Cómo van los agentes?']) {
+    assert.ok(esPreguntaDeEstado(t), t);
+  }
+  for (const t of ['Resume cómo va el negocio', '¿Qué atiendo primero en tu área?', 'Analiza por qué Finanzas está bloqueado', 'Explícame qué es un flujo de caja', 'Haz un plan de ventas']) {
+    assert.ok(!esPreguntaDeEstado(t), t);
+  }
+});

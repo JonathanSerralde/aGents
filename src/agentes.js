@@ -1,6 +1,7 @@
 // Adaptador del proveedor de IA con clave propia del usuario.
 // Ahorro: caché de prompt (sistema e historial), modelo económico para lo automático (modeloPara) y lotes al 50%.
 import { modeloPara } from './configuracion.js';
+import { bloquesDeSistema, sistemaPlano } from './prompts.js';
 // Sin clave configurada no se llama a nadie: el diagnóstico funciona solo con reglas y las órdenes quedan pendientes.
 // Lo que se envía al proveedor es el contexto del área y la conversación, nunca el formulario completo.
 
@@ -39,9 +40,16 @@ function contenidoOpenAI(m) {
   ];
 }
 
-// El prompt del sistema se marca para caché: se repite en cada orden del mismo agente y en cada vuelta de una
-// búsqueda, y Anthropic cobra la lectura de caché a una fracción del precio.
-const sistemaConCache = (sistema) => [{ type: 'text', text: sistema, cache_control: { type: 'ephemeral' } }];
+// El prompt del sistema va en dos bloques con caché: el estable (rol, reglas, skill, ficha, diagnóstico) es idéntico
+// entre órdenes y se lee de caché a una fracción del precio; el dinámico (memoria, situación, agenda) cambia y, si
+// no cambia en 5 minutos (consultas de la misma orden), también se lee de caché. Antes iba todo en un bloque y
+// cualquier cambio en la situación invalidaba la caché del prompt completo.
+function sistemaConCache(sistema) {
+  const { estable, dinamico } = bloquesDeSistema(sistema);
+  const bloques = [{ type: 'text', text: estable, cache_control: { type: 'ephemeral' } }];
+  if (dinamico) bloques.push({ type: 'text', text: dinamico, cache_control: { type: 'ephemeral' } });
+  return bloques;
+}
 
 // Tokens de entrada reales de una respuesta de Anthropic: directos + creación de caché + lectura de caché.
 function usoAnthropic(config, modelo, data) {
@@ -81,6 +89,7 @@ async function llamarAnthropic(config, sistema, mensajes, nivel) {
   const cuerpo = cuerpoAnthropic(config, sistema, mensajes, nivel);
   let messages = cuerpo.messages;
   let texto = '';
+  let cortada = false;
   for (let vuelta = 0; vuelta <= MAX_CONTINUACIONES_TEXTO; vuelta++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: CABECERAS(config), body: JSON.stringify({ ...cuerpo, messages }) });
     if (!res.ok) throw new Error(`Anthropic respondió ${res.status}`);
@@ -88,12 +97,15 @@ async function llamarAnthropic(config, sistema, mensajes, nivel) {
     usoAnthropic(config, cuerpo.model, data);
     const parte = textoDeBloques(data.content);
     texto += (texto && parte && !texto.endsWith('\n') && !parte.startsWith('\n') ? '\n' : '') + parte;
-    if (data.stop_reason !== 'max_tokens' || !parte) break;
+    cortada = data.stop_reason === 'max_tokens';
+    if (!cortada || !parte) break;
     // Se cortó por el tope: se le enseña lo que lleva y sigue (el sistema y el historial ya están en caché).
     messages = [...cuerpo.messages, { role: 'assistant', content: texto.trimEnd() }, { role: 'user', content: CONTINUAR }];
   }
-  return texto || null;
+  return texto ? (cortada ? `${texto}${AVISO_CORTE}` : texto) : null;
 }
+// Si ni con la continuación alcanzó, el historial lo dice: así ningún agente cita después una respuesta a medias como completa.
+const AVISO_CORTE = '\n\n(La respuesta se cortó por el tope de tokens; no la cites como completa.)';
 
 // ---- Lotes (Message Batches): trabajo que no urge (piloto automático) al 50% del precio ----
 // items: [{ id, sistema, mensajes, nivel }]. Devuelve el id del lote. Los resultados se recogen después con resultadosLote.
@@ -107,7 +119,7 @@ export async function enviarLote(config, items) {
     const resultados = [];
     for (const it of items) {
       try {
-        const r = await config.llamarIA({ sistema: it.sistema, mensajes: it.mensajes, nivel: it.nivel, lote: true });
+        const r = await config.llamarIA({ sistema: sistemaPlano(it.sistema), mensajes: it.mensajes, nivel: it.nivel, lote: true });
         const texto = r && typeof r === 'object' ? r.texto : r;
         registrarUso(config, { proveedor: 'prueba', modelo: 'prueba-lote', entrada: Math.ceil(it.sistema.length / 8), salida: Math.ceil(String(texto || '').length / 8), agente: it.id });
         resultados.push({ id: it.id, ok: true, texto });
@@ -152,7 +164,7 @@ export async function resultadosLote(config, loteId, agentePorId = () => '') {
       registrarUso(config, { proveedor: 'anthropic', modelo: `${msg.model || ''} (lote)`, entrada: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + cacheLeido, salida: u.output_tokens, cacheLeido, agente: agentePorId(id) });
       const texto = textoDeBloques(msg.content);
       // En un lote no hay segunda vuelta: si se cortó, que el agente lo sepa en vez de quedarse a media frase.
-      salida.push({ id, ok: true, texto: texto ? (msg.stop_reason === 'max_tokens' ? `${texto}\n\n(La respuesta se cortó por el tope de tokens.)` : texto) : null });
+      salida.push({ id, ok: true, texto: texto ? (msg.stop_reason === 'max_tokens' ? `${texto}${AVISO_CORTE}` : texto) : null });
     } else {
       salida.push({ id, ok: false, error: r.result?.error?.message || r.result?.type || 'error en el lote' });
     }
@@ -168,11 +180,12 @@ function registrarUso(config, uso) {
 async function llamarOpenAI(config, sistema, mensajes, nivel) {
   const modelo = modeloPara(config, nivel);
   const base = [
-    { role: 'system', content: sistema },
+    { role: 'system', content: sistemaPlano(sistema) },
     ...mensajes.map((m) => ({ role: m.rol === 'agente' ? 'assistant' : 'user', content: contenidoOpenAI(m) })),
   ];
   let messages = base;
   let texto = '';
+  let cortada = false;
   for (let vuelta = 0; vuelta <= MAX_CONTINUACIONES_TEXTO; vuelta++) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -193,10 +206,11 @@ async function llamarOpenAI(config, sistema, mensajes, nivel) {
     const eleccion = data.choices?.[0];
     const parte = eleccion?.message?.content || '';
     texto += (texto && parte && !texto.endsWith('\n') && !parte.startsWith('\n') ? '\n' : '') + parte;
-    if (eleccion?.finish_reason !== 'length' || !parte) break;
+    cortada = eleccion?.finish_reason === 'length';
+    if (!cortada || !parte) break;
     messages = [...base, { role: 'assistant', content: texto.trimEnd() }, { role: 'user', content: CONTINUAR }];
   }
-  return texto || null;
+  return texto ? (cortada ? `${texto}${AVISO_CORTE}` : texto) : null;
 }
 
 // Conversación con el proveedor activo. mensajes: [{ rol: 'usuario' | 'agente', texto }]. Lanza si falla.
@@ -205,7 +219,7 @@ export async function conversar(config, sistema, mensajes, { nivel = 'principal'
   const proveedor = proveedorActivo(config);
   if (!proveedor) throw new Error('Sin proveedor de IA configurado');
   if (proveedor === 'prueba') {
-    const r = await config.llamarIA({ sistema, mensajes, nivel, modelo: modeloPara({ proveedor: 'anthropic', anthropicModelo: 'principal-prueba', modoAhorro: config.modoAhorro }, nivel) });
+    const r = await config.llamarIA({ sistema: sistemaPlano(sistema), mensajes, nivel, modelo: modeloPara({ proveedor: 'anthropic', anthropicModelo: 'principal-prueba', modoAhorro: config.modoAhorro }, nivel) });
     // Las pruebas pueden devolver { texto, uso } para ejercitar el monitor de consumo.
     if (r && typeof r === 'object') {
       registrarUso(config, { proveedor: 'prueba', modelo: 'prueba', entrada: r.uso?.entrada, salida: r.uso?.salida });
@@ -288,7 +302,7 @@ async function buscarOpenAI(config, sistema, mensajes) {
     headers: { 'content-type': 'application/json', authorization: `Bearer ${config.openaiKey}` },
     body: JSON.stringify({
       model: modeloPara(config, 'busqueda'),
-      instructions: sistema,
+      instructions: sistemaPlano(sistema),
       input: mensajes.map((m) => ({ role: m.rol === 'agente' ? 'assistant' : 'user', content: m.texto })),
       tools: [{ type: 'web_search' }],
       max_output_tokens: MAX_TOKENS_INVESTIGACION,
@@ -309,7 +323,7 @@ export async function conversarConBusqueda(config, sistema, mensajes, { maxBusqu
   const proveedor = proveedorActivo(config);
   if (!proveedor) throw new Error('Sin proveedor de IA configurado');
   if (proveedor === 'prueba') {
-    const r = await config.llamarIA({ sistema, mensajes, busqueda: true });
+    const r = await config.llamarIA({ sistema: sistemaPlano(sistema), mensajes, busqueda: true });
     const texto = r && typeof r === 'object' ? r.texto : r;
     const busquedas = (r && typeof r === 'object' && Array.isArray(r.busquedas)) ? r.busquedas : [];
     registrarUso(config, { proveedor: 'prueba', modelo: 'prueba', entrada: Math.ceil(sistema.length / 4), salida: Math.ceil(String(texto || '').length / 4), busquedas: r?.uso?.busquedas ?? busquedas.length });

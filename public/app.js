@@ -299,6 +299,7 @@ function describirEvento(e) {
     case 'busquedas_web': return `${nombreDeAgente(d.area)} buscó en internet: ${(d.consultas || []).map((c) => `"${c}"`).join(', ')}`;
     case 'orden_enviada': return `${d.origen === 'rutina' ? 'Rutina' : 'Tú'} → ${nombreDeAgente(d.area)}: ${d.tipo === 'idea' ? 'idea' : d.tipo === 'hecho' ? 'dato de la empresa' : d.tipo === 'concepto' ? 'pregunta' : 'orden'}${d.pendiente ? ' (pendiente, sin IA)' : ''}`;
     case 'respuesta_agente': return `${nombreDeAgente(d.area)} respondió${d.destinos?.length ? ` tras coordinarse con ${d.destinos.map(nombreDeAgente).join(', ')}` : ''}${d.acciones ? ` · ${d.acciones} acciones a la bitácora` : ''}${d.hechos ? ` · ${d.hechos} hechos` : ''}${d.ideas ? ` · ${d.ideas} ideas` : ''}`;
+    case 'respuesta_reglas': return `${nombreDeAgente(d.area)} respondió con reglas (estado de los agentes, sin tokens)`;
     case 'intercambio_agentes': return `${nombreDeAgente(d.area)} atendió una petición de otro agente${d.profundidad ? ' (segunda vuelta)' : ''}`;
     case 'nota_agente': return `${nombreDeAgente(d.origen)} dejó una nota a ${nombreDeAgente(d.destino)}`;
     case 'investigacion_terminada': return `Investigación de mercado: ${d.competidores} competidores, ${d.busquedas || 0} búsquedas, repartida a ${(d.encargados || []).map(nombreDeAgente).join(', ') || 'nadie'}${d.pendiente ? ' (pendiente, sin IA)' : ''}`;
@@ -2671,7 +2672,7 @@ function crearChat(seccion) {
     for (const m of mensajes) {
       const li = crearElemento('li', { class: `chat-msg ${m.rol}${m.pendiente ? ' pendiente' : ''}` });
       const quien = m.origen === 'rutina' ? 'Rutina automática' : m.origen === 'piloto' ? 'Piloto automático' : m.origen === 'agente' ? 'Otro agente' : m.origen === 'sistema' ? 'La oficina' : 'Tú';
-      const autor = m.rol === 'agente' ? agente() : (m.pendiente ? `${quien} · pendiente para ${responsable()}` : quien);
+      const autor = m.rol === 'agente' ? (m.reglas ? `${agente()} · por reglas, sin IA` : agente()) : (m.pendiente ? `${quien} · pendiente para ${responsable()}` : quien);
       const autorEl = crearElemento('span', { class: 'chat-autor' }, autor);
       // El clasificador marca qué dio el usuario: un hecho de la empresa, una idea o una pregunta de concepto.
       if (m.rol === 'usuario' && m.tipo && m.tipo !== 'orden') autorEl.append(' ', crearElemento('span', { class: `chip-tipo ${m.tipo}` }, ETIQUETA_TIPO[m.tipo]));
@@ -2713,6 +2714,7 @@ function crearChat(seccion) {
       if (j.intercambios?.length) partes.push(`Se coordinó con ${j.intercambios.filter((i) => i.respuesta || i.nota).map((i) => i.nombreDestino || i.destinoTexto).join(', ')}.`);
       if (j.busquedas?.length) partes.push(`Buscó en internet: ${j.busquedas.map((b) => `"${b.consulta}"`).join(', ')}.`);
       if (j.pendiente && j.motivo) partes.push(j.motivo);
+      if (j.reglas) partes.push('Respondido con reglas, al instante y sin gastar tokens.');
       pintarTraza(j);
       if (j.sugerenciaRutina) {
         partes.push(`Has pedido esto ${j.sugerenciaRutina.veces} veces: puedes automatizarlo en Agentes › Rutinas.`);

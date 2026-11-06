@@ -42,6 +42,18 @@ export function clasificarTexto(texto) {
   return { tipo: mejor, confianza: Math.round((puntos[mejor] / total) * 100) / 100, senales: senales[mejor].slice(0, 4), contieneHecho: puntos.hecho > 0 };
 }
 
+// ¿Pregunta qué están haciendo los agentes? Eso se contesta con reglas (situación de la oficina), sin gastar tokens.
+const SENALES_ESTADO = [
+  /\bque (esta|estan) haciendo\b/, /\bque hace cada (agente|area|departamento|quien)/, /\bque hacen (los|mis|las|tus|cada|otros) (demas )?(agentes|areas|departamentos|equipos)/,
+  /\b(estado|situacion|resumen|avance|avances|status|estatus) (actual |general |de hoy )?(de|sobre) (los|mis|cada|las|tus|todos los|otros) (demas )?(agentes|areas|departamentos|equipos?)/,
+  /\ben que (andan|estan|trabajan|van) (los|mis|las|tus) (demas )?(agentes|areas|departamentos)/, /\bquien(es)? esta(n)? trabajando\b/, /\bcomo van (los|mis|las) (demas )?(agentes|areas|departamentos)/,
+  /\bque han hecho (los|mis|las) (demas )?(agentes|areas|departamentos)/, /\bque tienen (en curso|pendiente) (los|mis|las) (demas )?(agentes|areas|departamentos)/, /\bresumen de (los|lo que hacen los) (demas )?agentes/,
+];
+export function esPreguntaDeEstado(texto) {
+  const t = norm(texto);
+  return SENALES_ESTADO.some((re) => re.test(t));
+}
+
 // Frases del mensaje que traen datos de la empresa (para guardarlas como hechos con fuente "usuario").
 export function extraerHechosDeTexto(texto) {
   // Se parte por oraciones y también por "y / pero / aunque": "tenemos 2 sucursales y quiero abrir otra" trae un hecho y una idea.

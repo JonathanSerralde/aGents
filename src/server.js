@@ -42,8 +42,8 @@ import { estadoApoyo } from './apoyo.js';
 import { HABILIDADES } from './habilidades.js';
 import { contextoSectores } from './sectores.js';
 import { informeOficina } from './informe.js';
-import { situacionOficina, situacionParaPrompt } from './situacion.js';
-import { clasificarTexto, extraerHechosDeTexto, instruccionPorTipo, DESCRIPCION_TIPO } from './clasificador.js';
+import { situacionOficina, situacionParaPrompt, respuestaDeEstado } from './situacion.js';
+import { clasificarTexto, extraerHechosDeTexto, instruccionPorTipo, DESCRIPCION_TIPO, esPreguntaDeEstado } from './clasificador.js';
 import { crearCalendario, generarIcs, eventosDeOficina, agendaParaPrompt, LIMITE_ICS } from './calendario.js';
 import { calcular, resumenCalculo, TIPOS_CALCULO, CAMPOS_CALCULO, PARAMETROS as PARAMETROS_LABORALES, VIGENCIA_LABORAL } from './laboral.js';
 
@@ -576,6 +576,15 @@ export function crearServidor(opciones = {}) {
     const activo = !bloqueo;
     // ¿Qué nos está dando el usuario: un hecho de la empresa, una idea, una pregunta de concepto o una orden?
     const clasificacion = clasificarTexto(texto);
+    // "¿Qué están haciendo los agentes?" se contesta con reglas (situación de la oficina): al instante, sin IA ni
+    // tokens, y funciona aunque la IA esté apagada. Para análisis o decisiones el usuario lo pide y entra la IA.
+    if (origen === 'usuario' && esPreguntaDeEstado(texto)) {
+      conversaciones.agregar(area, { rol: 'usuario', texto, tipo: clasificacion.tipo, origen });
+      const respuesta = respuestaDeEstado(situacionActual(), { excepto: area });
+      conversaciones.agregar(area, { rol: 'agente', texto: respuesta, reglas: true });
+      emitir('respuesta_reglas', { area, tipo: 'estado' });
+      return { reglas: { codigo: 200, cuerpo: { ok: true, pendiente: false, reglas: true, respuesta, intercambios: [], busquedas: [], clasificacion, sugerenciaRutina: null, notas: [], uso: estadoUso(cfg), mensajes: conversaciones.leer(area) } } };
+    }
     conversaciones.agregar(area, { rol: 'usuario', texto, pendiente: !activo, tipo: clasificacion.tipo, origen });
     let hechosNuevos = 0;
     if (clasificacion.contieneHecho && origen === 'usuario') {
@@ -621,6 +630,7 @@ export function crearServidor(opciones = {}) {
   async function procesarOrden(area, texto, { origen = 'usuario' } = {}) {
     const prep = prepararOrden(area, texto, { origen });
     if (prep.bloqueado) return prep.bloqueado;
+    if (prep.reglas) return prep.reglas;
     const { cfg, sistema, historial, nivel, conBusqueda } = prep;
     agenteEnCurso = area;
     const fin = trabajo(area, conBusqueda ? 'busqueda' : 'orden', conBusqueda ? `Investigando en internet para: ${texto.slice(0, 100)}` : texto);
@@ -663,7 +673,7 @@ export function crearServidor(opciones = {}) {
     const contexto = {};
     for (const p of vencidos) {
       const prep = prepararOrden(p.id, p.tareaEfectiva, { origen: 'piloto' });
-      if (prep.bloqueado) continue;
+      if (prep.bloqueado || prep.reglas) continue;
       items.push({ id: p.id, sistema: prep.sistema, mensajes: prep.historial, nivel: 'automatico' });
       contexto[p.id] = { clasificacion: prep.clasificacion, origen: 'piloto', nombre: p.nombre };
     }

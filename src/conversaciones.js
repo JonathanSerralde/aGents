@@ -38,13 +38,15 @@ export function crearConversaciones(dir, obtenerExtras = () => []) {
     // rol: 'usuario' | 'agente'. pendiente: la orden espera a una persona porque no hay IA.
     // tipo: cómo se clasificó el mensaje del usuario (hecho, idea, concepto u orden).
     // origen: 'rutina' cuando la orden la mandó una rutina automática; 'agente' cuando el texto viene de otro agente.
-    agregar(area, { rol, texto, pendiente = false, tipo = null, origen = null }) {
+    // reglas: la respuesta la armó la oficina con reglas (sin IA ni tokens), por ejemplo el estado de los agentes.
+    agregar(area, { rol, texto, pendiente = false, tipo = null, origen = null, reglas = false }) {
       if (!valida(area)) throw new Error('Área desconocida');
       const largo = rol === 'agente' || ['agente', 'sistema', 'piloto', 'rutina'].includes(origen);
       const limpio = typeof texto === 'string' ? texto.trim().slice(0, largo ? MAX_TEXTO_AGENTE : MAX_TEXTO) : '';
       if (!limpio) throw new Error('El mensaje está vacío');
       const mensaje = { rol: rol === 'agente' ? 'agente' : 'usuario', texto: limpio, momento: new Date().toISOString() };
       if (pendiente) mensaje.pendiente = true;
+      if (reglas) mensaje.reglas = true;
       if (['rutina', 'agente', 'sistema', 'piloto'].includes(origen)) mensaje.origen = origen;
       if (tipo && ['hecho', 'idea', 'concepto', 'orden'].includes(tipo)) mensaje.tipo = tipo;
       const lista = [...this.leer(area), mensaje].slice(-MAX_HISTORIAL);
