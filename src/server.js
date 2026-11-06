@@ -42,6 +42,7 @@ import { estadoApoyo } from './apoyo.js';
 import { HABILIDADES } from './habilidades.js';
 import { contextoSectores } from './sectores.js';
 import { informeOficina } from './informe.js';
+import { situacionOficina, situacionParaPrompt } from './situacion.js';
 import { clasificarTexto, extraerHechosDeTexto, instruccionPorTipo, DESCRIPCION_TIPO } from './clasificador.js';
 import { crearCalendario, generarIcs, eventosDeOficina, agendaParaPrompt, LIMITE_ICS } from './calendario.js';
 import { calcular, resumenCalculo, TIPOS_CALCULO, CAMPOS_CALCULO, PARAMETROS as PARAMETROS_LABORALES, VIGENCIA_LABORAL } from './laboral.js';
@@ -143,7 +144,15 @@ export function crearServidor(opciones = {}) {
       investigacion: resumenParaPrompt(investigaciones.ultima()),
       sitio: resumenSitioParaPrompt(analisisSitio.ultimo()),
       memoria: memoria.resumenParaPrompt(area, propios),
+      // Quien coordina sabe qué está haciendo cada agente (registro de actividad, piloto y bitácora), no solo sus acciones.
+      situacion: AGENTES_CON_SITUACION.includes(area) ? situacionParaPrompt(situacionActual(), { excepto: area }) : '',
     });
+  }
+
+  // Situación de la oficina por agente, con reglas: qué corre ahora, último trabajo, último reporte, acciones, piloto.
+  function situacionActual() {
+    const propios = personalizados.leer().agentes;
+    return situacionOficina({ ids: idsPiloto(), propios, eventos: actividad.listar({ limite: 400 }), trabajando: actividad.trabajando(), conversaciones, memoria, piloto, ahora: config.ahora ? config.ahora() : new Date() });
   }
 
   // Cada respuesta de agente alimenta la memoria compartida (acciones abiertas y conclusión).
@@ -397,7 +406,7 @@ export function crearServidor(opciones = {}) {
 
   // Informe del Orquestador (reglas, sin IA): estado, contradicciones, acciones vencidas, mercado y sitio.
   function informeActual() {
-    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes });
+    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual() });
   }
 
   async function analizarDocumento(req, res, id) {
@@ -464,6 +473,8 @@ export function crearServidor(opciones = {}) {
   // Agentes que pueden ir en piloto: Orquestador, áreas, apoyo activo y propios.
   const idsPiloto = () => [ORQUESTADOR, ...Object.keys(NOMBRES_DISTRITOS), ...apoyo().activos, ...idsPropios()];
   const AGENTES_CON_AGENDA = [ORQUESTADOR, 'proyectos', 'direccion', 'planificador'];
+  // Reciben el estado de todos los agentes en su contexto: son quienes coordinan, priorizan o auditan.
+  const AGENTES_CON_SITUACION = [ORQUESTADOR, 'direccion', 'proyectos', 'analista', 'planificador', 'auditoria', 'contraloria'];
   let agenteEnCurso = '';
   let investigacionEnCurso = false;
 
@@ -1214,6 +1225,12 @@ export function crearServidor(opciones = {}) {
         emitir('piloto_ejecutado', { area: id, nombre: p.nombre, resultado, pendiente: Boolean(r.cuerpo.pendiente), destinos: r.cuerpo.intercambios?.map((i) => i.destino).filter(Boolean) || [] });
         return enviarJSON(res, r.codigo, { ...r.cuerpo, piloto: piloto.de(id, propios) });
       }
+    }
+
+    // Situación por agente (reglas): qué corre ahora, último trabajo y reporte, acciones, piloto. Es lo que ve el Orquestador.
+    if (ruta === '/api/situacion' && metodo === 'GET') {
+      const sit = situacionActual();
+      return enviarJSON(res, 200, { ...sit, texto: situacionParaPrompt(sit) });
     }
 
     // Actividad: qué han hecho los agentes y qué están haciendo ahora mismo

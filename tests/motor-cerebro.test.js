@@ -68,6 +68,8 @@ test('los plazos de los agentes se vuelven fechas y la memoria sabe qué venció
   assert.equal(fechaDePlazo('esta semana', desde), '2026-11-08');
   assert.equal(fechaDePlazo('fin de mes', desde), '2026-11-30');
   assert.equal(fechaDePlazo('quincena', desde), '2026-11-20');
+  assert.equal(fechaDePlazo('2026-11-08', desde), '2026-11-08');
+  assert.equal(fechaDePlazo('8/11/2026', desde), '2026-11-08');
   assert.equal(fechaDePlazo('cuando se pueda', desde), null);
   assert.equal(fechaDePlazo('', desde), null);
 

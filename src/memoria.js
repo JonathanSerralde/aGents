@@ -26,6 +26,11 @@ export function fechaDePlazo(plazo, desde = new Date()) {
   f.setHours(12, 0, 0, 0);
   const num = (re) => { const m = t.match(re); return m ? (m[1] === 'un' || m[1] === 'una' ? 1 : Number(m[1])) : null; };
   let n;
+  // Fecha explícita: los agentes suelen escribir "2026-11-08" o "8/11/2026" como plazo.
+  let m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = t.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   if (/\bhoy\b|de inmediato|inmediat/.test(t)) return fechaLocal(f);
   if (/manana/.test(t)) { f.setDate(f.getDate() + 1); return fechaLocal(f); }
   if (/quincena/.test(t)) { f.setDate(f.getDate() + 15); return fechaLocal(f); }

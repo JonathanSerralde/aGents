@@ -1302,3 +1302,23 @@ body.con-cajon { overflow: hidden; }
     animation: none !important;
   }
 }
+
+/* Situación por agente (vista Actividad): lo que recibe el Orquestador en su contexto */
+.sit-caja { margin-bottom: 14px; border: 1px solid var(--borde-fuerte); border-radius: 12px; padding: 8px 12px; }
+.sit-caja summary { cursor: pointer; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.sit-caja summary .subtitulo { font-weight: 400; margin: 0; }
+.sit-tabla { display: grid; gap: 6px; margin-top: 8px; }
+.sit-fila { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.03); font-size: 0.86rem; }
+.sit-fila.trabajando { border-color: var(--acento); background: rgba(63, 211, 255, 0.08); }
+.sit-fila.bloqueado { border-color: rgba(255, 120, 120, 0.5); }
+.sit-fila.sin_actividad, .sit-fila.inactivo { opacity: 0.7; }
+.sit-cabeza { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sit-cabeza .agente-foto.chica { width: 28px; height: 28px; flex: 0 0 auto; }
+.sit-estado { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--borde-fuerte); color: var(--texto-suave); }
+.sit-estado.trabajando { color: var(--acento); border-color: var(--acento); }
+.sit-estado.bloqueado { color: #ff9a9a; border-color: rgba(255, 120, 120, 0.6); }
+.sit-estado.activo { color: #9be7a8; border-color: rgba(120, 220, 140, 0.5); }
+.sit-cuerpo { display: grid; gap: 3px; }
+.sit-cuerpo small { color: var(--texto-suave); }
+.sit-ahora { color: var(--acento); }
+@media (max-width: 640px) { .sit-fila { grid-template-columns: minmax(0, 1fr); } }

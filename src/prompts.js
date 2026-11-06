@@ -72,9 +72,12 @@ function encabezadoEmpresa(diagnostico, marca, empresa) {
 // Instrucciones del sistema para un área, para el orquestador, para un agente de apoyo o para uno creado por el usuario.
 // extras: { propios: { id: agente }, ajuste: { notas, marcos, acciones, limites } } para jerarquía y ajustes por negocio.
 // extras también puede traer textos ya armados: investigacion (última investigación de mercado), sitio (último análisis
-// del sitio) y memoria (acciones abiertas y notas de la memoria compartida). Van después de la ficha para todos los agentes.
+// del sitio), memoria (acciones abiertas y notas de la memoria compartida) y situacion (qué hace cada agente, solo para
+// quienes coordinan). Van después de la ficha para todos los agentes.
 export function sistemaPara(area, diagnostico, equipo, marca, personalizado = null, ficha = null, extras = {}) {
-  const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio, extras.memoria, extras.compacto ? '' : extras.agenda].filter(Boolean).join('\n\n');
+  // situacion (estado de cada agente) va también en el prompt compacto: cuando Dirección consulta al Orquestador
+  // "qué hacen los demás", la respuesta sale de ahí.
+  const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio, extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda].filter(Boolean).join('\n\n');
   // "personalizado" es un agente propio solo si trae sus áreas; para el Orquestador llega la lista de nombres propios.
   const nombresPropios = personalizado?.nombresPropios || [];
   if (personalizado && !Array.isArray(personalizado.areas)) personalizado = null;

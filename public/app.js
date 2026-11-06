@@ -348,6 +348,39 @@ async function cargarActividad() {
   pintarTrabajando();
   const visibles = r.eventos.filter((e) => !['permisos_cambiados'].includes(e.tipo));
   $('#act-lista').replaceChildren(...(visibles.length ? visibles.map(filaActividad) : [crearElemento('li', { class: 'act-item' }, 'Sin actividad registrada todavía. Da una orden a un agente o lanza una investigación.')]));
+  cargarSituacion();
+}
+
+// Situación por agente: lo mismo que recibe el Orquestador en su contexto, para que el usuario vea que sí lo sabe.
+const ESTADO_SITUACION = { trabajando: 'Trabajando ahora', bloqueado: 'Bloqueado', activo: 'Activo', inactivo: 'Sin actividad reciente', sin_actividad: 'Sin actividad' };
+async function cargarSituacion() {
+  let s;
+  try {
+    s = await fetch('/api/situacion').then((x) => x.json());
+  } catch {
+    return;
+  }
+  const r = s.resumen || {};
+  $('#sit-resumen').textContent = `· ${r.trabajando || 0} trabajando · ${r.activo || 0} activos · ${r.bloqueado || 0} bloqueados · ${r.sin_actividad || 0} sin actividad`;
+  const filas = (s.agentes || []).map((a) => {
+    const fila = crearElemento('div', { class: `sit-fila ${a.estado}` });
+    const cabeza = crearElemento('div', { class: 'sit-cabeza' });
+    cabeza.append(avatarDe(a.id, 'agente-foto chica'), crearElemento('strong', {}, a.nombre), crearElemento('span', { class: `sit-estado ${a.estado}` }, ESTADO_SITUACION[a.estado] || a.estado));
+    const cuerpo = crearElemento('div', { class: 'sit-cuerpo' });
+    if (a.enCurso) cuerpo.append(crearElemento('span', { class: 'sit-ahora' }, `Ahora: ${NOMBRE_TIPO_ACTIVIDAD[a.enCurso.tipo] || a.enCurso.tipo}${a.enCurso.detalle ? ` — ${a.enCurso.detalle}` : ''}`));
+    if (a.ultimo) cuerpo.append(crearElemento('small', {}, `Último trabajo: ${NOMBRE_TIPO_ACTIVIDAD[a.ultimo.tipo] || a.ultimo.tipo} · ${fechaCorta(a.ultimo.momento)} ${horaCorta(a.ultimo.momento)}${a.ultimo.ok ? '' : ` · falló: ${a.ultimo.error || 'error'}`}`));
+    if (a.ultimaRespuesta?.resumen) cuerpo.append(crearElemento('span', {}, a.ultimaRespuesta.resumen));
+    const datos = [];
+    if (a.pendientes) datos.push(`${a.pendientes} orden(es) pendiente(s) sin IA`);
+    if (a.acciones?.abiertas) datos.push(`${a.acciones.abiertas} acciones abiertas${a.acciones.vencidas ? ` (${a.acciones.vencidas} vencidas)` : ''}`);
+    if (a.piloto?.activo) datos.push(`piloto encendido${a.piloto.ultimaEjecucion ? ` · revisó ${fechaCorta(a.piloto.ultimaEjecucion)}` : ''}`);
+    if (a.notasSinLeer) datos.push(`${a.notasSinLeer} nota(s) sin leer`);
+    if (datos.length) cuerpo.append(crearElemento('small', {}, datos.join(' · ')));
+    if (!a.ultimo && !a.ultimaRespuesta && !datos.length) cuerpo.append(crearElemento('small', {}, 'Todavía no ha recibido órdenes ni revisiones. Dale una orden o enciende su piloto.'));
+    fila.append(cabeza, cuerpo);
+    return fila;
+  });
+  $('#sit-tabla').replaceChildren(...filas);
 }
 
 // ---------- Primeros pasos (dashboard) ----------
@@ -2573,7 +2606,7 @@ function crearChat(seccion) {
     if (h?.especialidad) texto.append(crearElemento('span', {}, h.especialidad));
     perfil.append(foto, texto);
     const sugerencias = esOrquestador()
-      ? ['¿Qué atiendo primero esta semana?', 'Reparte este objetivo entre los agentes: ', 'Resume cómo va el negocio']
+      ? ['¿Qué está haciendo cada agente?', '¿Qué atiendo primero esta semana?', 'Reparte este objetivo entre los agentes: ', 'Resume cómo va el negocio']
       : ['¿Qué atiendo primero en tu área?', 'Evalúa esta idea: ', 'Explícame: ', ...(h?.pregunta_primero?.length ? [`Te respondo lo que preguntas primero: ${h.pregunta_primero[0]} `] : [])];
     for (const s of sugerencias.slice(0, 4)) {
       const b = crearElemento('button', { type: 'button', class: 'atajo' }, s.replace(/^Te respondo lo que preguntas primero: /, 'Responder: ').slice(0, 70));

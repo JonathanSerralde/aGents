@@ -3,11 +3,12 @@
 // Se calcula al vuelo; en Word o PDF con reporte.js.
 import { NOMBRES_DISTRITOS } from './diagnostico.js';
 import { nombreDe } from './jerarquia.js';
+import { bloquesSituacion } from './situacion.js';
 
 const ETIQUETA = { verde: 'bien', amarillo: 'por revisar', rojo: 'en atención', sin_datos: 'sin datos' };
 const fecha = (iso) => new Date(iso || Date.now()).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, ahora = new Date() }) {
+export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, situacion = null, ahora = new Date() }) {
   const r = diagnostico?.resultado;
   const b = [];
   const push = (tipo, texto) => b.push({ tipo, texto });
@@ -55,6 +56,12 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
     push('parrafo', `Abiertas por área: ${Object.entries(resumen.porArea).sort((x, y) => y[1] - x[1]).map(([id, n]) => `${nombreDe(id, propios)} ${n}`).join(', ')}.`);
   } else {
     push('parrafo', 'No hay acciones abiertas en la bitácora. Aparecen cuando los agentes responden órdenes.');
+  }
+
+  if (situacion) {
+    push('subtitulo', 'Qué está haciendo cada agente');
+    for (const bloque of bloquesSituacion(situacion)) b.push(bloque);
+    resumen.agentes = situacion.resumen;
   }
 
   push('subtitulo', 'Mercado y sitio web');
