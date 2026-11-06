@@ -23,7 +23,7 @@ test('generarIcs produce un calendario válido con eventos de todo el día y tex
   const ics = generarIcs([{ id: 'a1', titulo: 'Ventas: llamar, clientes; hoy', fecha: '2026-11-20', descripcion: 'Rosa' }, { id: 'malo', titulo: 'x', fecha: 'no' }], { nombre: 'Mi tienda' });
   assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
   assert.match(ics, /X-WR-CALNAME:Mi tienda/);
-  assert.match(ics, /UID:a1@oficina-multiagente/);
+  assert.match(ics, /UID:a1@agents/);
   assert.match(ics, /DTSTART;VALUE=DATE:20261120/);
   assert.match(ics, /DTEND;VALUE=DATE:20261121/);
   assert.match(ics, /SUMMARY:Ventas: llamar\\, clientes\\; hoy/);

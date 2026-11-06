@@ -1,4 +1,4 @@
-// Interfaz de Oficina Multiagente: cinco vistas (dashboard, diagnóstico, agentes, reportes, configuración).
+// Interfaz de aGents: cinco vistas (dashboard, diagnóstico, agentes, reportes, configuración).
 // Todo el contenido del usuario se inserta con textContent, nunca como HTML.
 import { renderOficina, seleccionarArea } from './oficina.js';
 import { AREAS_ASSETS, NOMBRES_APOYO, AGENTES_APOYO, OPCIONALES } from './assets.js';

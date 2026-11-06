@@ -1,5 +1,5 @@
-// Construye el paquete portátil de Oficina Multiagente para macOS desde cualquier sistema (Windows o Mac).
-// Resultado: dist/OficinaMultiagente-mac/ y dist/OficinaMultiagente-<versión>-macos.tar.gz
+// Construye el paquete portátil de aGents para macOS desde cualquier sistema (Windows o Mac).
+// Resultado: dist/aGents-mac/ y dist/aGents-<versión>-macos.tar.gz
 //
 // Uso:  node instalador/construir-mac.mjs [--arq arm64,x64] [--solo-cache]
 //   --arq         chips a incluir: arm64 (Apple Silicon), x64 (Intel) o ambos. Por defecto, arm64.
@@ -25,11 +25,11 @@ const ARQUITECTURAS = process.argv.includes('--arq') && argArq
 if (!ARQUITECTURAS.length) throw new Error('--arq debe ser arm64, x64 o arm64,x64');
 const CACHE = join(RAIZ, 'instalador', 'cache');
 const DIST = join(RAIZ, 'dist');
-const SALIDA = join(DIST, 'OficinaMultiagente-mac');
+const SALIDA = join(DIST, 'aGents-mac');
 const soloCache = process.argv.includes('--solo-cache');
 
 const paquete = JSON.parse(readFileSync(join(RAIZ, 'package.json'), 'utf8'));
-const archivoFinal = join(DIST, `OficinaMultiagente-${paquete.version}-macos.tar.gz`);
+const archivoFinal = join(DIST, `aGents-${paquete.version}-macos.tar.gz`);
 
 async function descargar(url, destino) {
   if (existsSync(destino)) return;
@@ -137,7 +137,7 @@ async function main() {
   const binarios = await obtenerNode();
   if (soloCache) return console.log('Node de macOS en caché. Sin empaquetar (--solo-cache).');
 
-  console.log(`Construyendo Oficina Multiagente ${paquete.version} para macOS (${ARQUITECTURAS.join(' y ')})`);
+  console.log(`Construyendo aGents ${paquete.version} para macOS (${ARQUITECTURAS.join(' y ')})`);
   rmSync(SALIDA, { recursive: true, force: true });
   rmSync(archivoFinal, { force: true });
   mkdirSync(join(SALIDA, 'node'), { recursive: true });
@@ -151,7 +151,7 @@ async function main() {
   cpSync(join(RAIZ, 'instalador', 'plantilla-mac'), SALIDA, { recursive: true });
   writeFileSync(join(SALIDA, 'data', 'LEEME-data.txt'), 'Aquí se guardan tus diagnósticos, tu borrador, tu marca, tu equipo y tus conversaciones. Copia esta carpeta para respaldarla.\n');
 
-  const tar = empaquetarTar(SALIDA, 'OficinaMultiagente', ['Iniciar.command', 'Detener.command', 'node/node-arm64', 'node/node-x64']);
+  const tar = empaquetarTar(SALIDA, 'aGents', ['Iniciar.command', 'Detener.command', 'node/node-arm64', 'node/node-x64']);
   await new Promise((resolver, rechazar) => {
     const w = createWriteStream(archivoFinal);
     w.on('finish', resolver);

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Oficina Multiagente para macOS: inicia el servidor local y abre el navegador.
+# aGents para macOS: inicia el servidor local y abre el navegador.
 # Todo corre en este equipo (127.0.0.1). No se envía nada a internet.
 cd "$(dirname "$0")" || exit 1
 
@@ -20,7 +20,7 @@ chmod +x "$NODE" 2>/dev/null
 
 export ABRIR_NAVEGADOR=1
 echo
-echo "  Oficina Multiagente"
+echo "  aGents"
 echo "  ------------------------------------------------------------"
 echo "  Se abrirá tu navegador en http://127.0.0.1:4791"
 echo "  Deja esta ventana abierta mientras uses la aplicación."

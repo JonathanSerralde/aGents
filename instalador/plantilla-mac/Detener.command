@@ -1,12 +1,12 @@
 #!/bin/bash
-# Cierra el servidor de Oficina Multiagente iniciado con Iniciar.command.
+# Cierra el servidor de aGents iniciado con Iniciar.command.
 cd "$(dirname "$0")" || exit 1
 if [ ! -f data/servidor.pid ]; then
-  echo "Oficina Multiagente no parece estar en ejecución."
+  echo "aGents no parece estar en ejecución."
 else
   PID=$(cat data/servidor.pid)
   if kill "$PID" 2>/dev/null; then
-    echo "Oficina Multiagente se cerró."
+    echo "aGents se cerró."
   else
     echo "No se encontró el proceso $PID. Si la ventana sigue abierta, ciérrala a mano."
   fi

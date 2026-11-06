@@ -1,5 +1,5 @@
-# Construye la versión portátil de Oficina Multiagente para Windows.
-# Resultado: dist\OficinaMultiagente\ (carpeta lista para usar) y dist\OficinaMultiagente-<versión>-windows.zip
+# Construye la versión portátil de aGents para Windows.
+# Resultado: dist\aGents\ (carpeta lista para usar) y dist\aGents-<versión>-windows.zip
 #
 # Uso:  powershell -ExecutionPolicy Bypass -File instalador\construir.ps1 [-NodeExe ruta\a\node.exe]
 # Node: se copia un node.exe de 64 bits. Por defecto se busca en B:\REA\node\node.exe y, si no existe, el del sistema.
@@ -13,8 +13,8 @@ $raiz = Split-Path -Parent $PSScriptRoot
 $paquete = Get-Content (Join-Path $raiz 'package.json') -Raw | ConvertFrom-Json
 $version = $paquete.version
 $dist = Join-Path $raiz 'dist'
-$salida = Join-Path $dist 'OficinaMultiagente'
-$zip = Join-Path $dist "OficinaMultiagente-$version-windows.zip"
+$salida = Join-Path $dist 'aGents'
+$zip = Join-Path $dist "aGents-$version-windows.zip"
 
 if (-not (Test-Path $NodeExe)) {
   $sistema = (Get-Command node -ErrorAction SilentlyContinue).Source
@@ -27,7 +27,7 @@ $archNode = (& $NodeExe -p process.arch 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $archNode -ne 'x64') { throw "Se requiere un node.exe de 64 bits que funcione. Encontrado: '$versionNode' '$archNode'" }
 $versionNode = "$versionNode $archNode"
 
-Write-Host "Construyendo Oficina Multiagente $version con Node $versionNode"
+Write-Host "Construyendo aGents $version con Node $versionNode"
 if (Test-Path $salida) { Remove-Item -Recurse -Force $salida }
 if (Test-Path $zip) { Remove-Item -Force $zip }
 New-Item -ItemType Directory -Force -Path $salida, (Join-Path $salida 'node'), (Join-Path $salida 'data') | Out-Null

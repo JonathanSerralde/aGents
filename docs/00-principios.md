@@ -1,7 +1,7 @@
 # Principios del proyecto
 
 ## Qué es
-Oficina-Multiagente es un repositorio que cualquier empresario o pyme puede instalar en su propio equipo para diagnosticar su negocio y moldear un tablero de departamentos con agentes de apoyo.
+aGents es un repositorio que cualquier empresario o pyme puede instalar en su propio equipo para diagnosticar su negocio y moldear un tablero de departamentos con agentes de apoyo.
 
 ## Principios
 

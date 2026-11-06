@@ -1163,8 +1163,8 @@ export function crearServidor(opciones = {}) {
 
     // Calendario: exportar las fechas de la oficina (.ics) e importar la agenda del usuario
     if (ruta === '/api/calendario.ics' && metodo === 'GET') {
-      const ics = generarIcs(eventosDeOficina({ memoria, diagnostico: store.ultimo(), programacion, propios: personalizados.leer().agentes }), { nombre: `${marca.leer().nombre || 'Oficina Multiagente'} · agentes` });
-      res.writeHead(200, { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'attachment; filename="oficina-multiagente.ics"', 'cache-control': 'no-store' });
+      const ics = generarIcs(eventosDeOficina({ memoria, diagnostico: store.ultimo(), programacion, propios: personalizados.leer().agentes }), { nombre: `${marca.leer().nombre || 'aGents'} · agentes` });
+      res.writeHead(200, { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'attachment; filename="agents.ics"', 'cache-control': 'no-store' });
       return res.end(ics);
     }
     if (ruta === '/api/calendario' && metodo === 'GET') {
@@ -1445,7 +1445,7 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || proc
 
   servidor.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`Oficina-Multiagente ya está en ejecución en ${url}`);
+      console.log(`aGents ya está en ejecución en ${url}`);
       if (configBase.abrirNavegador) abrirNavegador(url);
       process.exit(0);
     }
@@ -1454,7 +1454,7 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || proc
   });
 
   servidor.listen(configBase.puerto, configBase.host, () => {
-    console.log(`Oficina-Multiagente en ${url}`);
+    console.log(`aGents en ${url}`);
     console.log(`Proveedor de IA: ${proveedorActivo(configBase) || 'ninguno (solo reglas)'}`);
     console.log('Deja esta ventana abierta mientras uses la aplicación. Para cerrar: Detener.cmd o cierra esta ventana.');
     try {

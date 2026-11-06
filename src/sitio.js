@@ -5,7 +5,7 @@ import { crearRegistros } from './registros.js';
 
 const TIEMPO_MAXIMO_MS = 12000;
 const BYTES_MAXIMOS = 1500 * 1024;
-const AGENTE_HTTP = 'OficinaMultiagente/0.1 (revision del sitio propio)';
+const AGENTE_HTTP = 'aGents/0.1 (revision del sitio propio)';
 
 export function normalizarUrl(texto) {
   let t = String(texto || '').trim().split(/\s+/)[0] || '';

@@ -1,4 +1,4 @@
-# Oficina Multiagente
+# aGents
 
 **Una oficina de agentes de IA para que una pyme mexicana se diagnostique, se organice y crezca, instalada en su propia computadora.**
 
@@ -62,14 +62,14 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 ## Instalación
 
 ### Empresarios: Windows (doble clic)
-1. Descarga `OficinaMultiagente-<versión>-windows.zip` y descomprímelo donde quieras.
+1. Descarga `aGents-<versión>-windows.zip` y descomprímelo donde quieras.
 2. Doble clic en `Iniciar.cmd`. Se abre tu navegador en http://127.0.0.1:4791.
 3. Para cerrar, `Detener.cmd` o cierra la ventana negra.
 
 Trae su propio Node.js; no instalas nada más. La aplicación no está firmada: si Windows avisa, "Más información → Ejecutar de todas formas".
 
 ### Empresarios: Mac (Apple Silicon)
-1. Descomprime `OficinaMultiagente-<versión>-macos.tar.gz`.
+1. Descomprime `aGents-<versión>-macos.tar.gz`.
 2. La primera vez: clic derecho en `Iniciar.command` → Abrir → confirma.
 3. Para cerrar, `Detener.command`.
 

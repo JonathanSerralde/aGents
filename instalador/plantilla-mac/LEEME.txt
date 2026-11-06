@@ -1,4 +1,4 @@
-OFICINA MULTIAGENTE PARA MAC
+aGents PARA MAC
 Diagnóstico y plan de crecimiento para tu negocio. Todo se queda en tu equipo.
 
 CÓMO EMPEZAR
@@ -13,7 +13,7 @@ CÓMO EMPEZAR
 
 SI MACOS DICE "NO SE PUEDE ABRIR PORQUE PROCEDE DE UN DESARROLLADOR NO IDENTIFICADO"
 Ve a Ajustes del Sistema → Privacidad y seguridad y pulsa "Abrir de todos modos"
-junto al aviso de Oficina Multiagente. O abre Terminal, arrastra esta carpeta a la
+junto al aviso de aGents. O abre Terminal, arrastra esta carpeta a la
 ventana y ejecuta:  xattr -dr com.apple.quarantine "<ruta de la carpeta>"
 
 CÓMO CERRAR

@@ -1,12 +1,12 @@
 @echo off
-rem Oficina Multiagente: inicia el servidor local y abre el navegador.
+rem aGents: inicia el servidor local y abre el navegador.
 rem Todo corre en este equipo (127.0.0.1). No se envía nada a internet.
 setlocal
 cd /d "%~dp0"
 set "ABRIR_NAVEGADOR=1"
-title Oficina Multiagente
+title aGents
 echo.
-echo   Oficina Multiagente
+echo   aGents
 echo   ------------------------------------------------------------
 echo   Se abrira tu navegador en http://127.0.0.1:4791
 echo   Deja esta ventana abierta mientras uses la aplicacion.

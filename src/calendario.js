@@ -27,14 +27,14 @@ const plegar = (linea) => { // las líneas ICS no pasan de 75 bytes; se continú
 };
 
 // eventos: [{ id, titulo, fecha: 'AAAA-MM-DD', descripcion }] (todo el día). Devuelve el texto del .ics.
-export function generarIcs(eventos, { nombre = 'Oficina Multiagente' } = {}) {
+export function generarIcs(eventos, { nombre = 'aGents' } = {}) {
   const sello = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Oficina Multiagente//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${escapar(nombre)}`];
+  const lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//aGents//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${escapar(nombre)}`];
   for (const e of eventos) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.fecha || '')) continue;
     const fin = new Date(`${e.fecha}T12:00:00`);
     fin.setDate(fin.getDate() + 1);
-    lineas.push('BEGIN:VEVENT', `UID:${e.id}@oficina-multiagente`, `DTSTAMP:${sello}`, `DTSTART;VALUE=DATE:${compacta(e.fecha)}`, `DTEND;VALUE=DATE:${compacta(fechaLocal(fin))}`, `SUMMARY:${escapar(e.titulo)}`);
+    lineas.push('BEGIN:VEVENT', `UID:${e.id}@agents`, `DTSTAMP:${sello}`, `DTSTART;VALUE=DATE:${compacta(e.fecha)}`, `DTEND;VALUE=DATE:${compacta(fechaLocal(fin))}`, `SUMMARY:${escapar(e.titulo)}`);
     if (e.descripcion) lineas.push(`DESCRIPTION:${escapar(e.descripcion)}`);
     lineas.push('END:VEVENT');
   }
