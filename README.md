@@ -119,6 +119,62 @@ npm test           # 262 pruebas; escriben en carpetas temporales, nunca en data
 
 Una instalación recién clonada empieza vacía: `data/` se crea al primer uso y git la ignora. Para actualizar, `git pull`.
 
+## Activar la IA (opcional)
+
+Sin este paso aGents ya funciona: diagnóstico, semáforo, plan, junta semanal, flujo de caja, calculadora laboral y reportes. Lo que falta son **las respuestas de los agentes**. Para que los agentes respondan y trabajen necesitas una clave de API de Anthropic (la empresa que hace Claude). Se configura una sola vez y toma unos 10 minutos.
+
+> Una clave de API **no es lo mismo** que una suscripción de Claude (Pro o Max). La suscripción no sirve aquí. La clave se paga aparte, por uso: solo pagas lo que los agentes consumen.
+
+**Paso 1. Crea tu cuenta de Anthropic.**
+
+1. Entra a [console.anthropic.com](https://console.anthropic.com) y regístrate con tu correo.
+2. Completa los datos que te pida (nombre y, si quieres, el de tu negocio).
+
+**Paso 2. Agrega saldo.**
+
+1. Dentro de la consola, entra a **Billing** (Facturación).
+2. Agrega una tarjeta y compra saldo. Con el mínimo (5 dólares) alcanza para probar con calma.
+3. Recomendado: deja apagada la recarga automática mientras conoces cuánto gastas.
+
+**Paso 3. Crea tu clave.**
+
+1. En la consola, entra a **API Keys** y pulsa **Create Key**.
+2. Ponle un nombre, por ejemplo `aGents`.
+3. Copia la clave que aparece: empieza con `sk-ant-`. **Solo se muestra una vez**; si la pierdes, crea otra.
+
+**Paso 4. Pégala en aGents.**
+
+1. Abre aGents y entra a **Configuración** (en el menú de la izquierda).
+2. En **Inteligencia artificial**, elige **Anthropic** como proveedor.
+3. Pega tu clave en **Clave de API de Anthropic**.
+4. Pulsa **Probar conexión**. Si responde bien, pulsa **Guardar**.
+
+**Paso 5. Ponle un tope a tu gasto.**
+
+En la misma pantalla, escribe una cantidad en **Tope de gasto al mes, en pesos**. Al llegar a esa cantidad, los agentes se detienen hasta que tú lo autorices. aGents te muestra el costo estimado en pesos antes de cada acción y lo que llevas gastado en el mes.
+
+Listo: entra a **Agentes**, o escribe lo que necesitas en **Pide lo que necesites**, y tu equipo empieza a responder.
+
+**Lo que debes saber sobre tu clave**
+
+- Se guarda solo en tu computadora (en `data/config.json`) y en pantalla se muestra oculta. No se envía a nadie más que a Anthropic, para obtener las respuestas.
+- Trátala como una contraseña: no la compartas ni la pegues en chats o correos. Quien la tenga puede gastar tu saldo.
+- Si crees que alguien más la vio, bórrala en la consola de Anthropic (**API Keys**) y crea una nueva.
+- Para quitarla de aGents: **Configuración › Quitar claves**.
+- Nada que gaste IA arranca solo: las tareas automáticas vienen apagadas y tú decides cuáles encender.
+
+**Si la prueba de conexión falla**
+
+| Lo que pasa | Qué hacer |
+|---|---|
+| Clave inválida o no autorizada | Cópiala de nuevo completa, sin espacios al inicio ni al final. Si no la tienes, crea otra. |
+| Saldo insuficiente | Agrega saldo en **Billing** dentro de la consola de Anthropic. |
+| No hay conexión | Revisa tu internet. Los agentes necesitan internet para responder; el resto de aGents no. |
+
+También puedes usar una clave de OpenAI eligiendo ese proveedor en la misma pantalla; las herramientas locales de los agentes (calculadora laboral, presupuesto, flujo de caja y búsqueda en tus documentos) solo funcionan con Anthropic.
+
+Para desarrolladores: como alternativa, copia `.env.example` a `.env`. Recomendaciones de costo: modo de ahorro *Equilibrado* (tu chat con el modelo principal; lo automático con `claude-haiku-5-5`), piloto por lotes encendido y límite diario de tokens. Cada búsqueda web se cobra aparte en la cuenta del proveedor.
+
 ## Principios (no negociables)
 
 - **Todo local.** El servidor solo escucha en `127.0.0.1`; los datos viven en `data/` junto a la aplicación y nunca se versionan ni se envían a nadie.
@@ -285,12 +341,6 @@ Una instalación recién clonada empieza vacía: `data/` se crea al primer uso y
 - **Plan de ahorro de tokens**: caché de prompt (sistema e historial), modelo económico para lo automático, piloto por lotes al 50 % (Message Batches), historial y prompts recortados en lo interno, prompt en dos bloques (lo estable se lee de caché; lo que cambia por orden va aparte), pensamiento extendido apagado (los prompts ya dan la estructura) y continuación automática si una respuesta se corta.
 - **Situación de la oficina**: cada agente termina sus respuestas con una línea ESTADO (en curso, entregado o bloqueado); con eso, el registro de actividad y el piloto, la oficina sabe qué hace cada agente. El Coordinador y Dirección lo reciben en su contexto, y la pregunta "¿qué está haciendo cada agente?" se contesta con reglas al instante, sin gastar tokens, incluso con la IA apagada.
 - **Actividad**: historial de todo lo que hacen los agentes (consultas de búsqueda incluidas) y estado en vivo en el encabezado.
-
-## Activar la IA (opcional)
-
-En **Configuración › Inteligencia artificial** elige Anthropic u OpenAI, pega tu clave y pulsa "Probar conexión". La clave se guarda en `data/config.json`, solo en tu equipo, y se muestra enmascarada. Alternativa para desarrolladores: copia `.env.example` a `.env`.
-
-Recomendaciones de costo: modo de ahorro *Equilibrado* (tu chat con el modelo principal; lo automático con `claude-haiku-5-5`), piloto por lotes encendido, límite diario de tokens y, para la investigación de mercado, el modelo económico. Cada búsqueda web se cobra aparte en la cuenta del proveedor.
 
 ## Estructura del proyecto
 
