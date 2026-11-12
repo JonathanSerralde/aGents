@@ -271,6 +271,8 @@ function iniciales(texto) {
 function avatarDe(id, clase = 'agente-foto') {
   const src = AREAS_ASSETS[id]?.avatar || estado.personalizados.agentes[id]?.avatar || '';
   if (src) return crearElemento('img', { class: clase, alt: '', src });
+  // El Coordinador no tiene retrato: lleva el símbolo de aGents.
+  if (id === 'orquestador') return crearElemento('img', { class: `${clase} avatar-marca`, alt: '', src: 'assets/marca/icono-192.png' });
   return crearElemento('div', { class: 'avatar-iniciales', 'aria-hidden': 'true' }, iniciales(nombreArea(id)));
 }
 

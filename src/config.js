@@ -90,7 +90,7 @@ export const config = {
   archivoRecuerdos: join(RAIZ, 'data', 'memoria-archivo.json'), // archivo de memoria: todo lo aprendido, tipado; no viaja completo a la IA
   dirRaizDatos: join(RAIZ, 'data'), // carpeta de la empresa principal; las demás viven en data/empresas/<id>/
   protegerClaves: false, // el arranque normal lo enciende: cifra la clave de API con DPAPI en Windows
-  abrirNavegador: env.ABRIR_NAVEGADOR === '1', // lo usa el lanzador de doble clic
+  abrirNavegador: env.ABRIR_NAVEGADOR === '1', // ABRIR_NAVEGADOR=1 abre el navegador al iniciar
   proveedor: (env.PROVEEDOR_IA || 'ninguno').toLowerCase(), // anthropic | openai | ninguno
   anthropicKey: env.ANTHROPIC_API_KEY || '',
   anthropicModelo: env.MODELO_ANTHROPIC || 'claude-haiku-5-5',

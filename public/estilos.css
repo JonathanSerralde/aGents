@@ -85,14 +85,12 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 }
 
 .menu-marca { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
-.marca-icono {
-  display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 13px; color: #0a0626;
-  background: linear-gradient(135deg, #ffffff 0%, #25e2ff 32%, #8b5cf6 68%, #e24bf2 100%);
-  box-shadow: 0 0 22px rgba(139, 92, 246, 0.55), inset 0 2px 3px rgba(255, 255, 255, 0.85), inset 0 -3px 6px rgba(40, 10, 110, 0.45);
-  transform: rotate(-6deg); transition: transform 0.25s ease;
-}
-.menu-marca:hover .marca-icono { transform: rotate(0) scale(1.05); }
-.marca-icono svg { width: 24px; height: 24px; }
+/* Símbolo oficial de aGents (assets/marca): va tal cual, sin marco ni giro. */
+.marca-icono { display: block; width: 42px; height: 42px; flex-shrink: 0; object-fit: contain; filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.55)); transition: transform 0.25s ease; }
+.menu-marca:hover .marca-icono { transform: scale(1.06); }
+/* Nombre y lema tomados del logotipo oficial, con fondo transparente. */
+.marca-nombre { display: block; width: 118px; height: auto; flex: 0 0 auto; margin-left: -4px; }
+.marca-lema { display: block; width: 100%; height: auto; margin-top: -12px; padding: 0 2px; }
 .menu-titulo { font-family: var(--display); font-size: 1.4rem; font-weight: 700; line-height: 1; background: var(--cromo); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .menu-subtitulo { margin-top: 3px; font-size: 0.78rem; color: var(--texto-suave); }
 
@@ -119,7 +117,12 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 .menu-pie { margin-top: auto; display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 14px; font-size: 0.78rem; color: var(--texto-suave); background: rgba(46, 240, 181, 0.06); border: 1px solid rgba(46, 240, 181, 0.22); }
 .menu-pie svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: var(--verde); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-.principal { min-width: 0; }
+.principal { min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+.principal > .contenedor { flex: 1 0 auto; }
+/* Cintillo del pie: frase del autor y su logotipo, tal como lo entregó (solo se ajusta el tamaño). */
+.cintillo { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 18px; padding: 14px 28px; font-size: 0.88rem; color: var(--texto-suave); border-top: 1px solid var(--borde); background: rgba(8, 5, 28, 0.55); }
+.cintillo p { margin: 0; text-align: center; }
+.cintillo img { display: block; height: 40px; width: auto; }
 
 .cabecera {
   position: sticky; top: 0; z-index: 20;
@@ -154,7 +157,7 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
   body.menu-plegado .app { grid-template-columns: 78px minmax(0, 1fr); }
   body.menu-plegado .menu { padding-left: 10px; padding-right: 10px; }
   body.menu-plegado .menu-marca { flex-direction: column; gap: 10px; padding: 0; }
-  body.menu-plegado .menu-marca > div, body.menu-plegado .menu-grupo, body.menu-plegado .menu-item span, body.menu-plegado .menu-pie p { display: none; }
+  body.menu-plegado .marca-nombre, body.menu-plegado .marca-lema, body.menu-plegado .menu-grupo, body.menu-plegado .menu-item span, body.menu-plegado .menu-pie p { display: none; }
   body.menu-plegado .menu-plegar { margin-left: 0; transform: rotate(180deg); }
   body.menu-plegado .menu-item { justify-content: center; padding: 11px 0; }
   body.menu-plegado .menu-nav { gap: 6px; }
@@ -681,6 +684,7 @@ input[type="color"] { padding: 2px; }
 
 .avatar-iniciales { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 13px; font-family: var(--display); font-weight: 700; font-size: 0.95rem; color: #0a0626; background: linear-gradient(135deg, #25e2ff, #8b5cf6 70%, #e24bf2); }
 .agente-card .avatar-iniciales { font-size: 1.1rem; }
+.avatar-marca { object-fit: contain !important; object-position: center !important; padding: 5px; background: #0d0930; }
 
 /* ---------- Radar y nivel ---------- */
 .radar-wrap { display: grid; place-items: center; }
@@ -1212,7 +1216,7 @@ body.con-cajon { overflow: hidden; }
   .app { grid-template-columns: minmax(0, 1fr); }
   .menu { position: sticky; top: 0; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--borde); overflow: visible; }
   .menu-marca { flex-shrink: 0; padding: 0; }
-  .menu-marca > div, .menu-grupo, .menu-pie, .menu-cuenta { display: none; }
+  .marca-nombre, .marca-lema, .menu-grupo, .menu-pie, .menu-cuenta { display: none; }
   .menu-nav { display: flex; overflow-x: auto; gap: 4px; flex: 1; scrollbar-width: none; }
   .menu-item { width: auto; white-space: nowrap; padding: 8px 12px; font-size: 0.86rem; }
   .cabecera { position: static; padding: 14px 16px 6px; background: none; border: 0; backdrop-filter: none; flex-wrap: wrap; }

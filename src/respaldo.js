@@ -21,7 +21,7 @@ agentes, bitácora, juntas y documentos subidos, de todas tus empresas. Trátalo
 No contiene tu clave de IA. Después de restaurar, vuelve a escribirla en Configuración.
 
 Para restaurar:
-1. Cierra la aplicación (Detener.cmd o cierra su ventana).
+1. Cierra la aplicación (Ctrl+C en su ventana, o ciérrala).
 2. Abre la carpeta "data" dentro de la carpeta donde está instalada la aplicación. Si no existe, créala.
 3. Copia ahí todo el contenido de este .zip, menos este archivo LEEME, y acepta reemplazar los archivos.
 4. Abre la aplicación de nuevo.

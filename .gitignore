@@ -1,9 +1,33 @@
 # Datos de empresas: nunca se versionan
 data/
 .env
+.env.*
+!.env.example
 
 # Imágenes originales (76 MB): las versiones reducidas que usa la app están en public/assets
 IMagenes/
+/Logo de aGents/
+/Logo de aGents*
+/REDALPHA*
+
+# Archivos comprimidos (logotipos originales, respaldos, paquetes): ninguno es parte del código
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.tgz
+
+# Respaldos descargados desde la app: llevan los datos del negocio
+respaldo-*/
+*respaldo*.json
+
+# Llaves, certificados y carpetas de herramientas personales
+*.pem
+*.key
+*.pfx
+.claude/
+.vscode/
+.idea/
 
 # Logotipos o imágenes del negocio dejados en la raíz: son del usuario, no del proyecto
 /*.jpg
@@ -14,9 +38,9 @@ IMagenes/
 # Maqueta de referencia del dueño (lleva su marca): no es parte del proyecto
 /agents_3d_*.html
 
-# Paquetes construidos por instalador/construir.ps1 y construir-mac.mjs, y Node descargado para macOS
+# Paquetes de doble clic retirados del proyecto: si quedan en el equipo, no se suben
 dist/
-instalador/cache/
+instalador/
 
 # Dependencias y temporales
 node_modules/

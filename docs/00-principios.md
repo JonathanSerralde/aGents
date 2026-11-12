@@ -18,14 +18,14 @@ Si un consultor usa el repositorio con datos de sus clientes, el consultor es re
 
 ## Usuario del primer año
 Decisión del 5 de noviembre de 2026: el usuario es el **empresario por su cuenta**, con intención de crecer. Implicaciones:
-- La instalación debe ser de doble clic (pendiente: instalador).
+- La instalación debe ser sencilla: clonar el repositorio y `npm start`, sin dependencias.
 - El producto debe valer **sin IA**: el motor de reglas carga el peso; la IA es una mejora opcional, porque pedir una clave de API es una barrera para la mayoría.
 - "Moldeable" significa elegir en pantalla giro, meta y áreas; no editar archivos.
 - El diagnóstico tiene dos capas: preparación para crecer (sobrevivir) y dirección del crecimiento (vertical y horizontal).
 - "Exponencial" es aspiración de marketing, no promesa dentro del producto: lo medible es un motor de crecimiento.
 
 ## Dónde se guarda todo
-Todo vive en la carpeta `data/` junto a la aplicación (en la versión portátil, dentro de la carpeta descomprimida). No hay almacenamiento en el navegador ni en internet.
+Todo vive en la carpeta `data/` junto a la aplicación. No hay almacenamiento en el navegador ni en internet.
 
 | Archivo | Contenido |
 |---|---|
@@ -34,7 +34,7 @@ Todo vive en la carpeta `data/` junto a la aplicación (en la versión portátil
 | `data/marca/` | Nombre comercial y logotipo (`marca.json`, `logo.png|jpg|webp`) |
 | `data/equipo.json` | Responsable humano y nombre del agente por área |
 | `data/conversaciones/<area>.json` | Órdenes y respuestas de cada agente y del orquestador |
-| `data/servidor.pid` | Solo mientras corre: lo usa `Detener.cmd` |
+| `data/servidor.pid` | Solo mientras corre: número de proceso del servidor |
 | `data/config.json` | Proveedor de IA, clave y modelo guardados desde la pantalla Configuración (texto plano, solo en el equipo) |
 | `data/investigaciones/<id>.json` · `data/sitio/<id>.json` | Investigaciones semanales de mercado y análisis del sitio, con los encargos repartidos |
 | `data/programacion.json` · `data/memoria.json` | Día y hora de las tareas semanales; memoria compartida (acciones abiertas, conclusiones, notas entre agentes) |
@@ -140,6 +140,5 @@ Pendiente: validar las habilidades y la investigación con una clave real (inclu
 - Descubrimiento: en `01-descubrimiento.md`.
 - Formulario de diagnóstico y reglas: en `02-formulario.md`.
 - Sin dependencias de npm. Three.js 0.160.0 está guardado en `public/vendor/`; una prueba vigila que el frontend no cargue nada de internet.
-- Versión portátil para Windows: `instalador/construir.ps1` produce `dist/` con Node incluido, `Iniciar.cmd` y `Detener.cmd`. Sin firma digital (Windows puede advertir).
-- Versión para Mac (Apple Silicon): `instalador/construir-mac.mjs` produce un `.tar.gz` con Node para macOS (verificado por SHA-256), `Iniciar.command` y `Detener.command`. Construida en Windows; **sin probar en un Mac real**. Sin firma ni notarización (Gatekeeper exige clic derecho → Abrir la primera vez).
+- Instalación: solo desde el repositorio (`git clone` y `npm start`) con Node.js 18 o superior, en Windows, Mac y Linux. Los paquetes de doble clic se retiraron en noviembre de 2026.
 - Pruebas: `npm test` (backend y promesa local). La prueba de interfaz con Playwright vive fuera del repositorio (pendiente de integrar).

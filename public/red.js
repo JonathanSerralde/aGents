@@ -184,8 +184,8 @@ export function pintarRed(svg, arbol, opciones) {
       recorte.append(el('circle', { r: radio - 2.5 }));
       g.append(recorte, el('image', { href: foto, x: -radio, y: -radio, width: radio * 2, height: radio * 2, preserveAspectRatio: 'xMidYMin slice', 'clip-path': `url(#${idRecorte})` }));
     } else if (n.prof === 0) {
-      // Núcleo del Coordinador: el mismo símbolo de la marca.
-      g.append(el('path', { d: 'M0 -17l17 9.5-17 9.5-17-9.5zM-17 2l17 9.5 17-9.5M-17 10.5l17 9.5 17-9.5', fill: 'none', stroke: 'url(#red-grad)', 'stroke-width': '3', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      // Núcleo del Coordinador: el símbolo oficial de aGents.
+      g.append(el('image', { href: 'assets/marca/icono-192.png', x: '-27', y: '-27', width: '54', height: '54' }));
     }
 
     // Semáforo del diagnóstico (solo las áreas lo tienen).

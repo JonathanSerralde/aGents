@@ -12,7 +12,7 @@ import { opcionesTemporales } from './_servidor.js';
 const json = (metodo, cuerpo) => ({ method: metodo, headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) });
 
 test('resumirRespuesta deja lo esencial: sin "qué entendí", sin secciones de bitácora ni respuestas de otros', () => {
-  const r = resumirRespuesta('**Qué entendí:** quieres caja.\n\n**Análisis:** La caja cubre 0.5 meses (HECHO, diagnóstico).\n\n**Propuesta:** cobrar antes.\n\nACCIONES:\n- [Finanzas] cobrar — Kenia — 2026-11-08\n\n— Respuestas de otros agentes —\nConsulta a Ventas: x\n→ y');
+  const r = resumirRespuesta('**Qué entendí:** quieres caja.\n\n**Análisis:** La caja cubre 0.5 meses (HECHO, diagnóstico).\n\n**Propuesta:** cobrar antes.\n\nACCIONES:\n- [Finanzas] cobrar — Laura — 2026-11-08\n\n— Respuestas de otros agentes —\nConsulta a Ventas: x\n→ y');
   assert.equal(r, 'La caja cubre 0.5 meses (HECHO, diagnóstico). cobrar antes.');
   assert.ok(resumirRespuesta('a'.repeat(500)).length <= 220);
 });
@@ -21,7 +21,7 @@ test('la situación sabe qué corre ahora, qué hizo cada agente y quién no ha 
   const dir = mkdtempSync(join(tmpdir(), 'situacion-'));
   try {
     const memoria = crearMemoria(join(dir, 'memoria.json'));
-    memoria.registrarRespuesta('finanzas', 'Falta caja.\n\nACCIONES:\n- [Finanzas] pedir saldo de caja — Kenia — 2026-11-01', {});
+    memoria.registrarRespuesta('finanzas', 'Falta caja.\n\nACCIONES:\n- [Finanzas] pedir saldo de caja — Laura — 2026-11-01', {});
     const ahora = new Date('2026-11-06T18:00:00');
     const eventos = [
       { tipo: 'trabajo_fin', momento: '2026-11-06T17:30:00.000Z', datos: { area: 'finanzas', tipo: 'orden', ok: true, ms: 5000 } },

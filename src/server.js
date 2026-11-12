@@ -2378,11 +2378,11 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || proc
   servidor.listen(configBase.puerto, configBase.host, () => {
     console.log(`aGents en ${url}`);
     console.log(`Proveedor de IA: ${proveedorActivo(configBase) || 'ninguno (solo reglas)'}`);
-    console.log('Deja esta ventana abierta mientras uses la aplicación. Para cerrar: Detener.cmd o cierra esta ventana.');
+    console.log('Deja esta ventana abierta mientras uses la aplicación. Para cerrar: Ctrl+C o cierra esta ventana.');
     try {
       mkdirSync(dirname(configBase.archivoPid), { recursive: true });
       writeFileSync(configBase.archivoPid, String(process.pid), 'utf8');
-    } catch { /* sin archivo de pid, Detener.cmd no podrá cerrarlo; la ventana sigue sirviendo */ }
+    } catch { /* sin archivo de pid; la ventana sigue sirviendo */ }
     if (configBase.abrirNavegador) abrirNavegador(url);
   });
 

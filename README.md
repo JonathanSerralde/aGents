@@ -1,20 +1,123 @@
+<p align="center"><img src="public/assets/marca/logo.png" alt="aGents: agentes IA autónomos para tu pyme" width="640"></p>
+
 # aGents
 
-**Una oficina de agentes de IA para que una pyme mexicana se diagnostique, se organice y crezca, instalada en su propia computadora.**
+**Una oficina de agentes de inteligencia artificial para tu pyme, instalada en tu propia computadora.**
 
-Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agentes de apoyo + un Coordinador que se coordinan entre sí, con una ciudad 3D donde cada edificio es un departamento. Funciona completa **sin IA** (motor de reglas) y, si el empresario pone su propia clave de API, los agentes responden, investigan y trabajan solos.
+aGents te ayuda a saber cómo está tu negocio, qué atender primero y cómo crecer. Le respondes un diagnóstico guiado y te entrega un semáforo por área, un plan con fechas y un equipo de agentes (Finanzas, Ventas, Marketing, Recursos humanos y más) al que le puedes pedir trabajo como a un equipo de oficina.
 
-> Pensada para el empresario por su cuenta que quiere crecer vertical (vender más a quien ya le compra) y horizontalmente (abrir mercados, sucursales o líneas), y para los consultores que lo acompañan. Cualquier pyme puede instalarla y moldearla: sectores, agentes, skills y tareas se editan desde la pantalla.
+Es gratis, de código abierto y funciona en Windows y Mac. Tus datos se quedan en tu computadora: no hay cuentas, registros ni servidores de nadie.
+
+**Ir a:** [Qué hace](#qué-hace) · [Por qué te ayuda](#por-qué-te-ayuda) · [Instalación paso a paso](#instalación-paso-a-paso) · [Activar la IA](#activar-la-ia-opcional) · [Todo lo que incluye](#qué-incluye)
 
 ---
 
-## ¿Para qué sirve?
+## Qué hace
 
-| Si eres… | La oficina te da… |
+- **Diagnostica tu negocio en unos 15 minutos.** Respondes preguntas sencillas sobre ventas, dinero, personal, operación y clientes, y obtienes un semáforo (verde, amarillo, rojo) por cada área.
+- **Te dice qué atender primero.** Detecta contradicciones entre áreas (por ejemplo, gastar en publicidad con la caja en rojo) y arma un plan de acción a 30 y 60 días con responsables.
+- **Pone un equipo de agentes a tu servicio.** Escribes lo que necesitas sin elegir a quién; la oficina decide qué agente lo atiende. Los agentes se consultan entre sí, piden presupuesto y te entregan una sola respuesta.
+- **Lleva el control de la semana.** Junta semanal con compromisos, flujo de caja a 13 semanas, presupuesto por área, bitácora de acciones y avisos de lo que se venció.
+- **Hace cuentas y documentos.** Calculadora laboral con la Ley Federal del Trabajo (aguinaldo, finiquito, vacaciones, PTU), reportes en Word y PDF, campañas con los tamaños de cada red social y calendario exportable.
+- **Se adapta a tu giro.** Comercio, servicios, manufactura, construcción, alimentos, salud, educación y agencias; con una agenda de citas opcional para consultorios y negocios que atienden con cita.
+
+Todo lo anterior, menos las respuestas de los agentes, funciona **sin inteligencia artificial y sin internet**. La IA es opcional: se activa con tu propia clave de Anthropic u OpenAI, y la aplicación te muestra el costo en pesos antes de gastar.
+
+## Por qué te ayuda
+
+| Si hoy te pasa esto… | aGents te da… |
 |---|---|
-| Dueño de una pyme | Un diagnóstico guiado de 15 minutos, un semáforo por área, un plan con plazos y un equipo de agentes que revisa tu negocio cada semana y te dice qué atender primero |
-| Consultor o contador | Una herramienta que deja en tu cliente, con reportes en Word/PDF, calculadora laboral con la LFT, informe del Coordinador y bitácora de acciones |
-| Desarrollador | Un proyecto Node.js sin dependencias, con 160 pruebas, API local documentada y agentes definidos en texto (habilidades) fáciles de ampliar |
+| No sabes por dónde empezar a ordenar el negocio | Un diagnóstico con prioridades claras y un plan con fechas |
+| Todo depende de ti y no te alcanza el tiempo | Agentes que preparan análisis, propuestas, mensajes y cálculos para que tú solo decidas |
+| No puedes pagar un consultor para cada área | Once áreas de negocio con sus especialistas, disponibles cuando las necesites |
+| Te preocupa subir tu información a internet | Una aplicación que guarda todo en tu computadora y que puedes respaldar con un botón |
+| Temes que la IA gaste sin control | Costo en pesos a la vista, límite mensual y nada que arranque solo: los agentes proponen y tú apruebas |
+
+También le sirve a **consultores y contadores** que acompañan a sus clientes (reportes, calculadora laboral, informe del Coordinador) y a **desarrolladores** que quieran adaptarla: es un proyecto Node.js sin dependencias, con 262 pruebas y agentes definidos en texto.
+
+> Las reglas y las respuestas de los agentes son una guía para decidir mejor. No sustituyen a tu contador, abogado o consultor.
+
+## Instalación paso a paso
+
+No necesitas saber de programación. Son tres pasos y toman unos 10 minutos. Solo se hace una vez.
+
+### En Windows
+
+**Paso 1. Instala Node.js** (el programa que hace funcionar a aGents; es gratuito).
+
+1. Entra a [nodejs.org](https://nodejs.org/es) y pulsa el botón de descarga de la versión **LTS**.
+2. Abre el archivo descargado y pulsa **Siguiente** en todas las pantallas hasta terminar. No cambies ninguna opción.
+
+**Paso 2. Descarga aGents.**
+
+1. Descarga este archivo: [aGents (ZIP)](https://github.com/JonathanSerralde/aGents/archive/refs/heads/main.zip).
+2. Ve a tu carpeta **Descargas**, haz clic derecho sobre `aGents-main.zip` y elige **Extraer todo**.
+3. Mueve la carpeta `aGents-main` a un lugar que recuerdes, por ejemplo **Documentos**.
+
+**Paso 3. Abre aGents.**
+
+1. Entra a la carpeta `aGents-main` hasta que veas dentro las carpetas `src` y `public`.
+2. Haz clic en la barra de direcciones de la ventana (donde aparece la ruta de la carpeta), escribe `cmd` y presiona **Enter**. Se abre una ventana negra.
+3. En esa ventana escribe `npm start` y presiona **Enter**.
+4. Cuando aparezca el texto `aGents en http://127.0.0.1:4791`, abre tu navegador (Chrome, Edge o el que uses) y entra a **http://127.0.0.1:4791**.
+
+Deja la ventana negra abierta mientras uses aGents.
+
+### En Mac
+
+**Paso 1. Instala Node.js** (el programa que hace funcionar a aGents; es gratuito).
+
+1. Entra a [nodejs.org](https://nodejs.org/es) y pulsa el botón de descarga de la versión **LTS**.
+2. Abre el archivo descargado y pulsa **Continuar** en todas las pantallas hasta terminar.
+
+**Paso 2. Descarga aGents.**
+
+1. Descarga este archivo: [aGents (ZIP)](https://github.com/JonathanSerralde/aGents/archive/refs/heads/main.zip).
+2. Ve a tu carpeta **Descargas**. Si la carpeta `aGents-main` no aparece sola, haz doble clic en `aGents-main.zip`.
+3. Mueve la carpeta `aGents-main` a un lugar que recuerdes, por ejemplo **Documentos**.
+
+**Paso 3. Abre aGents.**
+
+1. Abre la aplicación **Terminal**: presiona `Cmd + Espacio`, escribe `Terminal` y presiona **Enter**.
+2. Escribe `cd` seguido de un espacio, arrastra la carpeta `aGents-main` a la ventana de Terminal y presiona **Enter**.
+3. Escribe `npm start` y presiona **Enter**.
+4. Cuando aparezca el texto `aGents en http://127.0.0.1:4791`, abre tu navegador (Safari, Chrome o el que uses) y entra a **http://127.0.0.1:4791**.
+
+Deja la ventana de Terminal abierta mientras uses aGents.
+
+### Tu primera vez dentro
+
+- Si solo quieres conocerla, pulsa **Ver un negocio de ejemplo**: carga una empresa inventada para que explores sin capturar nada. Se borra cuando quieras.
+- Para empezar con tu negocio, llena el **diagnóstico**. Al terminar verás tu semáforo, tu plan y tu equipo de agentes.
+
+### Uso diario
+
+- **Abrir:** repite solo el paso 3. Los pasos 1 y 2 ya no hacen falta.
+- **Cerrar:** cierra la ventana negra (Windows) o la de Terminal (Mac). También puedes presionar `Ctrl + C` dentro de ella.
+- **Tus datos** viven en la carpeta `data`, dentro de `aGents-main`. No la borres. Para respaldarlos usa el botón de respaldo en **Configuración**.
+- **Actualizar a una versión nueva:** descarga otra vez el ZIP, extráelo y copia tu carpeta `data` de la carpeta anterior a la nueva.
+
+### Si algo no funciona
+
+| Lo que ves | Qué hacer |
+|---|---|
+| `"npm" no se reconoce` o `command not found: npm` | Node.js no quedó instalado o falta reiniciar. Cierra la ventana, reinicia la computadora y repite el paso 3. Si sigue igual, repite el paso 1. |
+| `Could not read package.json` o un error parecido | La ventana no está en la carpeta correcta. Entra a la carpeta donde se ven `src` y `public` y repite el paso 3. |
+| El navegador dice que no puede conectarse | Revisa que la ventana negra o la Terminal sigan abiertas y que muestren `aGents en http://127.0.0.1:4791`. |
+| `aGents ya está en ejecución` | Ya está abierta en otra ventana. Entra directo a http://127.0.0.1:4791 en tu navegador. |
+
+### Para desarrolladores
+
+Node.js 18 o superior. Sin dependencias: `npm install` no hace falta.
+
+```bash
+git clone https://github.com/JonathanSerralde/aGents.git
+cd aGents
+npm start          # http://127.0.0.1:4791
+npm test           # 262 pruebas; escriben en carpetas temporales, nunca en data/
+```
+
+Una instalación recién clonada empieza vacía: `data/` se crea al primer uso y git la ignora. Para actualizar, `git pull`.
 
 ## Principios (no negociables)
 
@@ -183,39 +286,6 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Situación de la oficina**: cada agente termina sus respuestas con una línea ESTADO (en curso, entregado o bloqueado); con eso, el registro de actividad y el piloto, la oficina sabe qué hace cada agente. El Coordinador y Dirección lo reciben en su contexto, y la pregunta "¿qué está haciendo cada agente?" se contesta con reglas al instante, sin gastar tokens, incluso con la IA apagada.
 - **Actividad**: historial de todo lo que hacen los agentes (consultas de búsqueda incluidas) y estado en vivo en el encabezado.
 
-## Instalación
-
-### Empresarios: Windows (doble clic)
-1. Descarga `aGents-<versión>-windows.zip` y descomprímelo donde quieras.
-2. Doble clic en `Iniciar.cmd`. Se abre tu navegador en http://127.0.0.1:4791.
-3. Para cerrar, `Detener.cmd` o cierra la ventana negra.
-
-Trae su propio Node.js; no instalas nada más. La aplicación no está firmada: si Windows avisa, "Más información → Ejecutar de todas formas".
-
-### Empresarios: Mac (Apple Silicon)
-1. Descomprime `aGents-<versión>-macos.tar.gz`.
-2. La primera vez: clic derecho en `Iniciar.command` → Abrir → confirma.
-3. Para cerrar, `Detener.command`.
-
-### Desarrolladores
-Node.js 18 o superior. Sin dependencias (`npm install` no hace falta).
-
-```bash
-git clone https://github.com/JonathanSerralde/aGents.git
-cd aGents
-npm start          # http://127.0.0.1:4791
-npm test           # 160 pruebas
-```
-
-Construir los paquetes:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File instalador\construir.ps1 -NodeExe "C:\ruta\a\node.exe"
-```
-```bash
-node instalador/construir-mac.mjs --arq arm64      # Apple Silicon; añade ,x64 para Intel
-```
-
 ## Activar la IA (opcional)
 
 En **Configuración › Inteligencia artificial** elige Anthropic u OpenAI, pega tu clave y pulsa "Probar conexión". La clave se guarda en `data/config.json`, solo en tu equipo, y se muestra enmascarada. Alternativa para desarrolladores: copia `.env.example` a `.env`.
@@ -232,7 +302,6 @@ src/            Servidor http (sin frameworks), motor de reglas, agentes, memori
 public/         Interfaz (vanilla JS), ciudad 3D (Three.js guardado en vendor/), red de agentes, campañas
 docs/           Principios y decisiones, descubrimiento (por qué fracasan las pymes), formulario
 tests/          node --test; siempre escriben en carpetas temporales, nunca en data/
-instalador/     Constructores de los paquetes de Windows y Mac
 data/           Tus datos (ignorada por git)
 ```
 
@@ -270,12 +339,12 @@ data/           Tus datos (ignorada por git)
 - [x] Descubrimiento: causas de fracaso y éxito de pymes mexicanas, sectores SCIAN, necesidades y puestos clave
 - [x] Formulario de diagnóstico completo y motor de reglas con semáforo, plan y motor de crecimiento
 - [x] Ciudad 3D y dashboard; asistente guiado; logotipo e identidad
-- [x] Paquetes de doble clic para Windows y Mac (Apple Silicon)
+- [x] Instalación limpia desde el repositorio, sin dependencias, en Windows, Mac y Linux
 - [x] Agentes por área, de apoyo, por sector y propios; jerarquía; comunicación y memoria compartida
 - [x] Documentos, bóvedas Obsidian, reportes Word/PDF, campañas, calendario, calculadora laboral
 - [x] Investigación semanal de mercado, análisis del sitio, piloto automático, rutinas, actividad en vivo
 - [x] Permisos del usuario, monitor de consumo y plan de ahorro de tokens
-- [x] 160 pruebas automáticas y verificación de interfaz con Playwright
+- [x] 262 pruebas automáticas y verificación de interfaz con Playwright
 
 **Siguientes**
 - [ ] Validar skills y piloto con casos reales de varios giros (los textos son de arranque)
@@ -301,3 +370,14 @@ data/           Tus datos (ignorada por git)
 ## Licencia
 
 MIT. Ver `LICENSE`.
+
+---
+
+<p align="center">| Hecho con 💜 para México | Ing. Jonathan Serralde |</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/assets/marca/redalpha-blanco.png">
+    <img src="public/assets/marca/redalpha-original.png" alt="Red Alpha, by Ing. Jonathan Serralde" width="220">
+  </picture>
+</p>
