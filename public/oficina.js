@@ -656,7 +656,7 @@ function dimensionar() {
   camara.aspect = w / h;
   camara.updateProjectionMatrix();
   ubicarCamara();
-  repintar();
+  dibujar(); // cambiar el tamaño borra el lienzo: se pinta en el mismo cuadro para que no parpadee al plegar el menú
 }
 
 function dibujar() {

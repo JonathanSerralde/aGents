@@ -139,7 +139,7 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 .logo { width: 36px; height: 36px; object-fit: contain; border-radius: 50%; padding: 3px; background: #fff; border: 1px solid var(--borde-fuerte); }
 .logo.grande { width: 60px; height: 60px; border-radius: 14px; }
 
-.contenedor { display: grid; gap: 20px; padding: 22px 28px 48px; min-width: 0; max-width: 1680px; }
+.contenedor { display: grid; gap: 20px; padding: 22px 28px 48px; min-width: 0; }
 
 .chip { display: inline-flex; align-items: center; justify-self: start; padding: 6px 13px; font-size: 0.78rem; font-weight: 600; color: var(--texto-suave); border: 1px solid var(--borde-fuerte); border-radius: 999px; background: rgba(255, 255, 255, 0.04); white-space: nowrap; }
 .chip.ok { color: var(--verde); border-color: rgba(46, 240, 181, 0.45); background: rgba(46, 240, 181, 0.07); }
