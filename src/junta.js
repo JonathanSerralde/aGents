@@ -6,7 +6,8 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { madurez } from './progreso.js';
 
-export const MAX_COMPROMISOS = 3;
+export const MAX_COMPROMISOS = 3; // los que propone la oficina
+export const MAX_EN_JUNTA = 6; // con los que agregue el dueño: pocos compromisos se cumplen mejor
 const dinero = (n) => `${n < 0 ? '−' : ''}$${Math.round(Math.abs(n)).toLocaleString('es-MX')}`;
 const dosDigitos = (n) => String(n).padStart(2, '0');
 const sinPunto = (t) => String(t).replace(/[.\s]+$/, '');

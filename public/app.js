@@ -2922,19 +2922,7 @@ async function cargarJunta() {
     return li;
   }) : [crearElemento('li', { class: 'sin-numero' }, 'Sin decisiones urgentes con la información actual.')]));
 
-  $('#junta-compromisos').replaceChildren(...(j.compromisos.length ? j.compromisos.map((c) => {
-    const li = crearElemento('li', { class: c.hecho ? 'hecha' : '' });
-    const check = crearElemento('input', { type: 'checkbox', 'aria-label': `Marcar como cumplido: ${c.texto}` });
-    check.checked = c.hecho;
-    check.addEventListener('change', async () => {
-      await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: check.checked ? 'hecha' : 'pendiente' }) }).catch(() => {});
-      cargarJunta();
-    });
-    const texto = crearElemento('div');
-    texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.texto), crearElemento('small', {}, `${c.nombreArea} · ${c.responsable || 'sin responsable: asígnalo en Agentes › Equipo'} · para el ${fechaCorta(`${c.vence}T12:00:00`)}`));
-    li.append(check, texto);
-    return li;
-  }) : [crearElemento('li', {}, 'Sin compromisos esta semana: no hay acciones abiertas ni pendientes en el plan.')]));
+  pintarCompromisosJunta(r);
 
   // Un mensaje por responsable. WhatsApp se abre en el equipo de la persona; la aplicación no envía nada.
   $('#junta-mensajes').replaceChildren(...r.mensajes.map((m) => {
@@ -2950,6 +2938,98 @@ async function cargarJunta() {
     return caja;
   }));
   $('#junta-avisos').hidden = !r.mensajes.length;
+}
+
+// Cambia los compromisos de la junta en el servidor y vuelve a pintar la hoja.
+async function cambiarCompromisoJunta(metodo, id, cuerpo) {
+  try {
+    const res = await fetch(`/api/junta/compromisos${id ? `/${encodeURIComponent(id)}` : ''}`, { method: metodo, headers: { 'content-type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    const datos = await res.json();
+    if (!res.ok) { aviso(datos.errores?.[0] || 'No se pudo cambiar el compromiso.', 'error'); return false; }
+    await cargarJunta();
+    return true;
+  } catch {
+    aviso('No hay conexión con el servidor local.', 'error');
+    return false;
+  }
+}
+
+// Lista de compromisos: marcar como cumplido, editar en la misma fila o quitar de la junta.
+function pintarCompromisosJunta(r) {
+  const j = r.junta;
+  const lista = $('#junta-compromisos');
+  const fila = (c) => {
+    const li = crearElemento('li', { class: `junta-compromiso${c.hecho ? ' hecha' : ''}` });
+    const check = crearElemento('input', { type: 'checkbox', 'aria-label': `Marcar como cumplido: ${c.texto}` });
+    check.checked = c.hecho;
+    check.addEventListener('change', async () => {
+      await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: check.checked ? 'hecha' : 'pendiente' }) }).catch(() => {});
+      cargarJunta();
+    });
+    const texto = crearElemento('div');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.texto), crearElemento('small', {}, `${c.nombreArea} · ${c.responsable || 'sin responsable'} · para el ${fechaCorta(`${c.vence}T12:00:00`)}`));
+    const acciones = crearElemento('div', { class: 'junta-acciones' });
+    const editar = crearElemento('button', { type: 'button', class: 'atajo' }, 'Editar');
+    const quitar = crearElemento('button', { type: 'button', class: 'atajo', title: 'Lo saca de la junta; sigue abierto en la bitácora' }, 'Quitar');
+    editar.addEventListener('click', () => li.replaceWith(filaEdicion(c)));
+    quitar.addEventListener('click', async () => { if (await cambiarCompromisoJunta('DELETE', c.id)) aviso('Compromiso fuera de la junta. Sigue abierto en la bitácora.', 'ok'); });
+    acciones.append(editar, quitar);
+    li.append(check, texto, acciones);
+    return li;
+  };
+  const filaEdicion = (c) => {
+    const li = crearElemento('li', { class: 'junta-compromiso editando' });
+    const form = crearElemento('form', { class: 'junta-edicion' });
+    const texto = crearElemento('input', { type: 'text', maxlength: '300', 'aria-label': 'Compromiso', required: '' });
+    texto.value = c.texto;
+    const quien = crearElemento('input', { type: 'text', maxlength: '80', placeholder: 'Responsable', 'aria-label': 'Responsable' });
+    quien.value = c.responsable || '';
+    const fecha = crearElemento('input', { type: 'date', 'aria-label': 'Fecha compromiso' });
+    fecha.value = c.vence || '';
+    const guardar = crearElemento('button', { type: 'submit', class: 'boton compacto' }, 'Guardar');
+    const cancelar = crearElemento('button', { type: 'button', class: 'boton secundario compacto' }, 'Cancelar');
+    cancelar.addEventListener('click', () => li.replaceWith(fila(c)));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (await cambiarCompromisoJunta('PUT', c.id, { texto: texto.value, responsable: quien.value, vence: fecha.value || null })) aviso('Compromiso actualizado.', 'ok');
+    });
+    form.append(texto, quien, fecha, guardar, cancelar);
+    li.append(form);
+    setTimeout(() => texto.focus(), 0);
+    return li;
+  };
+  lista.replaceChildren(...(j.compromisos.length ? j.compromisos.map(fila) : [crearElemento('li', {}, 'Sin compromisos esta semana. Agrega uno abajo.')]));
+
+  // Agregar: uno propio o uno que ya está abierto en la bitácora.
+  const lleno = j.compromisos.length >= (r.maximo || 6);
+  $('#junta-agregar').hidden = lleno;
+  $('#junta-lleno').hidden = !lleno;
+  const area = $('#junta-area');
+  if (!area.options.length) {
+    area.append(crearElemento('option', { value: 'orquestador' }, 'General (Orquestador)'));
+    for (const id of ORDEN_AREAS) area.append(crearElemento('option', { value: id }, nombreArea(id)));
+    area.value = 'direccion';
+  }
+  const pendientes = $('#junta-pendiente');
+  pendientes.replaceChildren(crearElemento('option', { value: '' }, r.disponibles?.length ? 'Elige una acción abierta de la bitácora…' : 'No hay más acciones abiertas en la bitácora'), ...(r.disponibles || []).map((d) => crearElemento('option', { value: d.id }, `${d.nombreArea}: ${d.texto.slice(0, 90)}`)));
+  pendientes.disabled = !r.disponibles?.length;
+}
+
+async function agregarCompromisoJunta(evento) {
+  evento.preventDefault();
+  const texto = $('#junta-texto').value.trim();
+  if (texto.length < 3) return aviso('Escribe el compromiso.', 'error');
+  const area = $('#junta-area').value;
+  if (await cambiarCompromisoJunta('POST', '', { texto, area, responsable: $('#junta-quien').value.trim() || responsableSiHay(area) })) {
+    $('#junta-texto').value = '';
+    $('#junta-quien').value = '';
+    aviso('Compromiso agregado a la junta y a la bitácora.', 'ok');
+  }
+}
+
+// Responsable del área si alguien lo asignó; si no, queda vacío (no se inventa un nombre).
+function responsableSiHay(area) {
+  return estado.equipo.areas[area]?.responsable || '';
 }
 
 // ---------- Flujo de caja a 13 semanas ----------
@@ -4134,6 +4214,10 @@ async function iniciar() {
   $('#reales-olvidar').addEventListener('click', async () => { await fetch('/api/datos-reales', { method: 'DELETE' }); pintarDatosReales(null); mensaje($('#reales-mensaje'), 'Análisis olvidado. Los hechos ya registrados siguen en la bitácora.', 'ok'); renderInforme(); });
   $('#empresa-crear').addEventListener('click', crearEmpresaNueva);
   $('#flujo-guardar').addEventListener('click', guardarSaldoFlujo);
+  $('#junta-agregar').addEventListener('submit', agregarCompromisoJunta);
+  $('#junta-pendiente').addEventListener('change', async (e) => {
+    if (e.target.value && await cambiarCompromisoJunta('POST', '', { accionId: e.target.value })) aviso('Acción de la bitácora agregada a la junta.', 'ok');
+  });
   $('#flujo-saldo').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarSaldoFlujo(); } });
   $('#flujo-escenario').addEventListener('click', (e) => {
     const boton = e.target.closest('[data-escenario-flujo]');

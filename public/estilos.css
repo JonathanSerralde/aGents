@@ -512,6 +512,19 @@ input[type="color"] { padding: 2px; }
 .junta-mensaje p { white-space: pre-wrap; font-size: 0.86rem; color: var(--texto-suave); }
 .junta-mensaje .acciones-inline { margin-top: 2px; gap: 8px; }
 
+.bitacora-lista li.junta-compromiso { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+.bitacora-lista li.junta-compromiso.editando { grid-template-columns: minmax(0, 1fr); border-color: var(--cian); }
+.junta-acciones { display: flex; gap: 6px; }
+.junta-edicion { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); align-items: center; }
+.junta-agregar { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); margin-top: 10px; }
+.junta-edicion input, .junta-agregar input, .junta-agregar select { width: 100%; height: auto; margin: 0; padding: 9px 12px; }
+.bitacora-lista .junta-edicion input { width: 100%; height: auto; margin: 0; }
+@media (min-width: 900px) {
+  .junta-edicion { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr) 160px auto auto; }
+  .junta-agregar { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .junta-agregar .junta-pendiente { grid-column: 1 / -1; }
+}
+
 /* ---------- Flujo de caja ---------- */
 .flujo-alerta { --tono: var(--verde); margin-bottom: 14px; padding: 12px 16px; border-radius: 14px; font-weight: 600; background: color-mix(in srgb, var(--tono) 9%, transparent); border: 1px solid color-mix(in srgb, var(--tono) 45%, transparent); box-shadow: inset 3px 0 0 var(--tono); }
 .flujo-alerta.rojo { --tono: var(--rojo); }

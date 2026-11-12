@@ -473,6 +473,14 @@
               <div>
                 <h4>Compromisos</h4>
                 <ul id="junta-compromisos" class="bitacora-lista"></ul>
+                <form id="junta-agregar" class="junta-agregar">
+                  <input id="junta-texto" type="text" maxlength="300" placeholder="Agrega un compromiso propio (ej. Llamar a los cinco clientes que más deben)" aria-label="Compromiso nuevo">
+                  <select id="junta-area" aria-label="Área del compromiso"></select>
+                  <input id="junta-quien" type="text" maxlength="80" placeholder="Responsable (opcional)" aria-label="Responsable">
+                  <button class="boton secundario compacto" type="submit">Agregar</button>
+                  <select id="junta-pendiente" class="junta-pendiente" aria-label="Agregar una acción abierta de la bitácora"></select>
+                </form>
+                <p id="junta-lleno" class="ayuda" hidden>La junta ya tiene el máximo de compromisos. Quita uno para agregar otro: pocos compromisos se cumplen mejor.</p>
               </div>
               <div id="junta-avisos">
                 <h4>Avisa a cada responsable</h4>

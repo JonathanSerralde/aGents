@@ -113,3 +113,51 @@ test('en el servidor los compromisos se fijan al abrir la semana y la siguiente 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('el dueño agrega, corrige y quita compromisos de la junta sin perder la acción en la bitácora', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oficina-junta-'));
+  const servidor = crearServidor(opcionesTemporales(dir, { ahora: () => new Date(2030, 0, 9, 10) }));
+  await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${servidor.address().port}`;
+  const json = (metodo, cuerpo) => ({ method: metodo, headers: { 'content-type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const pendientes = async () => (await (await fetch(`${base}/api/memoria`)).json()).acciones.filter((a) => a.estado === 'pendiente');
+  try {
+    // Sin diagnóstico la junta está vacía, pero el dueño ya puede escribir sus compromisos.
+    assert.equal((await fetch(`${base}/api/junta/compromisos`, json('POST', { texto: 'x', area: 'ventas' }))).status, 422);
+    assert.equal((await fetch(`${base}/api/junta/compromisos`, json('POST', { texto: 'Llamar a clientes', area: 'no-existe' }))).status, 422);
+    const alta = await fetch(`${base}/api/junta/compromisos`, json('POST', { texto: 'Llamar a los cinco clientes que más deben', area: 'ventas', responsable: 'Marco' }));
+    assert.equal(alta.status, 201);
+    const j1 = await alta.json();
+    assert.equal(j1.junta.compromisos.length, 1);
+    const propio = j1.junta.compromisos[0];
+    assert.deepEqual([propio.texto, propio.responsable, propio.vence, propio.nombreArea], ['Llamar a los cinco clientes que más deben', 'Marco', '2030-01-13', 'Ventas']);
+    assert.equal((await pendientes()).length, 1, 'quedó también en la bitácora');
+    assert.match(j1.mensajes[0].texto, /Hola, Marco/);
+
+    // Corregir texto, responsable y fecha cambia la junta y la bitácora.
+    const editado = await (await fetch(`${base}/api/junta/compromisos/${propio.id}`, json('PUT', { texto: 'Llamar a los tres clientes que más deben', responsable: 'Lucía', vence: '2030-01-11' }))).json();
+    assert.deepEqual([editado.junta.compromisos[0].texto, editado.junta.compromisos[0].responsable, editado.junta.compromisos[0].vence], ['Llamar a los tres clientes que más deben', 'Lucía', '2030-01-11']);
+    assert.equal((await pendientes())[0].responsable, 'Lucía');
+    assert.equal((await fetch(`${base}/api/junta/compromisos/${propio.id}`, json('PUT', { texto: '  ' }))).status, 422);
+    assert.equal((await fetch(`${base}/api/junta/compromisos/no-esta`, json('PUT', { texto: 'Otra cosa' }))).status, 404);
+
+    // Quitarlo de la junta lo deja abierto en la bitácora, disponible para volver a sumarlo.
+    const quitado = await (await fetch(`${base}/api/junta/compromisos/${propio.id}`, json('DELETE'))).json();
+    assert.deepEqual(quitado.junta.compromisos, []);
+    assert.equal((await pendientes()).length, 1);
+    assert.equal(quitado.disponibles[0].id, propio.id);
+    const devuelto = await (await fetch(`${base}/api/junta/compromisos`, json('POST', { accionId: propio.id }))).json();
+    assert.equal(devuelto.junta.compromisos[0].id, propio.id);
+    assert.equal((await fetch(`${base}/api/junta/compromisos`, json('POST', { accionId: propio.id }))).status, 422, 'no se repite');
+    assert.equal((await fetch(`${base}/api/junta/compromisos`, json('POST', { accionId: 'no-existe' }))).status, 404);
+
+    // Tope de seis compromisos por semana.
+    for (let i = 2; i <= devuelto.maximo; i++) assert.equal((await fetch(`${base}/api/junta/compromisos`, json('POST', { texto: `Compromiso número ${i}`, area: 'finanzas' }))).status, 201);
+    const lleno = await fetch(`${base}/api/junta/compromisos`, json('POST', { texto: 'Uno de más', area: 'finanzas' }));
+    assert.equal(lleno.status, 422);
+    assert.match((await lleno.json()).errores[0], /hasta 6 compromisos/);
+  } finally {
+    await new Promise((r) => servidor.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

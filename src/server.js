@@ -45,7 +45,7 @@ import { informeOficina } from './informe.js';
 import { compararDiagnosticos, serieDeMadurez, elegirAnterior } from './progreso.js';
 import { crearDatosReales, leerCarpeta, analizarComprobantes, firmaCarpeta } from './datos-reales.js';
 import { proyectarFlujo } from './flujo.js';
-import { crearJuntas, armarJunta, mensajesDe, bloquesJunta } from './junta.js';
+import { crearJuntas, armarJunta, mensajesDe, bloquesJunta, MAX_EN_JUNTA } from './junta.js';
 import { bloquesEntregable, instruccionEntregable, tipoDeEntregable } from './entregable.js';
 import { crearEmpresas } from './empresas.js';
 import { armarPasaporte, bloquesPasaporte } from './pasaporte.js';
@@ -491,7 +491,10 @@ export function crearServidor(opciones = {}) {
       anterior = { semana: previa.semana, compromisos: lista, hechos: lista.filter((c) => c.hecho).length, total: lista.length };
     }
     const junta = { ...propuesta, compromisos: guardada ? conEstado(guardada.compromisos) : [], anterior, hayDiagnostico: Boolean(store.ultimo()) };
-    return { junta, mensajes: mensajesDe(junta, marca.leer().nombre || '') };
+    // Acciones abiertas de la bitácora que no están en la junta: el dueño puede sumarlas.
+    const enJunta = new Set(junta.compromisos.map((c) => c.id));
+    const disponibles = memoria.acciones({ estado: 'pendiente' }).filter((a) => !enJunta.has(a.id)).slice(0, 40).map((a) => ({ id: a.id, texto: a.texto, nombreArea: nombreDe(a.area, propios) }));
+    return { junta, mensajes: mensajesDe(junta, marca.leer().nombre || ''), disponibles, maximo: MAX_EN_JUNTA };
   }
 
   // Avance entre diagnósticos. Sin `id` usa el más reciente; sin `contra` elige el anterior del mismo giro.
@@ -1019,6 +1022,54 @@ export function crearServidor(opciones = {}) {
         return enviarJSON(res, 422, { ok: false, errores: [err.message] });
       }
     }
+    // Compromisos de la junta: el dueño agrega uno propio o uno de la bitácora, lo corrige o lo quita.
+    const compromiso = ruta.match(/^\/api\/junta\/compromisos(?:\/([\w-]+))?$/);
+    if (compromiso && metodo !== 'GET') {
+      const { junta } = juntaActual(); // abre la semana si aún no estaba abierta
+      const guardada = juntas.de(junta.semana) || { creada: relojActual().toISOString(), compromisos: [] };
+      const propios = personalizados.leer().agentes;
+      let cuerpo = {};
+      if (metodo !== 'DELETE') {
+        try { cuerpo = await leerCuerpo(req); } catch (err) { return enviarJSON(res, 400, { ok: false, errores: [err.message] }); }
+      }
+      const id = compromiso[1];
+      if (!id && metodo === 'POST') {
+        if (guardada.compromisos.length >= MAX_EN_JUNTA) return enviarJSON(res, 422, { ok: false, errores: [`La junta admite hasta ${MAX_EN_JUNTA} compromisos: quita uno antes de agregar otro`] });
+        let accion;
+        if (cuerpo.accionId) {
+          accion = memoria.acciones({ estado: 'pendiente' }).find((a) => a.id === cuerpo.accionId);
+          if (!accion) return enviarJSON(res, 404, { ok: false, errores: ['Esa acción ya no está abierta en la bitácora'] });
+        } else {
+          const texto = limpiarTexto(cuerpo.texto).slice(0, 300);
+          const area = String(cuerpo.area || '');
+          if (texto.length < 3) return enviarJSON(res, 422, { ok: false, errores: ['Escribe el compromiso'] });
+          if (!esAreaValida(area, idsPropios())) return enviarJSON(res, 422, { ok: false, errores: ['Elige el área del compromiso'] });
+          const vence = /^\d{4}-\d{2}-\d{2}$/.test(String(cuerpo.vence || '')) ? cuerpo.vence : junta.hasta;
+          accion = memoria.agregarAccion(area, { texto, responsable: limpiarTexto(cuerpo.responsable).slice(0, 80), vence, origen: 'junta' });
+        }
+        if (guardada.compromisos.some((c) => c.id === accion.id)) return enviarJSON(res, 422, { ok: false, errores: ['Ese compromiso ya está en la junta'] });
+        guardada.compromisos.push({ id: accion.id, area: accion.area, nombreArea: nombreDe(accion.area, propios), texto: accion.texto, responsable: accion.responsable || equipo.leer().areas?.[accion.area]?.responsable || '', vence: accion.vence || junta.hasta });
+        juntas.guardar(junta.semana, guardada);
+        return enviarJSON(res, 201, { ok: true, ...juntaActual() });
+      }
+      const actual = id ? guardada.compromisos.find((c) => c.id === id) : null;
+      if (!actual) return enviarJSON(res, 404, { ok: false, errores: ['Ese compromiso no está en la junta de esta semana'] });
+      if (metodo === 'PUT') {
+        if (typeof cuerpo.texto === 'string' && limpiarTexto(cuerpo.texto).length < 3) return enviarJSON(res, 422, { ok: false, errores: ['El compromiso no puede quedar vacío'] });
+        const accion = memoria.editarAccion(id, { texto: typeof cuerpo.texto === 'string' ? limpiarTexto(cuerpo.texto) : undefined, responsable: typeof cuerpo.responsable === 'string' ? limpiarTexto(cuerpo.responsable) : undefined, vence: cuerpo.vence });
+        if (!accion) return enviarJSON(res, 404, { ok: false, errores: ['La acción ya no existe en la bitácora'] });
+        Object.assign(actual, { texto: accion.texto, responsable: accion.responsable || '', vence: accion.vence || junta.hasta });
+        juntas.guardar(junta.semana, guardada);
+        return enviarJSON(res, 200, { ok: true, ...juntaActual() });
+      }
+      if (metodo === 'DELETE') {
+        // Sale de la junta, pero sigue abierta en la bitácora.
+        guardada.compromisos = guardada.compromisos.filter((c) => c.id !== id);
+        juntas.guardar(junta.semana, guardada);
+        return enviarJSON(res, 200, { ok: true, ...juntaActual() });
+      }
+    }
+
     // Junta de la semana: hoja con cifras, decisiones y compromisos, y su versión en Word o PDF.
     if (ruta === '/api/junta' && metodo === 'GET') return enviarJSON(res, 200, juntaActual());
     const hojaJunta = ruta.match(/^\/api\/junta\/reporte\.(docx|html)$/);

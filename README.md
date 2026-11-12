@@ -74,6 +74,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 
 ### Junta semanal
 - **Junta del lunes** (`src/junta.js`, `GET /api/junta`, vista "Junta semanal"): una hoja por semana con tres cifras (dinero y cobranza si hay facturas; madurez y áreas en atención si no), hasta tres decisiones en orden de urgencia con su motivo, y hasta tres compromisos con responsable, repartidos entre áreas. Sin IA. Los compromisos se fijan al abrir la semana y viven en la bitácora; el lunes siguiente la hoja empieza por decir cuáles se cumplieron. Se exporta a Word y PDF.
+- **Compromisos editables:** el dueño agrega uno propio (con área, responsable y fecha), suma una acción abierta de la bitácora, corrige texto, responsable o fecha, o quita uno de la junta (sigue abierto en la bitácora). Máximo seis por semana.
 - **Avisar al equipo sin servidores de terceros:** por cada responsable hay un mensaje ya escrito con "Enviar por WhatsApp" (abre el WhatsApp del propio usuario con `wa.me`; él elige el contacto) y "Copiar". La aplicación no envía nada por su cuenta.
 
 ### Flujo de caja a 13 semanas

@@ -272,6 +272,20 @@ export function crearMemoria(archivo) {
       return this.acciones({ estado: 'pendiente' }).filter((a) => a.vence && a.vence >= h && a.vence <= l).sort((a, b) => a.vence.localeCompare(b.vence));
     },
 
+    // Corrige el texto, el responsable o la fecha de una acción (por ejemplo, desde la junta semanal).
+    editarAccion(id, { texto, responsable, vence } = {}) {
+      if (!ID_VALIDO.test(String(id))) return null;
+      const datos = leerTodo();
+      const a = datos.acciones.find((x) => x.id === id);
+      if (!a) return null;
+      if (typeof texto === 'string' && texto.trim().length >= 3) a.texto = recortar(texto.trim(), 300);
+      if (typeof responsable === 'string') a.responsable = recortar(responsable.trim(), 80);
+      if (vence === null || /^\d{4}-\d{2}-\d{2}$/.test(String(vence ?? ''))) a.vence = vence;
+      a.actualizado = new Date().toISOString();
+      escribir(datos);
+      return a;
+    },
+
     marcar(id, estado) {
       if (!ID_VALIDO.test(String(id))) return null;
       const datos = leerTodo();
