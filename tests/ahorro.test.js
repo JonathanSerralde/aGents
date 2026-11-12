@@ -8,6 +8,7 @@ import { cuerpoAnthropic, enviarLote, resultadosLote, conversar } from '../src/a
 import { bloquesDeSistema, sistemaPlano } from '../src/prompts.js';
 import { crearUso, diaActual } from '../src/uso.js';
 import { sistemaPara } from '../src/prompts.js';
+import { crearPiloto } from '../src/piloto.js';
 import { crearServidor } from '../src/server.js';
 import { opcionesTemporales } from './_servidor.js';
 
@@ -98,6 +99,11 @@ test('lo automático usa el modelo económico y el piloto va por lotes que se co
     assert.equal(llamadas.at(-1).nivel, 'principal');
     assert.equal(llamadas.at(-1).modelo, 'principal-prueba');
     await fetch(`${base}/api/permisos`, json('PUT', { piloto: true }));
+    // Todos los agentes quedan dados de alta el lunes 7:59 del reloj de la prueba (mismo archivo que usa el servidor):
+    // así lo que "toca" no depende de la fecha real en que corre la prueba.
+    const almacen = crearPiloto(join(dir, 'piloto.json'));
+    const alta = new Date(2026, 10, 9, 7, 59);
+    for (const a of (await (await fetch(`${base}/api/piloto`)).json()).agentes) almacen.guardar(a.id, {}, {}, alta);
     const encolados = await servidor.tickPiloto(reloj);
     assert.ok(encolados.includes('finanzas') && encolados.includes('direccion') && encolados.includes('orquestador'));
     const lotes = llamadas.filter((l) => l.lote);

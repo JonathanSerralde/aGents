@@ -8,7 +8,8 @@ export const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'vier
 const INTERVALO_MS = 60 * 1000;
 const REINTENTO_MS = 6 * 60 * 60 * 1000; // tras un intento fallido (sin IA, error), no insistir antes de 6 horas
 
-export function sanitizarProgramacion(entrada, base = {}) {
+// "momento" es cuándo se activa la programación si aún no tiene fecha de activación (por defecto, ahora mismo).
+export function sanitizarProgramacion(entrada, base = {}, momento = new Date()) {
   const e = entrada && typeof entrada === 'object' ? entrada : {};
   const dia = Number(e.diaSemana);
   const hora = Number(e.hora);
@@ -16,7 +17,7 @@ export function sanitizarProgramacion(entrada, base = {}) {
     activa: e.activa === undefined ? (base.activa ?? true) : Boolean(e.activa === true || e.activa === 1 || e.activa === '1' || e.activa === 'true'),
     diaSemana: Number.isInteger(dia) && dia >= 0 && dia <= 6 ? dia : (base.diaSemana ?? 1),
     hora: Number.isInteger(hora) && hora >= 0 && hora <= 23 ? hora : (base.hora ?? 9),
-    activadaEn: base.activadaEn || new Date().toISOString(),
+    activadaEn: base.activadaEn || momento.toISOString(),
     ultimaEjecucion: base.ultimaEjecucion || null,
     ultimoIntento: base.ultimoIntento || null,
     ultimoResultado: base.ultimoResultado || null,
@@ -34,16 +35,27 @@ export function proximaEjecucion(prog, desde) {
   return candidato;
 }
 
+// Desde cuándo se cuenta la próxima corrida: lo más reciente entre la última ejecución y la activación.
+// Así, reactivar una tarea que estuvo en pausa no dispara de golpe la corrida "atrasada".
+export function desdeCuando(prog) {
+  const fechas = [prog.ultimaEjecucion, prog.activadaEn].filter(Boolean).sort();
+  return fechas.at(-1) || null;
+}
+
 export function debeEjecutar(prog, ahora = new Date()) {
   if (!prog.activa) return false;
-  const desde = prog.ultimaEjecucion || prog.activadaEn;
+  const desde = desdeCuando(prog);
   if (!desde) return false;
   if (ahora < proximaEjecucion(prog, desde)) return false;
   if (prog.ultimoIntento && ahora - new Date(prog.ultimoIntento.momento) < REINTENTO_MS) return false;
   return true;
 }
 
-export function crearProgramacion(archivo) {
+// `pausadas`: tareas que empiezan en pausa hasta que el usuario las active (las que gastan IA).
+// Una tarea que nunca se ha guardado cuenta desde el primer arranque (`_inicio`), no desde "ahora" en cada
+// lectura: antes su próxima corrida siempre quedaba en el futuro y no corría nunca.
+export function crearProgramacion(archivo, { pausadas = [] } = {}) {
+  const baseDe = (todo, tarea) => todo[tarea] || { activa: !pausadas.includes(tarea), activadaEn: todo._inicio };
   function leerTodo() {
     if (!existsSync(archivo)) return {};
     try {
@@ -59,25 +71,38 @@ export function crearProgramacion(archivo) {
   }
   return {
     leer(tarea) {
-      const prog = sanitizarProgramacion(null, leerTodo()[tarea] || {});
-      const desde = prog.ultimaEjecucion || prog.activadaEn;
-      return { ...prog, proxima: prog.activa ? proximaEjecucion(prog, desde).toISOString() : null };
+      const todo = leerTodo();
+      const prog = sanitizarProgramacion(null, baseDe(todo, tarea));
+      return { ...prog, proxima: prog.activa ? proximaEjecucion(prog, desdeCuando(prog)).toISOString() : null };
     },
-    guardar(tarea, entrada) {
+    // Sella el primer arranque una sola vez. Lo llama el programador en cada revisión.
+    iniciar(momento = new Date()) {
+      const todo = leerTodo();
+      if (todo._inicio) return todo._inicio;
+      todo._inicio = momento.toISOString();
+      escribir(todo);
+      return todo._inicio;
+    },
+    // "momento" (opcional) sella la activación la primera vez que se guarda; las pruebas lo pasan para no depender del reloj real.
+    guardar(tarea, entrada, momento = new Date()) {
       const datos = leerTodo();
-      datos[tarea] = sanitizarProgramacion(entrada, datos[tarea] || {});
+      const estabaActiva = Boolean(datos[tarea]?.activa);
+      const nueva = sanitizarProgramacion(entrada, baseDe(datos, tarea), momento);
+      // Al activarla (por primera vez o tras una pausa) cuenta desde este momento.
+      if (nueva.activa && !estabaActiva) nueva.activadaEn = momento.toISOString();
+      datos[tarea] = nueva;
       escribir(datos);
       return this.leer(tarea);
     },
     marcarEjecutada(tarea, resultado, momento = new Date()) {
       const datos = leerTodo();
-      datos[tarea] = { ...sanitizarProgramacion(null, datos[tarea] || {}), ultimaEjecucion: momento.toISOString(), ultimoIntento: null, ultimoResultado: resultado || null };
+      datos[tarea] = { ...sanitizarProgramacion(null, baseDe(datos, tarea), momento), ultimaEjecucion: momento.toISOString(), ultimoIntento: null, ultimoResultado: resultado || null };
       escribir(datos);
       return this.leer(tarea);
     },
     marcarIntento(tarea, error, momento = new Date()) {
       const datos = leerTodo();
-      datos[tarea] = { ...sanitizarProgramacion(null, datos[tarea] || {}), ultimoIntento: { momento: momento.toISOString(), error: String(error || '').slice(0, 300) } };
+      datos[tarea] = { ...sanitizarProgramacion(null, baseDe(datos, tarea), momento), ultimoIntento: { momento: momento.toISOString(), error: String(error || '').slice(0, 300) } };
       escribir(datos);
       return this.leer(tarea);
     },
@@ -90,6 +115,7 @@ export function crearProgramador({ programacion, tareas, ahora = () => new Date(
   const enCurso = new Set();
 
   async function tick() {
+    programacion.iniciar?.(ahora());
     for (const [nombre, tarea] of Object.entries(tareas)) {
       if (enCurso.has(nombre)) continue;
       const prog = programacion.leer(nombre);

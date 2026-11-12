@@ -1,5 +1,6 @@
 // Configuración que el usuario edita desde la pantalla "Configuración": proveedor de IA, clave y modelo.
 // Vive en data/config.json, en texto plano dentro del equipo. Tiene prioridad sobre .env cuando trae valores.
+import { proteger, revelar, estaProtegida } from './boveda.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -79,15 +80,44 @@ export function enmascarar(cfg) {
   };
 }
 
-export function crearConfiguracion(archivo) {
+// Con `proteger`, las claves se guardan cifradas (boveda.js) y se descifran al leer; el resto del programa
+// siempre las ve en claro. Una clave que ya estaba en texto plano se cifra la próxima vez que se guarde algo.
+export function crearConfiguracion(archivo, { proteger: protegerClaves = false } = {}) {
+  const CLAVES = ['anthropicKey', 'openaiKey'];
+  function escribir(cfg, { borrar = false } = {}) {
+    const enDisco = { ...cfg };
+    if (protegerClaves) {
+      let previo = {};
+      try { previo = JSON.parse(readFileSync(archivo, 'utf8')); } catch { previo = {}; }
+      for (const campo of CLAVES) {
+        // Si una clave cifrada no se pudo leer (fallo pasajero), se conserva tal cual en disco en vez de borrarla.
+        if (!cfg[campo] && !borrar && estaProtegida(previo?.[campo])) enDisco[campo] = previo[campo];
+        else enDisco[campo] = proteger(cfg[campo]);
+      }
+    }
+    mkdirSync(dirname(archivo), { recursive: true });
+    writeFileSync(archivo, JSON.stringify(enDisco, null, 2), 'utf8');
+  }
   return {
     leer() {
       if (!existsSync(archivo)) return sanitizarConfiguracion(null);
       try {
-        return sanitizarConfiguracion(JSON.parse(readFileSync(archivo, 'utf8')));
+        const crudo = JSON.parse(readFileSync(archivo, 'utf8'));
+        for (const campo of CLAVES) if (estaProtegida(crudo?.[campo])) crudo[campo] = revelar(crudo[campo]);
+        return sanitizarConfiguracion(crudo);
       } catch {
         return sanitizarConfiguracion(null);
       }
+    },
+
+    // Cifra en disco una clave que estaba en texto plano. Devuelve true si cambió algo.
+    protegerExistentes() {
+      if (!protegerClaves || !existsSync(archivo)) return false;
+      let crudo;
+      try { crudo = JSON.parse(readFileSync(archivo, 'utf8')); } catch { return false; }
+      if (!CLAVES.some((c) => crudo?.[c] && !estaProtegida(crudo[c]))) return false;
+      escribir(this.leer());
+      return true;
     },
 
     // Una clave enmascarada o vacía en la entrada conserva la que ya estaba guardada; los permisos que no vienen, también.
@@ -98,8 +128,7 @@ export function crearConfiguracion(archivo) {
         if (!nueva[campo] || nueva[campo].startsWith('••••')) nueva[campo] = actual[campo];
       }
       nueva.permisos = sanitizarPermisos(entrada?.permisos, actual.permisos);
-      mkdirSync(dirname(archivo), { recursive: true });
-      writeFileSync(archivo, JSON.stringify(nueva, null, 2), 'utf8');
+      escribir(nueva);
       return nueva;
     },
 
@@ -107,15 +136,13 @@ export function crearConfiguracion(archivo) {
     guardarPermisos(cambios) {
       const actual = this.leer();
       const cfg = { ...actual, permisos: sanitizarPermisos(cambios, actual.permisos) };
-      mkdirSync(dirname(archivo), { recursive: true });
-      writeFileSync(archivo, JSON.stringify(cfg, null, 2), 'utf8');
+      escribir(cfg);
       return cfg.permisos;
     },
 
     borrarClaves() {
       const cfg = { ...this.leer(), anthropicKey: '', openaiKey: '', proveedor: 'ninguno' };
-      mkdirSync(dirname(archivo), { recursive: true });
-      writeFileSync(archivo, JSON.stringify(cfg, null, 2), 'utf8');
+      escribir(cfg, { borrar: true });
       return cfg;
     },
   };

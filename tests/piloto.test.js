@@ -76,6 +76,10 @@ test('con el piloto encendido los agentes hacen su revisión solos, se coordinan
     assert.ok(estado0.agentes.length > 40);
     assert.equal(estado0.agentes.find((a) => a.id === 'finanzas').activo, true);
     assert.equal(estado0.agentes.find((a) => a.id === 'orquestador').frecuencia, 'semanal');
+    // Todos los agentes quedan dados de alta con el reloj de la prueba (lunes 7:59), en el mismo archivo que usa
+    // el servidor: así lo que "toca" no depende de la fecha real en que corre la prueba.
+    const almacen = crearPiloto(join(dir, 'piloto.json'));
+    for (const a of estado0.agentes) almacen.guardar(a.id, {}, {}, reloj);
     // Apagado: aunque toque, nadie corre.
     reloj = new Date(2026, 10, 9, 8, 5);
     assert.deepEqual(await servidor.tickPiloto(reloj), []);

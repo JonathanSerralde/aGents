@@ -75,26 +75,43 @@ export function crearPiloto(archivo) {
   }
   return {
     // Configuración efectiva de un agente (guardada sobre defectos), con su próxima corrida.
-    de(id, propios = {}) {
-      const guardado = leerTodo()[id];
+    // "momento" (opcional) es desde cuándo cuenta un agente que aún no tiene nada guardado (por defecto, ahora mismo).
+    de(id, propios = {}, momento = new Date()) {
+      const todo = leerTodo();
+      const guardado = todo[id];
+      // Un agente que nunca se ha guardado cuenta desde que se encendió el piloto, no desde "ahora" en cada lectura
+      // (antes su próxima revisión siempre quedaba en el futuro y no corría nunca).
+      if (todo._encendido && momento.toISOString() > todo._encendido) momento = new Date(todo._encendido);
       // Los defectos dan la configuración; lo guardado aporta además su historial (creada, última corrida, resultado).
       const base = { ...defectosDe(id, propios), creada: guardado?.creada, ultimaEjecucion: guardado?.ultimaEjecucion || null, ultimoResultado: guardado?.ultimoResultado || null };
-      const cfg = guardado ? sanitizarPiloto(guardado, base) : sanitizarPiloto(null, { ...base, creada: new Date().toISOString() });
+      const cfg = guardado ? sanitizarPiloto(guardado, base) : sanitizarPiloto(null, { ...base, creada: momento.toISOString() });
       return { id, nombre: nombreDe(id, propios), tipo: tipoDe(id, propios), ...cfg, tareaEfectiva: cfg.tarea || tareaDe(id, propios), proxima: cfg.activo ? proximaCorrida(cfg, cfg.ultimaEjecucion || cfg.creada).toISOString() : null };
     },
-    listar(ids, propios = {}) {
-      return ids.map((id) => this.de(id, propios));
-    },
-    guardar(id, cambios, propios = {}) {
+    // Marca el momento en que el usuario enciende el piloto: desde ahí cuentan los agentes sin configuración propia.
+    encender(momento = new Date()) {
       const datos = leerTodo();
-      const actual = this.de(id, propios);
+      datos._encendido = momento.toISOString();
+      escribir(datos);
+      return datos._encendido;
+    },
+    // Para instalaciones que ya tenían el piloto encendido antes de existir la marca.
+    asegurarEncendido(momento = new Date()) {
+      return leerTodo()._encendido || this.encender(momento);
+    },
+    listar(ids, propios = {}, momento = new Date()) {
+      return ids.map((id) => this.de(id, propios, momento));
+    },
+    // "momento" (opcional) sella la fecha de alta la primera vez que se guarda; las pruebas lo pasan para no depender del reloj real.
+    guardar(id, cambios, propios = {}, momento = new Date()) {
+      const datos = leerTodo();
+      const actual = this.de(id, propios, momento);
       datos[id] = sanitizarPiloto(cambios, actual);
       escribir(datos);
       return this.de(id, propios);
     },
     // Agentes activos a los que ya les tocó, en orden de la corrida más atrasada.
     vencidos(ids, ahora = new Date(), propios = {}) {
-      return this.listar(ids, propios)
+      return this.listar(ids, propios, ahora)
         .filter((p) => p.activo && new Date(p.proxima) <= ahora)
         .sort((a, b) => a.proxima.localeCompare(b.proxima));
     },

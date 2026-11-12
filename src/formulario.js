@@ -29,7 +29,7 @@ export const CAMPOS = [
   { id: 'confianza', seccion: 'contacto', etiqueta: '¿Qué tan seguro está de sus respuestas?', tipo: 'seleccion', opciones: ['alto', 'medio', 'bajo'], obligatorio: true },
 
   // 1. Identificación
-  { id: 'giro', seccion: 'identificacion', etiqueta: 'Giro principal', tipo: 'seleccion', opciones: ['comercio', 'servicios', 'manufactura', 'construccion', 'alimentos', 'agencia', 'educacion', 'salud', 'otro'], obligatorio: true },
+  { id: 'giro', seccion: 'identificacion', etiqueta: 'Giro principal', tipo: 'seleccion', opciones: ['comercio', 'servicios', 'manufactura', 'construccion', 'alimentos', 'agencia', 'educacion', 'salud', 'transporte', 'software', 'turismo', 'agro', 'servicios_personales', 'automotriz', 'inmobiliario', 'otro'], obligatorio: true },
   { id: 'empleados', seccion: 'identificacion', etiqueta: 'Número de empleados', tipo: 'seleccion', opciones: ['1-5', '6-10', '11-30', '31-50', '51-250', 'mas_250'], obligatorio: true },
   { id: 'ventas_anuales', seccion: 'identificacion', etiqueta: 'Ventas anuales aproximadas', tipo: 'seleccion', opciones: ['menos_1m', '1m-5m', '5m-20m', 'mas_20m', 'no_se'], obligatorio: true },
   { id: 'antiguedad_anios', seccion: 'identificacion', etiqueta: 'Antigüedad (años)', tipo: 'numero', min: 0, max: 200, obligatorio: true },
@@ -122,6 +122,20 @@ export const CAMPOS = [
   { id: 'aviso_cofepris', seccion: 'profundo', distrito: 'fiscal', giros: ['salud'], etiqueta: 'Aviso de funcionamiento y responsable sanitario ante COFEPRIS', tipo: 'seleccion', opciones: ['si', 'en_tramite', 'no'] },
   { id: 'obras_activas', seccion: 'profundo', distrito: 'finanzas', giros: ['construccion'], etiqueta: 'Obras activas', tipo: 'numero', min: 0, max: 1000 },
   { id: 'dias_cobro_estimaciones', seccion: 'profundo', distrito: 'finanzas', giros: ['construccion'], etiqueta: 'Días promedio para cobrar estimaciones', tipo: 'numero', min: 0, max: 1000 },
+  { id: 'viajes_vacios_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['transporte'], etiqueta: 'Viajes de regreso sin carga (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'combustible_pct', seccion: 'profundo', distrito: 'finanzas', giros: ['transporte'], etiqueta: 'Gasto en combustible sobre el ingreso (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'ingreso_recurrente_software_pct', seccion: 'profundo', distrito: 'ventas', giros: ['software'], etiqueta: 'Ingreso recurrente (suscripciones, pólizas o mantenimiento) sobre el total (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'cancelacion_anual_pct', seccion: 'profundo', distrito: 'ventas', giros: ['software'], etiqueta: 'Clientes que cancelan o no renuevan al año (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'ocupacion_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['turismo'], etiqueta: 'Ocupación promedio del año (habitaciones o fechas disponibles) (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'reservas_directas_pct', seccion: 'profundo', distrito: 'ventas', giros: ['turismo'], etiqueta: 'Reservas directas, sin plataformas ni intermediarios (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'venta_intermediario_pct', seccion: 'profundo', distrito: 'ventas', giros: ['agro'], etiqueta: 'Producción que vende a intermediarios o coyotes (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'perdida_produccion_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['agro'], etiqueta: 'Producción que se pierde (cosecha, poscosecha o mortandad) (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'clientes_regresan_pct', seccion: 'profundo', distrito: 'ventas', giros: ['servicios_personales'], etiqueta: 'Clientes que regresan o renuevan su membresía (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'ocupacion_agenda_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['servicios_personales'], etiqueta: 'Agenda o cupo ocupado en una semana normal (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'retrabajos_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['automotriz'], etiqueta: 'Trabajos que regresan por garantía o reclamo (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'entregas_tarde_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['automotriz'], etiqueta: 'Vehículos o pedidos entregados después de la fecha prometida (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'desocupacion_pct', seccion: 'profundo', distrito: 'operaciones', giros: ['inmobiliario'], etiqueta: 'Inmuebles en cartera o administrados sin ocupar o sin cerrar hace más de tres meses (%)', tipo: 'numero', min: 0, max: 100 },
+  { id: 'renta_morosa_pct', seccion: 'profundo', distrito: 'finanzas', giros: ['inmobiliario'], etiqueta: 'Rentas o comisiones por cobrar con atraso (%)', tipo: 'numero', min: 0, max: 100 },
 
   // 12. Cualitativo
   { id: 'preocupacion', seccion: 'cualitativo', etiqueta: 'Su principal preocupación hoy', tipo: 'texto' },

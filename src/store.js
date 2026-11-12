@@ -1,5 +1,5 @@
 // Almacenamiento local: un archivo JSON por diagnóstico dentro de data/diagnosticos/.
-import { mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -22,6 +22,15 @@ export function crearStore(dir) {
       const ruta = join(dir, `${id}.json`);
       if (!existsSync(ruta)) return null;
       return JSON.parse(readFileSync(ruta, 'utf8'));
+    },
+
+    // Borra un diagnóstico del historial. Devuelve false si no existe.
+    borrar(id) {
+      if (!UUID.test(id)) return false;
+      const ruta = join(dir, `${id}.json`);
+      if (!existsSync(ruta)) return false;
+      rmSync(ruta);
+      return true;
     },
 
     // El diagnóstico más reciente completo, o null si no hay ninguno.

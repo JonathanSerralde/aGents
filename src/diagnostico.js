@@ -34,6 +34,24 @@ const DISTRITOS = {
       : d.costo_alimentos_pct > 35 ? regla('amarillo', 'Costo de alimentos y bebidas entre 35% y 40% de la venta.',
         'Revisar los diez platillos más vendidos: gramaje, proveedor y precio.')
       : null,
+    (d) => d.dias_cobro_estimaciones === undefined ? null
+      : d.dias_cobro_estimaciones > 90 ? regla('rojo', 'Más de 90 días para cobrar estimaciones: la constructora financia la obra del cliente.',
+        'Pactar anticipo y estimaciones quincenales en cada contrato y no arrancar frentes nuevos sin cobrar la estimación anterior.')
+      : d.dias_cobro_estimaciones > 45 ? regla('amarillo', 'Entre 45 y 90 días para cobrar estimaciones.',
+        'Asignar un responsable de ingresar y dar seguimiento a cada estimación la misma semana en que se genera.')
+      : null,
+    (d) => d.combustible_pct === undefined ? null
+      : d.combustible_pct > 45 ? regla('rojo', 'El combustible se lleva más de 45% del ingreso: la tarifa no cubre la ruta.',
+        'Costear cada ruta (combustible, casetas, operador, mantenimiento) y renegociar o dejar las que no dejan margen.')
+      : d.combustible_pct > 35 ? regla('amarillo', 'Combustible entre 35% y 45% del ingreso.',
+        'Medir el rendimiento en kilómetros por litro de cada unidad y operador, y pactar ajuste de tarifa por combustible.')
+      : null,
+    (d) => d.renta_morosa_pct === undefined ? null
+      : d.renta_morosa_pct > 15 ? regla('rojo', 'Más de 15% de las rentas o comisiones se cobra con atraso.',
+        'Listar cada adeudo con su antigüedad, cobrar esta semana los más viejos y exigir garantía (fiador, póliza jurídica o depósito) en contratos nuevos.')
+      : d.renta_morosa_pct > 5 ? regla('amarillo', 'Entre 5% y 15% de las rentas o comisiones se cobra con atraso.',
+        'Enviar recordatorio antes del vencimiento y aplicar la pena por atraso pactada en el contrato.')
+      : null,
   ],
 
   ventas: [
@@ -64,6 +82,36 @@ const DISTRITOS = {
         'Montar la alerta temprana (faltas, calificaciones, pagos) y llamar a cada alumno en riesgo antes de la reinscripción.')
       : d.retencion_alumnos_pct < 85 ? regla('amarillo', 'Retención de alumnos entre 70% y 85%.',
         'Encuestar a quienes no se reinscribieron y corregir las dos causas principales.')
+      : null,
+    (d) => d.ingreso_recurrente_software_pct === undefined ? null
+      : d.ingreso_recurrente_software_pct < 30 ? regla('rojo', 'Menos de 30% de ingreso recurrente: cada mes se empieza a vender desde cero.',
+        'Cobrar póliza de mantenimiento o suscripción mensual a los clientes actuales antes de vender proyectos nuevos.')
+      : d.ingreso_recurrente_software_pct < 60 ? regla('amarillo', 'Ingreso recurrente entre 30% y 60%.',
+        'Empaquetar soporte, hospedaje y mejoras en un plan mensual y ofrecerlo en cada proyecto que se entregue.')
+      : null,
+    (d) => d.cancelacion_anual_pct === undefined ? null
+      : d.cancelacion_anual_pct > 30 ? regla('rojo', 'Más de 30% de los clientes cancela o no renueva al año.',
+        'Llamar a los clientes que cancelaron en los últimos seis meses, corregir las dos causas principales y revisar el uso de cada cuenta cada mes.')
+      : d.cancelacion_anual_pct > 15 ? regla('amarillo', 'Entre 15% y 30% de los clientes cancela o no renueva al año.',
+        'Dar seguimiento a las cuentas con poco uso y contactar a cada cliente 60 días antes de su renovación.')
+      : null,
+    (d) => d.reservas_directas_pct === undefined ? null
+      : d.reservas_directas_pct < 20 ? regla('rojo', 'Menos de 20% de reservas directas: el negocio depende de las plataformas y de sus comisiones.',
+        'Abrir un canal de reserva directa (WhatsApp, sitio propio o teléfono) y dar un beneficio a quien reserve directo o repita.')
+      : d.reservas_directas_pct < 40 ? regla('amarillo', 'Reservas directas entre 20% y 40%.',
+        'Guardar el contacto de cada huésped o cliente e invitarlo a reservar directo la próxima vez.')
+      : null,
+    (d) => d.venta_intermediario_pct === undefined ? null
+      : d.venta_intermediario_pct > 80 ? regla('rojo', 'Más de 80% de la producción se vende a intermediarios: el precio lo pone otro.',
+        'Buscar al menos un comprador directo o por contrato (empacadora, tienda, restaurante, industria) para una parte de la producción.')
+      : d.venta_intermediario_pct > 50 ? regla('amarillo', 'Entre 50% y 80% de la producción se vende a intermediarios.',
+        'Comparar el precio del intermediario contra el de referencia del mercado y vender en grupo con otros productores.')
+      : null,
+    (d) => d.clientes_regresan_pct === undefined ? null
+      : d.clientes_regresan_pct < 40 ? regla('rojo', 'Menos de 40% de los clientes regresa o renueva.',
+        'Agendar la siguiente cita antes de que el cliente se vaya y contactar por WhatsApp a quienes no han vuelto en dos meses.')
+      : d.clientes_regresan_pct < 60 ? regla('amarillo', 'Entre 40% y 60% de los clientes regresa o renueva.',
+        'Ofrecer paquetes o membresías y enviar recordatorios de la siguiente visita.')
       : null,
   ],
 
@@ -136,6 +184,48 @@ const DISTRITOS = {
     (d) => d.antiguedad_maquinaria !== undefined && d.antiguedad_maquinaria > 15
       ? regla('amarillo', 'Maquinaria con más de 15 años de antigüedad.',
         'Presupuestar el mantenimiento o reemplazo de los equipos más críticos.') : null,
+    (d) => d.viajes_vacios_pct === undefined ? null
+      : d.viajes_vacios_pct > 40 ? regla('rojo', 'Más de 40% de los viajes regresa sin carga.',
+        'Pactar carga de retorno en las rutas principales (clientes de destino, bolsas de carga o alianzas con otros transportistas) antes de aceptar más viajes de ida.')
+      : d.viajes_vacios_pct > 25 ? regla('amarillo', 'Entre 25% y 40% de los viajes regresa sin carga.',
+        'Registrar los kilómetros en vacío por ruta y cotizar el viaje redondo en las que no tienen retorno.')
+      : null,
+    (d) => d.ocupacion_pct === undefined ? null
+      : d.ocupacion_pct < 40 ? regla('rojo', 'Ocupación promedio menor a 40%.',
+        'Revisar tarifas por temporada, fotos y reseñas en los canales de venta, y armar una oferta para entre semana y temporada baja.')
+      : d.ocupacion_pct < 55 ? regla('amarillo', 'Ocupación promedio entre 40% y 55%.',
+        'Identificar los días y meses más flojos y buscar grupos, eventos o convenios con empresas para llenarlos.')
+      : null,
+    (d) => d.perdida_produccion_pct === undefined ? null
+      : d.perdida_produccion_pct > 20 ? regla('rojo', 'Se pierde más de 20% de la producción.',
+        'Medir en qué etapa se pierde (campo, cosecha, almacén, transporte o sanidad) y atacar primero la causa mayor.')
+      : d.perdida_produccion_pct > 10 ? regla('amarillo', 'Se pierde entre 10% y 20% de la producción.',
+        'Registrar la pérdida por causa en cada ciclo y fijar una meta de reducción.')
+      : null,
+    (d) => d.ocupacion_agenda_pct === undefined ? null
+      : d.ocupacion_agenda_pct < 40 ? regla('rojo', 'Menos de 40% de la agenda o del cupo ocupado.',
+        'Concentrar horarios y personal en las horas con demanda y lanzar una promoción solo para las horas vacías.')
+      : d.ocupacion_agenda_pct < 60 ? regla('amarillo', 'Agenda o cupo ocupado entre 40% y 60%.',
+        'Confirmar citas un día antes y usar lista de espera para llenar los huecos.')
+      : null,
+    (d) => d.retrabajos_pct === undefined ? null
+      : d.retrabajos_pct > 10 ? regla('rojo', 'Más de 10% de los trabajos regresa por garantía o reclamo.',
+        'Registrar cada retrabajo con su causa y técnico, y revisar cada vehículo con lista de verificación antes de entregarlo.')
+      : d.retrabajos_pct > 5 ? regla('amarillo', 'Entre 5% y 10% de los trabajos regresa por garantía o reclamo.',
+        'Revisar las causas más repetidas y capacitar o cambiar de proveedor de refacciones según el caso.')
+      : null,
+    (d) => d.entregas_tarde_pct === undefined ? null
+      : d.entregas_tarde_pct > 30 ? regla('rojo', 'Más de 30% de las entregas sale después de la fecha prometida.',
+        'Prometer fecha solo con diagnóstico y refacciones confirmadas, y avisar al cliente el mismo día en que cambie.')
+      : d.entregas_tarde_pct > 15 ? regla('amarillo', 'Entre 15% y 30% de las entregas sale después de la fecha prometida.',
+        'Llevar un tablero diario de órdenes abiertas con fecha prometida y responsable.')
+      : null,
+    (d) => d.desocupacion_pct === undefined ? null
+      : d.desocupacion_pct > 20 ? regla('rojo', 'Más de 20% de los inmuebles lleva más de tres meses sin ocuparse o sin cerrarse.',
+        'Revisar precio contra el mercado de la zona, mejorar fotos y anuncio, y depurar la cartera de las propiedades fuera de precio.')
+      : d.desocupacion_pct > 10 ? regla('amarillo', 'Entre 10% y 20% de los inmuebles lleva más de tres meses sin ocuparse o sin cerrarse.',
+        'Dar a cada propietario un reporte mensual de visitas y ofertas con una recomendación de precio.')
+      : null,
   ],
 
   rh: [

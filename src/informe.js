@@ -4,16 +4,17 @@
 import { NOMBRES_DISTRITOS } from './diagnostico.js';
 import { nombreDe } from './jerarquia.js';
 import { bloquesSituacion } from './situacion.js';
+import { resumenDatosReales } from './datos-reales.js';
 
 const ETIQUETA = { verde: 'bien', amarillo: 'por revisar', rojo: 'en atención', sin_datos: 'sin datos' };
 const fecha = (iso) => new Date(iso || Date.now()).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, situacion = null, ahora = new Date() }) {
+export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, situacion = null, progreso = null, datosReales = null, ahora = new Date() }) {
   const r = diagnostico?.resultado;
   const b = [];
   const push = (tipo, texto) => b.push({ tipo, texto });
   const responsable = (id) => equipo?.areas?.[id]?.responsable || 'el dueño';
-  const resumen = { rojos: [], amarillos: [], verdes: [], cruzados: 0, vencidas: 0, porVencer: 0, abiertas: 0, porArea: {}, siguientePaso: '', sector: apoyo?.sectores || [] };
+  const resumen = { rojos: [], amarillos: [], verdes: [], cruzados: 0, vencidas: 0, porVencer: 0, abiertas: 0, porArea: {}, siguientePaso: '', avance: '', datosReales: '', sector: (apoyo?.sectores || []).map((id) => apoyo.nombresSectores?.[id] || id) };
 
   push('titulo', `Informe del Orquestador — ${marca?.nombre || 'Tu negocio'}`);
   push('parrafo', `Generado el ${fecha(ahora.toISOString())} con reglas locales, sin IA. ${diagnostico ? `Último diagnóstico: ${fecha(diagnostico.creado)}.` : 'Todavía no hay diagnóstico.'}`);
@@ -34,6 +35,22 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
     if (r.crecimiento?.bloqueos?.length) push('parrafo', `Crecer ahora sería arriesgado: ${r.crecimiento.bloqueos.join(', ')} en atención.`);
   } else {
     push('parrafo', 'Sin diagnóstico: haz el primero para que el Orquestador tenga con qué trabajar.');
+  }
+
+  // Avance contra el diagnóstico anterior (src/progreso.js): la evidencia de que el negocio se movió.
+  if (progreso) {
+    resumen.avance = progreso.resumen;
+    push('subtitulo', 'Avance desde el diagnóstico anterior');
+    push('parrafo', `Comparado con el diagnóstico del ${fecha(progreso.anterior.creado)}. ${progreso.resumen}`);
+    for (const a of progreso.acciones.resueltas.slice(0, 8)) push('vineta', `Ya no hace falta: ${a.accion} (${a.nombre}).`);
+  }
+
+  // Datos reales (src/datos-reales.js): lo que dicen las facturas, no solo lo que contestó el dueño.
+  if (datosReales) {
+    resumen.datosReales = resumenDatosReales(datosReales);
+    push('subtitulo', 'Datos reales (facturas y ventas)');
+    push('parrafo', resumen.datosReales);
+    for (const h of datosReales.hallazgos || []) push('vineta', `${NOMBRES_DISTRITOS[h.area] || h.area} (${ETIQUETA[h.color] || h.color}): ${h.texto}`);
   }
 
   push('subtitulo', 'Acciones de los agentes');

@@ -11,6 +11,9 @@ IMagenes/
 /*.png
 /*.webp
 
+# Maqueta de referencia del dueño (lleva su marca): no es parte del proyecto
+/agents_3d_*.html
+
 # Paquetes construidos por instalador/construir.ps1 y construir-mac.mjs, y Node descargado para macOS
 dist/
 instalador/cache/

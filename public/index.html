@@ -3,22 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>aGents · Diagnóstico</title>
+  <title>aGents · Oficina de agentes</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2325e2ff'/%3E%3Cstop offset='.6' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e24bf2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M16 7l9 5-9 5-9-5zM7 17l9 5 9-5' fill='none' stroke='%230a0626' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
+  <div class="fondo-vivo" aria-hidden="true"></div>
   <div class="app">
     <aside class="menu">
       <div class="menu-marca">
-        <svg class="marca-icono" viewBox="0 0 24 24" fill="none" stroke="url(#gradiente-marca)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <defs>
-            <linearGradient id="gradiente-marca" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#3fd3ff"/>
-              <stop offset="1" stop-color="#8b6cff"/>
-            </linearGradient>
-          </defs>
-          <path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/>
-        </svg>
+        <span class="marca-icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".55"/>
+          </svg>
+        </span>
         <div>
           <p class="menu-titulo">aGents</p>
           <p class="menu-subtitulo">Oficina de agentes</p>
@@ -26,30 +24,40 @@
       </div>
 
       <nav class="menu-nav" aria-label="Principal">
+        <p class="menu-grupo">Tu negocio</p>
         <button class="menu-item activo" type="button" data-vista="dashboard">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"/><path d="M9 20v-6h6v6"/></svg>
-          <span>Dashboard</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l4-2v13M10 20V4l4 2v14M16 20v-9l4-2v11M2 20h20"/></svg>
+          <span>Ciudad</span>
         </button>
         <button class="menu-item" type="button" data-vista="asistente">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M9 11h6M9 15h6"/></svg>
           <span>Diagnóstico</span>
         </button>
+        <button class="menu-item" type="button" data-vista="reportes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
+          <span>Reportes</span>
+        </button>
+
+        <p class="menu-grupo">Tus agentes</p>
+        <button class="menu-item" type="button" data-vista="red">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="1.8"/><circle cx="19.5" cy="6" r="1.8"/><circle cx="4.5" cy="18" r="1.8"/><circle cx="19.5" cy="18" r="1.8"/><path d="M6 7l4 3.4M18 7l-4 3.4M6 17l4-3.4M18 17l-4-3.4"/></svg>
+          <span>Red de agentes</span>
+        </button>
         <button class="menu-item" type="button" data-vista="agentes">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5 6.5-5s5.7 1.5 6.5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.2 1.8 4.8 4.5"/></svg>
           <span>Agentes</span>
-        </button>
-        <button class="menu-item" type="button" data-vista="campanas">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>
-          <span>Campañas</span>
+          <span id="menu-agentes-cuenta" class="menu-cuenta" hidden></span>
         </button>
         <button class="menu-item" type="button" data-vista="actividad">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-6 4 12 3-8 2 2h3"/></svg>
           <span>Actividad</span>
         </button>
-        <button class="menu-item" type="button" data-vista="reportes">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
-          <span>Reportes</span>
+        <button class="menu-item" type="button" data-vista="campanas">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>
+          <span>Campañas</span>
         </button>
+
+        <p class="menu-grupo">Sistema</p>
         <button class="menu-item" type="button" data-vista="configuracion">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
           <span>Configuración</span>
@@ -57,23 +65,26 @@
       </nav>
 
       <div class="menu-pie">
-        <span id="estado" class="chip">Conectando…</span>
-        <p>Todo se queda en tu equipo.</p>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <p>Todo se queda en tu equipo. Sin cuentas ni nube.</p>
       </div>
     </aside>
 
     <div class="principal">
       <header class="cabecera">
         <div class="bienvenida">
-          <h1>Bienvenido a <span class="acento">aGents</span></h1>
-          <p>Tu equipo de agentes de IA para diagnosticar, analizar y fortalecer tu negocio.</p>
+          <h1 id="titulo-vista">Ciudad de agentes</h1>
+          <p id="subtitulo-vista">El estado de tu negocio, área por área.</p>
         </div>
-        <div class="usuario">
-          <img id="logo" class="logo" alt="" hidden>
-          <div>
-            <p id="marca-nombre" class="usuario-nombre">Tu negocio</p>
-            <p id="ia-estado" class="usuario-rol">Instalación local · sin cuentas</p>
-            <p id="trabajando" class="trabajando" hidden aria-live="polite"></p>
+        <div class="cabecera-estado">
+          <p id="trabajando" class="trabajando" hidden aria-live="polite"></p>
+          <span id="estado" class="chip">Conectando…</span>
+          <div class="usuario">
+            <img id="logo" class="logo" alt="" hidden>
+            <div>
+              <p id="marca-nombre" class="usuario-nombre">Tu negocio</p>
+              <p id="ia-estado" class="usuario-rol">Instalación local · sin cuentas</p>
+            </div>
           </div>
         </div>
       </header>
@@ -112,45 +123,84 @@
           </section>
 
           <div id="dashboard-vacio" class="tarjeta vacio-card">
-            <p class="etiqueta-seccion">Dashboard</p>
-            <h2>Aún no hay un diagnóstico</h2>
-            <p class="subtitulo">Responde el asistente guiado (unos 15 minutos) y aquí verás tu ciudad de agentes, el semáforo por área y el plan de acción.</p>
-            <div class="acciones-inline">
-              <button id="vacio-empezar" class="boton" type="button">Empezar diagnóstico</button>
+            <div class="orbe" aria-hidden="true"><span class="orbe-nucleo"></span><span class="orbe-anillo"></span><span class="orbe-anillo dos"></span></div>
+            <div class="vacio-texto">
+              <h2>Tu ciudad aún no existe</h2>
+              <p class="subtitulo">Responde el diagnóstico guiado (unos 15 minutos). Con tus respuestas se levanta una ciudad en 3D donde cada edificio es un área de tu negocio, con su semáforo y su plan de acción.</p>
+              <div class="acciones-inline">
+                <button id="vacio-empezar" class="boton" type="button">Empezar diagnóstico</button>
+              </div>
             </div>
           </div>
 
           <section id="vista-resultados" hidden>
-          <div class="kpis">
-            <div class="kpi">
-              <span class="kpi-icono" data-icono="layers" aria-hidden="true"></span>
-              <div class="kpi-texto"><span class="kpi-etiqueta">Diagnósticos guardados</span><span id="kpi-guardados" class="kpi-valor">0</span></div>
-            </div>
-            <div class="kpi">
-              <span class="kpi-icono" data-icono="check" aria-hidden="true"></span>
-              <div class="kpi-texto"><span class="kpi-etiqueta">Áreas evaluadas</span><span id="kpi-evaluadas" class="kpi-valor">0</span></div>
-            </div>
-            <div class="kpi">
-              <span class="kpi-icono" data-icono="signal" aria-hidden="true"></span>
-              <div class="kpi-texto"><span class="kpi-etiqueta">Acciones en plan</span><span id="kpi-acciones" class="kpi-valor">0</span></div>
-            </div>
-            <div class="kpi">
-              <span class="kpi-icono" data-icono="chart" aria-hidden="true"></span>
-              <div class="kpi-texto"><span class="kpi-etiqueta">Nivel de madurez</span><span id="kpi-madurez" class="kpi-valor">0<small> / 5</small></span></div>
-            </div>
-          </div>
-
           <div class="tarjeta escena">
-            <div class="escena-cabecera">
-              <div>
+            <div id="escenario" class="escenario">
+              <canvas id="oficina" role="img" aria-label="Ciudad en 3D. Cada edificio es un área del negocio y su color muestra si está bien, por revisar o en atención. Arrastra para girar la cámara; usa los botones para cambiar de vista o acercar."></canvas>
+
+              <div class="hud hud-titulo">
                 <p class="etiqueta-seccion">Ciudad de agentes</p>
                 <h2 id="resultado-nombre">Tu negocio</h2>
                 <p id="resultado-fecha" class="subtitulo"></p>
+                <div class="hud-acciones">
+                  <button id="simular" class="boton secundario compacto" type="button" aria-expanded="false" aria-controls="simulador">Simular escenarios</button>
+                  <button id="nuevo" class="boton compacto" type="button">Actualizar diagnóstico</button>
+                </div>
               </div>
-              <button id="nuevo" class="boton secundario" type="button">Nuevo diagnóstico</button>
+
+              <div class="hud hud-camaras" role="toolbar" aria-label="Cámara de la ciudad">
+                <div class="segmentos" role="group" aria-label="Vista">
+                  <button type="button" class="segmento activo" data-camara="isometrica" aria-pressed="true">Isométrica</button>
+                  <button type="button" class="segmento" data-camara="panoramica" aria-pressed="false">Panorámica</button>
+                  <button type="button" class="segmento" data-camara="aerea" aria-pressed="false">Aérea</button>
+                </div>
+                <button type="button" class="hud-boton" data-modo="orbita" aria-pressed="false" title="Girar alrededor de la ciudad">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 11-2.6-5.9"/><path d="M20 4v5h-5"/></svg><span>Órbita</span>
+                </button>
+                <button type="button" class="hud-boton" data-modo="rayosx" aria-pressed="false" title="Ver los edificios como cristal">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span>Rayos X</span>
+                </button>
+                <div class="segmentos" role="group" aria-label="Acercamiento">
+                  <button type="button" class="segmento icono" data-zoom="0.85" aria-label="Acercar">+</button>
+                  <button type="button" class="segmento icono" data-zoom="1.18" aria-label="Alejar">−</button>
+                </div>
+              </div>
+
+              <div class="hud hud-madurez" aria-hidden="true">
+                <svg class="dial" viewBox="0 0 120 120">
+                  <defs><linearGradient id="grad-dial" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#25e2ff"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#e24bf2"/></linearGradient></defs>
+                  <circle cx="60" cy="60" r="50" class="dial-pista"/>
+                  <circle id="dial-arco" cx="60" cy="60" r="50" class="dial-arco" stroke="url(#grad-dial)" pathLength="100" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="dial-texto"><strong id="dial-valor">0</strong><span>de 5</span></div>
+                <p>Madurez</p>
+              </div>
+
+              <div id="estado-area" class="estado-area hud"></div>
+
+              <p id="sim-aviso" class="hud sim-aviso" hidden>Simulación: lo que ves no cambia tu diagnóstico.</p>
+
+              <aside id="simulador" class="simulador" hidden aria-label="Simulador de escenarios">
+                <div class="simulador-cabecera">
+                  <h3>¿Y si mejoras un área?</h3>
+                  <button id="sim-cerrar" class="hud-boton" type="button">Cerrar</button>
+                </div>
+                <p class="subtitulo">Cambia el estado de cada área y mira cómo quedarían tu ciudad y tu madurez. Usa la misma fórmula del diagnóstico; nada se guarda.</p>
+                <div class="sim-atajos" role="group" aria-label="Escenarios">
+                  <button type="button" class="atajo" data-escenario="hoy">Hoy</button>
+                  <button type="button" class="atajo" data-escenario="criticos">Resolver lo que está en atención</button>
+                  <button type="button" class="atajo" data-escenario="plan">Cumplir todo el plan</button>
+                  <button type="button" class="atajo" data-escenario="todo">Todo en verde</button>
+                </div>
+                <div class="sim-resultado" aria-live="polite">
+                  <div><span>Hoy</span><strong id="sim-antes">0</strong></div>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  <div><span>Simulado</span><strong id="sim-despues">0</strong></div>
+                  <p id="sim-delta"></p>
+                </div>
+                <ul id="sim-areas" class="sim-areas"></ul>
+              </aside>
             </div>
-            <canvas id="oficina" role="img" aria-label="Ciudad en 3D. Cada edificio es un área del negocio; su agente muestra si está listo o en revisión. Usa la rueda del ratón para acercar."></canvas>
-            <div id="estado-area" class="estado-area"></div>
             <p id="prioridades" class="prioridades"></p>
 
             <div id="detalle-fondo" class="detalle-fondo" hidden></div>
@@ -191,6 +241,58 @@
             </aside>
           </div>
 
+          <div class="kpis">
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="layers" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Diagnósticos guardados</span><span id="kpi-guardados" class="kpi-valor">0</span></div>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="check" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Áreas evaluadas</span><span id="kpi-evaluadas" class="kpi-valor">0</span></div>
+              <span id="kpi-evaluadas-nota" class="kpi-nota" hidden></span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="signal" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Acciones en plan</span><span id="kpi-acciones" class="kpi-valor">0</span></div>
+              <span id="kpi-acciones-nota" class="kpi-nota" hidden></span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-icono" data-icono="chart" aria-hidden="true"></span>
+              <div class="kpi-texto"><span class="kpi-etiqueta">Nivel de madurez</span><span id="kpi-madurez" class="kpi-valor">0<small> / 5</small></span></div>
+              <span id="kpi-madurez-nota" class="kpi-nota" hidden></span>
+            </div>
+          </div>
+
+          <section id="avance-card" class="tarjeta avance" hidden>
+            <div class="panel-encabezado">
+              <h3>Tu avance</h3>
+              <label id="avance-selector" class="selector-area" hidden>
+                <span class="subtitulo">Comparar con el diagnóstico del</span>
+                <select id="avance-contra" aria-label="Diagnóstico anterior contra el que se compara"></select>
+              </label>
+            </div>
+            <div id="avance-vacio" class="avance-vacio" hidden>
+              <p>Este es tu punto de partida. Cuando algo cambie en tu negocio, actualiza el diagnóstico: tus respuestas ya vienen llenas, solo corriges lo que cambió, y aquí verás qué áreas mejoraron y qué acciones ya no hacen falta.</p>
+              <button id="avance-actualizar" class="boton secundario compacto" type="button">Actualizar diagnóstico</button>
+            </div>
+            <div id="avance-cuerpo" class="avance-cuerpo" hidden>
+              <div class="avance-delta">
+                <strong id="avance-delta"></strong>
+                <span id="avance-rango"></span>
+                <svg id="avance-serie" viewBox="0 0 300 96" role="img" aria-label="Madurez en cada diagnóstico guardado"></svg>
+              </div>
+              <div>
+                <h4>Áreas que cambiaron</h4>
+                <ul id="avance-areas" class="avance-areas"></ul>
+              </div>
+              <div>
+                <h4>Plan del diagnóstico anterior</h4>
+                <div id="avance-plan" class="avance-plan"></div>
+                <ul id="avance-resueltas" class="avance-resueltas"></ul>
+              </div>
+            </div>
+          </section>
+
           <section id="motor" class="tarjeta motor">
             <div class="panel-encabezado">
               <h3>Motor de crecimiento</h3>
@@ -218,7 +320,14 @@
                 <span id="equipo-contador" class="pildora"></span>
                 <button id="editar-equipo" class="boton secundario compacto" type="button">Editar equipo</button>
               </div>
-              <div id="agentes" class="equipo-grid"></div>
+              <div id="equipo-filtros" class="equipo-filtros" role="group" aria-label="Filtrar el equipo">
+                <button type="button" class="atajo activo" data-filtro="todos" aria-pressed="true">Todos</button>
+                <button type="button" class="atajo" data-filtro="areas" aria-pressed="false">Áreas</button>
+                <button type="button" class="atajo" data-filtro="atencion" aria-pressed="false">En atención</button>
+                <button type="button" class="atajo" data-filtro="apoyo" aria-pressed="false">Apoyo</button>
+                <button type="button" class="atajo" data-filtro="propio" aria-pressed="false">Míos</button>
+              </div>
+              <div id="agentes" class="equipo-grid" data-filtro="todos"></div>
             </section>
 
             <section class="tarjeta">
@@ -256,7 +365,7 @@
                 <h3>Acciones rápidas</h3>
               </div>
               <div class="acciones-rapidas">
-                <button id="accion-nuevo" class="boton accion" type="button">Nuevo diagnóstico</button>
+                <button id="accion-nuevo" class="boton accion" type="button">Actualizar diagnóstico</button>
                 <button id="accion-plan" class="boton accion violeta" type="button">Ver plan de mejora</button>
                 <button id="accion-reporte" class="boton accion verde" type="button">Descargar reporte en Word</button>
               </div>
@@ -300,6 +409,19 @@
         <!-- ===================== DIAGNÓSTICO (asistente) ===================== -->
         <section id="vista-asistente" class="tarjeta asistente" data-vista-panel hidden>
           <div class="progreso" aria-hidden="true"><div id="barra"></div></div>
+
+          <div id="modo-diagnostico" class="modo-diagnostico">
+            <div class="segmentos" role="group" aria-label="Tipo de diagnóstico">
+              <button type="button" class="segmento" data-modo-diag="expres" aria-pressed="true">Exprés · 5 minutos</button>
+              <button type="button" class="segmento" data-modo-diag="completo" aria-pressed="false">Completo · 15 minutos</button>
+            </div>
+            <p id="modo-ayuda" class="subtitulo"></p>
+          </div>
+
+          <div id="aviso-precarga" class="aviso-precarga" hidden>
+            <p id="aviso-precarga-texto"></p>
+            <button id="empezar-en-blanco" class="boton secundario compacto" type="button">Empezar en blanco</button>
+          </div>
 
           <div class="cabecera-paso">
             <div id="icono-paso" class="icono-paso" aria-hidden="true"></div>
@@ -442,7 +564,7 @@
           <section id="piloto" class="tarjeta" data-pestana="piloto">
             <div class="panel-encabezado">
               <h3>Piloto automático</h3>
-              <p class="subtitulo">Cada agente tiene su revisión periódica y la hace solo: Finanzas revisa caja y cobranza cada semana, Fiscal el calendario del mes, Ventas la oferta de la semana, el Orquestador reparte lo que detecte… Se coordinan entre ellos (consultas, notas, encargos) y dejan sus acciones en la bitácora; tú lees el resultado en la conversación de cada agente y en Actividad. Enciende el piloto, elige qué agentes van y con qué frecuencia; las corridas se reparten de lunes a viernes a las 8:00 y como máximo 3 agentes por minuto.</p>
+              <p class="subtitulo">Cada agente tiene su revisión periódica y la hace solo: Finanzas revisa caja y cobranza cada semana, Fiscal el calendario del mes, Ventas la oferta de la semana, el Orquestador reparte lo que detecte… Se coordinan entre ellos (consultas, notas, encargos) y dejan sus acciones en la bitácora; tú lees el resultado en la conversación de cada agente y en Actividad. Enciende el piloto, elige qué agentes van y con qué frecuencia; las corridas se reparten de lunes a viernes a las 8:00 y como máximo 3 agentes por minuto. Al encenderlo, cada agente empieza a contar desde ese momento: su primera revisión es en su próximo día y hora, no de inmediato.</p>
               <div class="acciones-inline">
                 <label class="interruptor"><input id="piloto-global" type="checkbox" aria-label="Encender el piloto automático"><span id="piloto-global-texto">Apagado</span></label>
                 <span id="piloto-estado" class="mensaje-estado" role="status"></span>
@@ -492,7 +614,7 @@
           <section id="investigacion" class="tarjeta" data-pestana="mercado">
             <div class="panel-encabezado">
               <h3>Investigación semanal de mercado</h3>
-              <p class="subtitulo">Cada semana el agente de Investigación de mercado busca en internet al menos 10 competidores de tu sector y resume al menos 5 comentarios positivos y 5 negativos de clientes de cada uno. Informa al Orquestador qué buscan y qué rechazan los clientes, y él reparte el trabajo a Ventas, Marketing y a las áreas que lo necesiten. Usa la búsqueda web de tu proveedor de IA con tu misma clave; cada búsqueda se cobra aparte en tu cuenta del proveedor.</p>
+              <p class="subtitulo">Cada semana el agente de Investigación de mercado busca en internet al menos 10 competidores de tu sector y resume al menos 5 comentarios positivos y 5 negativos de clientes de cada uno. Informa al Orquestador qué buscan y qué rechazan los clientes, y él reparte el trabajo a Ventas, Marketing y a las áreas que lo necesiten. Usa la búsqueda web de tu proveedor de IA con tu misma clave; cada búsqueda se cobra aparte en tu cuenta del proveedor. Como gasta IA, la programación empieza en pausa: actívala aquí cuando quieras que corra sola. Su primera corrida será en el siguiente día y hora que elijas, no de inmediato.</p>
             </div>
             <div class="form-grid tres">
               <div class="campo"><label for="inv-activa">Programación</label><select id="inv-activa"><option value="1">Activa, cada semana</option><option value="0">Pausada</option></select></div>
@@ -517,7 +639,7 @@
           <section id="sitio" class="tarjeta" data-pestana="mercado">
             <div class="panel-encabezado">
               <h3>Análisis del sitio web</h3>
-              <p class="subtitulo">Revisa la página principal de tu sitio desde esta computadora, sin IA: conexión segura, encabezados de seguridad, versión para celular, botón de WhatsApp, aviso de privacidad, medición de visitas, textos para Google y velocidad. Con IA, el Orquestador reparte los hallazgos a Ciberseguridad, Tecnología, Marketing, Ventas y quien corresponda. Corre también cada semana junto con la investigación.</p>
+              <p class="subtitulo">Revisa la página principal de tu sitio desde esta computadora, sin IA: conexión segura, encabezados de seguridad, versión para celular, botón de WhatsApp, aviso de privacidad, medición de visitas, textos para Google y velocidad. Con IA, el Orquestador reparte los hallazgos a Ciberseguridad, Tecnología, Marketing, Ventas y quien corresponda. Como no usa IA, corre solo cada semana (lunes a las 9:00) mientras la aplicación esté abierta y el permiso de tareas semanales esté encendido.</p>
             </div>
             <div class="form-grid">
               <div class="campo ancho"><label for="sitio-url">Dirección del sitio</label><input id="sitio-url" type="text" maxlength="300" placeholder="https://miempresa.mx (si está vacío, se usa el de la ficha de la empresa)"></div>
@@ -610,12 +732,56 @@
           </section>
         </section>
 
-        <!-- ===================== CAMPAÑAS (dentro de Agentes: jerarquía y ajustes van antes) ===================== -->
+        <!-- ===================== RED DE AGENTES ===================== -->
+        <section id="vista-red" data-vista-panel hidden>
+          <section class="tarjeta red-card">
+            <div class="red-lienzo">
+              <svg id="red" viewBox="0 0 1200 860" role="img" aria-label="Mapa de quién reporta a quién: el Orquestador al centro, las áreas alrededor y sus subagentes en el borde."></svg>
+              <ul class="red-leyenda" aria-label="Qué significa cada color">
+                <li><span class="punto cian"></span>Trabajando ahora</li>
+                <li><span class="punto verde"></span>Activo</li>
+                <li><span class="punto rojo"></span>Bloqueado</li>
+                <li><span class="punto gris"></span>Sin actividad</li>
+              </ul>
+            </div>
+            <aside class="red-lado">
+              <h3>Qué pasa en la oficina</h3>
+              <p id="red-resumen" class="subtitulo"></p>
+              <div id="red-conteo" class="red-conteo"></div>
+              <h4>Requieren tu atención</h4>
+              <ul id="red-atencion" class="red-lista"></ul>
+              <h4>Último movimiento</h4>
+              <ul id="red-reciente" class="red-lista"></ul>
+              <p class="ayuda">Toca un agente para ver su perfil y hablar con él. Las líneas se encienden cuando un agente está trabajando.</p>
+            </aside>
+          </section>
+        </section>
+
+        <!-- ===================== CAMPAÑAS ===================== -->
         <section id="vista-campanas" data-vista-panel hidden>
+          <section id="camp-ia" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Campaña construida por la IA</h3>
+              <p class="subtitulo">Dile al agente de Tráfico digital qué quieres anunciar. Con lo que la oficina sabe de tu negocio arma tres propuestas completas: titular, texto, llamada a la acción, colores, el texto para publicar, a quién dirigirla y cuánto invertir. Eliges una y las piezas salen en el tamaño de cada plataforma. Usa una llamada a tu proveedor de IA.</p>
+            </div>
+            <form id="form-campana-ia" class="form-grid">
+              <div class="campo ancho"><label for="ia-oferta">¿Qué quieres anunciar? *</label><input id="ia-oferta" type="text" maxlength="300" placeholder="Ej. Servicio a domicilio sin costo en la primera compra" required></div>
+              <div class="campo"><label for="ia-objetivo">¿Qué quieres lograr?</label><select id="ia-objetivo"></select></div>
+              <div class="campo"><label for="ia-tono">Tono</label><select id="ia-tono"></select></div>
+              <div class="campo ancho"><label for="ia-publico">¿A quién va dirigida? (opcional)</label><input id="ia-publico" type="text" maxlength="200" placeholder="Si lo dejas vacío, el agente lo decide según tu negocio"></div>
+              <div class="acciones-inline ancho">
+                <button id="ia-generar" class="boton" type="submit">Construir campaña</button>
+                <span id="ia-mensaje" class="mensaje-estado" role="status"></span>
+              </div>
+            </form>
+            <p id="ia-meta" class="subtitulo" hidden></p>
+            <div id="ia-propuestas" class="ia-propuestas"></div>
+          </section>
+
           <section class="tarjeta">
             <div class="panel-encabezado">
-              <h3>Piezas para campañas</h3>
-              <p class="subtitulo">Genera imágenes con los tamaños correctos de cada plataforma, con tu logotipo y tus colores. Se crean en tu navegador y se descargan como PNG. Para la estrategia y el presupuesto, habla con el agente de Tráfico digital.</p>
+              <h3>Piezas de la campaña</h3>
+              <p class="subtitulo">Aquí queda la propuesta que elijas, lista para ajustarla y descargarla en los tamaños de cada plataforma, con tu logotipo. Las imágenes se crean en tu navegador. También puedes llenarlo a mano, sin IA.</p>
             </div>
             <div class="campanas-grid">
               <form id="form-campana" class="form-grid campanas-form">
@@ -651,7 +817,7 @@
           </section>
         </section>
 
-        <!-- ===================== REPORTES ===================== -->
+        <!-- ===================== ACTIVIDAD ===================== -->
         <section id="vista-actividad" data-vista-panel hidden>
           <section class="tarjeta">
             <div class="panel-encabezado">
@@ -672,6 +838,7 @@
           </section>
         </section>
 
+        <!-- ===================== REPORTES ===================== -->
         <section id="vista-reportes" data-vista-panel hidden>
           <section class="tarjeta">
             <div class="panel-encabezado">
@@ -679,6 +846,34 @@
               <p class="subtitulo">Cada diagnóstico queda guardado en tu equipo. Puedes volver a verlo o descargarlo.</p>
             </div>
             <ul id="reportes-lista" class="reportes-lista"></ul>
+          </section>
+
+          <section id="pasaporte-card" class="tarjeta" hidden>
+            <div class="panel-encabezado">
+              <h3>Pasaporte de madurez</h3>
+              <p class="subtitulo">Un documento para enseñar a un banco, a una financiera, a un cliente grande o a un socio: tu nivel de madurez, cómo ha cambiado, el estado de cada área y lo que dicen tus facturas. Se arma con reglas, sin IA, con lo que ya está guardado en tu equipo. Es una autodeclaración ordenada, no una auditoría, y así lo dice el documento.</p>
+            </div>
+            <div class="pasaporte">
+              <div class="pasaporte-sello">
+                <strong id="pasaporte-valor">0</strong>
+                <span id="pasaporte-nivel"></span>
+              </div>
+              <ul id="pasaporte-datos" class="lista-datos"></ul>
+            </div>
+            <div class="acciones-inline">
+              <label class="interruptor"><input id="pasaporte-cifras" type="checkbox"><span>Incluir montos en pesos (ventas y gastos facturados)</span></label>
+              <a id="pasaporte-word" class="boton compacto" href="/api/pasaporte/reporte.docx">Descargar en Word</a>
+              <a id="pasaporte-pdf" class="boton secundario compacto" href="/api/pasaporte/reporte.html" target="_blank" rel="noopener">Abrir para PDF</a>
+            </div>
+            <details class="plegable pasaporte-verificar">
+              <summary>Verificar un pasaporte que ya entregaste</summary>
+              <p class="subtitulo">Escribe el folio o la huella que aparece en el documento. Si tus datos no han cambiado desde que lo emitiste, coincide.</p>
+              <div class="acciones-inline">
+                <input id="pasaporte-huella" type="text" maxlength="80" placeholder="Folio (ABCD-1234-EF56) o huella completa" aria-label="Folio o huella del pasaporte">
+                <button id="pasaporte-verificar" class="boton secundario compacto" type="button">Verificar</button>
+                <span id="pasaporte-mensaje" class="mensaje-estado" role="status"></span>
+              </div>
+            </details>
           </section>
 
           <section id="bandeja-card" class="tarjeta" hidden>
@@ -692,6 +887,21 @@
 
         <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="vista-configuracion" data-vista-panel hidden>
+          <section id="empresas-card" class="tarjeta" hidden>
+            <div class="panel-encabezado">
+              <h3>Empresas</h3>
+              <p class="subtitulo">Para consultores y despachos: cada empresa tiene su propio diagnóstico, equipo, conversaciones y datos, en carpetas separadas de este equipo. La clave de IA y los permisos son de la instalación. Al cambiar de empresa la pantalla se recarga.</p>
+            </div>
+            <ul id="empresas-lista" class="fuentes-lista"></ul>
+            <div class="form-grid">
+              <div class="campo"><label for="empresa-nueva">Nueva empresa</label><input id="empresa-nueva" type="text" maxlength="80" placeholder="Ej. Ferretería El Tornillo"></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="empresa-crear" class="boton secundario" type="button">Agregar empresa</button>
+              <span id="empresas-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+          </section>
+
           <section class="tarjeta">
             <div class="panel-encabezado">
               <h3>Identidad</h3>
@@ -788,7 +998,7 @@
                   <input id="cfg-openai-modelo" type="text" autocomplete="off" placeholder="Escribe el nombre del modelo">
                 </div>
               </div>
-              <p class="ayuda">La clave se guarda en texto plano en <code>data/config.json</code>, dentro de tu equipo. No se envía a nadie más que al proveedor que elijas. Para obtener una clave necesitas una cuenta en el sitio del proveedor; la aplicación no crea cuentas.</p>
+              <p class="ayuda">La clave se guarda en <code>data/config.json</code>, dentro de tu equipo. En Windows queda cifrada con tu usuario de Windows: si copias la carpeta a otra computadora tendrás que escribirla de nuevo; en otros sistemas se guarda en texto plano. No se envía a nadie más que al proveedor que elijas. Para obtener una clave necesitas una cuenta en el sitio del proveedor; la aplicación no crea cuentas.</p>
               <div class="acciones-inline">
                 <button id="cfg-probar" class="boton secundario" type="button">Probar conexión</button>
                 <button id="cfg-guardar" class="boton" type="submit">Guardar</button>
@@ -796,6 +1006,32 @@
               </div>
               <p id="cfg-mensaje" class="mensaje-estado" role="status"></p>
             </form>
+          </section>
+
+          <section id="reales-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Datos reales: facturas y ventas</h3>
+              <p class="subtitulo">Indica una carpeta de este equipo con tus facturas CFDI (los .xml emitidos y recibidos que descargas del SAT) o archivos CSV de ventas con columnas de fecha e importe. La oficina los lee aquí mismo, sin IA y sin subirlos a ningún lado, y solo guarda el resumen: concentración de clientes, recurrencia, venta a crédito, proveedores y lo que queda después de gastos.</p>
+            </div>
+            <div class="form-grid">
+              <div class="campo ancho"><label for="reales-carpeta">Carpeta con los archivos (ruta completa en este equipo)</label><input id="reales-carpeta" type="text" maxlength="500" placeholder="Ej. C:\Users\TuNombre\Documents\Facturas 2026"></div>
+            </div>
+            <div class="acciones-inline">
+              <button id="reales-analizar" class="boton" type="button">Analizar carpeta</button>
+              <button id="reales-hechos" class="boton secundario" type="button" hidden>Registrar como hechos de la empresa</button>
+              <button id="reales-olvidar" class="boton secundario" type="button" hidden>Olvidar este análisis</button>
+              <span id="reales-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <div id="reales-resultado" hidden>
+              <p id="reales-periodo" class="subtitulo"></p>
+              <div id="reales-kpis" class="kpis kpis-uso"></div>
+              <ul id="reales-hallazgos" class="informe-lista reales-hallazgos"></ul>
+              <div class="reales-tablas">
+                <div><h4>Clientes principales</h4><table id="reales-clientes" class="tabla-calculo"></table></div>
+                <div><h4>Proveedores principales</h4><table id="reales-proveedores" class="tabla-calculo"></table></div>
+              </div>
+              <p class="ayuda">Los hechos solo se registran si tú lo pides. Con IA activa, los hechos registrados viajan en el contexto de los agentes hacia tu proveedor.</p>
+            </div>
           </section>
 
           <section id="uso-card" class="tarjeta">

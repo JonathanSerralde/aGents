@@ -102,10 +102,10 @@ test('los paquetes de sector activan sus subagentes y dan contexto: agencia, esc
   assert.deepEqual(sectoresActivos({ giro: 'educacion' }), ['educacion']);
   assert.deepEqual(sectoresActivos({ giro: 'salud' }), ['salud']);
   assert.deepEqual(sectoresActivos({ giro: 'comercio' }), ['retail']);
-  assert.deepEqual(sectoresActivos({ giro: 'servicios', ficha: { productos: 'Community management y campañas de marketing digital' } }), ['agencia']);
+  assert.deepEqual(sectoresActivos({ giro: 'servicios', ficha: { productos: 'Community management y campañas de marketing digital' } }), ['agencia', 'servicios']);
   assert.deepEqual(sectoresActivos({ giro: 'otro', ficha: { notas: 'Somos una escuela de inglés con 120 alumnos' } }), ['educacion']);
   assert.deepEqual(sectoresActivos({ giro: 'otro', ficha: { razonSocial: 'Clínica Dental Sonrisa SA de CV' } }), ['salud']);
-  assert.deepEqual(sectoresActivos({ giro: 'servicios' }), []);
+  assert.deepEqual(sectoresActivos({ giro: 'servicios' }), ['servicios']); // todo giro tiene su contexto de sector
 
   const agencia = estadoApoyo({ giro: 'agencia' });
   assert.ok(agencia.activos.includes('cuentas'));

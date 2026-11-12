@@ -1,6 +1,7 @@
-// Interfaz de aGents: cinco vistas (dashboard, diagnóstico, agentes, reportes, configuración).
+// Interfaz de aGents: ocho vistas (ciudad, diagnóstico, reportes, red de agentes, agentes, actividad, campañas y configuración).
 // Todo el contenido del usuario se inserta con textContent, nunca como HTML.
-import { renderOficina, seleccionarArea } from './oficina.js';
+import { renderOficina, seleccionarArea, vistaCamara, orbita, rayosX, acercar, marcarTrabajando } from './oficina.js';
+import { pintarRed } from './red.js';
 import { AREAS_ASSETS, NOMBRES_APOYO, AGENTES_APOYO, OPCIONALES } from './assets.js';
 import { PLATAFORMAS, dibujarPieza, descargarCanvas } from './campanas.js';
 
@@ -15,7 +16,18 @@ const TEXTO_META = { vertical: 'Meta: vertical', horizontal: 'Meta: horizontal',
 const NOMBRE_PROVEEDOR = { anthropic: 'Anthropic', openai: 'OpenAI', prueba: 'el proveedor de prueba' };
 const LIMITE_LOGO = 2 * 1024 * 1024;
 const TIPOS_LOGO = ['image/png', 'image/jpeg', 'image/webp'];
-const VISTAS = ['dashboard', 'asistente', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
+const VISTAS = ['dashboard', 'asistente', 'red', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
+// Título y bajada de la barra superior en cada vista.
+const TITULO_VISTA = {
+  dashboard: ['Ciudad de agentes', 'El estado de tu negocio, área por área.'],
+  asistente: ['Diagnóstico', 'Unos 15 minutos de preguntas; tus respuestas se guardan solas.'],
+  red: ['Red de agentes', 'Quién reporta a quién y qué está haciendo cada agente.'],
+  agentes: ['Agentes', 'Habla con tu equipo, reparte trabajo y revisa lo que acordaron.'],
+  campanas: ['Campañas', 'La IA arma la campaña; tú eliges y descargas las piezas.'],
+  actividad: ['Actividad', 'Todo lo que hacen los agentes, en vivo y guardado en tu equipo.'],
+  reportes: ['Reportes', 'Tus diagnósticos guardados, para volver a verlos o descargarlos.'],
+  configuracion: ['Configuración', 'Identidad, ficha de la empresa, IA y tus datos.'],
+};
 
 const DESCRIPCIONES = {
   contacto: 'Para dar seguimiento al diagnóstico.',
@@ -38,8 +50,10 @@ const DESCRIPCIONES = {
 const TEXTO_OPCION = {
   si: 'Sí', no: 'No', no_se: 'No sé',
   alto: 'Alto', medio: 'Medio', bajo: 'Bajo',
-  comercio: 'Comercio (retail)', servicios: 'Servicios', manufactura: 'Manufactura', construccion: 'Construcción', alimentos: 'Restaurante, cafetería o venta de alimentos',
+  comercio: 'Comercio (retail)', servicios: 'Servicios profesionales', manufactura: 'Manufactura', construccion: 'Construcción', alimentos: 'Restaurante, cafetería o venta de alimentos',
   agencia: 'Agencia de marketing, publicidad o diseño', educacion: 'Escuela, academia o capacitación', salud: 'Clínica, consultorio, laboratorio o farmacia', otro: 'Otro',
+  transporte: 'Transporte y logística', software: 'Tecnología y software', turismo: 'Hospedaje, turismo y eventos', agro: 'Agropecuario y agroindustria',
+  servicios_personales: 'Belleza, bienestar y gimnasios', automotriz: 'Talleres automotrices y refacciones', inmobiliario: 'Inmobiliaria y administración de inmuebles',
   en_tramite: 'En trámite',
   persona_fisica: 'Persona física', srl: 'S. de R.L.', sa: 'S.A.', otra: 'Otra',
   fisica: 'Física', linea: 'En línea', mixta: 'Mixta',
@@ -71,7 +85,13 @@ const estado = {
   personalizados: { agentes: {}, avatares: [] },
   fuentes: [],
   empresa: { ficha: {}, campos: [] },
+  modo: modoInicialDiagnostico(), // 'expres' | 'completo'
 };
+
+// El primer diagnóstico empieza en exprés, salvo que la persona haya elegido antes el completo.
+function modoInicialDiagnostico() {
+  try { return localStorage.getItem('modo-diagnostico') === 'completo' ? 'completo' : 'expres'; } catch { return 'expres'; }
+}
 
 function textoOpcion(valor) {
   return TEXTO_OPCION[valor] || String(valor).replace(/_/g, ' ');
@@ -155,6 +175,12 @@ function mensaje(el, texto, tipo = '') {
   if (texto && (tipo === 'ok' || tipo === 'error')) aviso(texto, tipo);
 }
 
+// Convierte **texto** en negritas con nodos del DOM (nunca innerHTML): los agentes responden con ese formato.
+function conNegritas(texto) {
+  return String(texto ?? '').split(/**([^*
+]+)**/g).map((parte, i) => (i % 2 ? crearElemento('strong', {}, parte) : document.createTextNode(parte)));
+}
+
 // Aviso flotante breve: confirma acciones sin obligar a buscar el mensaje en la página.
 function aviso(texto, tipo = '') {
   const caja = $('#avisos');
@@ -216,11 +242,18 @@ function responsableDe(id) {
 
 function marcarMenu(vista) {
   for (const boton of document.querySelectorAll('.menu-item')) {
-    boton.classList.toggle('activo', boton.dataset.vista === vista);
+    const activo = boton.dataset.vista === vista;
+    boton.classList.toggle('activo', activo);
+    if (activo) boton.setAttribute('aria-current', 'page');
+    else boton.removeAttribute('aria-current');
   }
+  const [titulo, bajada] = TITULO_VISTA[vista] || TITULO_VISTA.dashboard;
+  $('#titulo-vista').textContent = titulo;
+  $('#subtitulo-vista').textContent = bajada;
+  document.body.dataset.vista = vista;
 }
 
-// Muestra una de las cinco vistas. El dashboard enseña el último diagnóstico o, si no hay, cómo empezar.
+// Muestra una de las vistas. El dashboard enseña el último diagnóstico o, si no hay, cómo empezar.
 function mostrarVista(vista, { scroll = true } = {}) {
   if (!VISTAS.includes(vista)) vista = 'dashboard';
   estado.vista = vista;
@@ -276,6 +309,7 @@ function manejarMenu(evento) {
   if (vista === 'configuracion') cargarConfiguracion();
   if (vista === 'campanas') prepararCampanas();
   if (vista === 'actividad') cargarActividad();
+  if (vista === 'red') cargarRed();
   mostrarVista(vista);
 }
 
@@ -319,6 +353,9 @@ function describirEvento(e) {
 function pintarTrabajando() {
   const pie = $('#trabajando');
   const lista = [...trabajosEnCurso.values()];
+  // La ciudad y la red encienden el enlace de cada agente que trabaja ahora.
+  marcarTrabajando(lista.map((x) => x.area));
+  if (estado.vista === 'red') cargarRed();
   if (!lista.length) { pie.hidden = true; pie.textContent = ''; return; }
   const t = lista[lista.length - 1];
   pie.hidden = false;
@@ -451,6 +488,8 @@ async function renderInforme() {
     return li;
   };
   const filas = [];
+  if (r.avance) filas.push(fila('Avance desde el diagnóstico anterior', r.avance, 'siguiente'));
+  if (r.datosReales) filas.push(fila('Datos reales', r.datosReales));
   if (r.rojos.length) filas.push(fila('En atención', r.rojos.join(', '), 'rojo'));
   if (r.amarillos.length) filas.push(fila('Por revisar', r.amarillos.join(', '), 'amarillo'));
   if (r.cruzados) filas.push(fila('Contradicciones entre áreas', `${r.cruzados} detectadas por el motor; están en el plan como "Entre áreas".`, 'rojo'));
@@ -525,6 +564,109 @@ async function cargarLogoCampana() {
   previsualizar();
 }
 
+// ---------- Campaña construida por la IA ----------
+
+const PIEZA_MUESTRA = PLATAFORMAS[0].piezas[0]; // cuadrada: la vista previa de cada propuesta
+let campanaIA = null;
+
+// Diseño de una propuesta: sus textos y colores, con la marca y el logotipo del negocio.
+function disenoDePropuesta(p) {
+  const c = p.colores || {};
+  return {
+    titular: p.titular, subtitulo: p.apoyo, cta: p.cta,
+    marca: $('#camp-marca').value.trim() || estado.marca.nombre || '',
+    estilo: c.fondo2 && c.fondo2 !== c.fondo ? 'degradado' : 'solido',
+    colorFondo: c.fondo || $('#camp-fondo').value, colorFondo2: c.fondo2 || $('#camp-fondo2').value,
+    colorTexto: c.texto || $('#camp-texto').value, colorAcento: c.acento || $('#camp-acento').value,
+    logo: campana.logo,
+  };
+}
+
+// Pasa la propuesta elegida al formulario de piezas: desde ahí se ajusta y se descarga en todos los tamaños.
+function usarPropuesta(p, tarjeta) {
+  const d = disenoDePropuesta(p);
+  $('#camp-titular').value = p.titular;
+  $('#camp-subtitulo').value = p.apoyo;
+  $('#camp-cta').value = p.cta;
+  $('#camp-estilo').value = d.estilo;
+  $('#camp-fondo').value = d.colorFondo;
+  $('#camp-fondo2').value = d.colorFondo2;
+  $('#camp-texto').value = d.colorTexto;
+  $('#camp-acento').value = d.colorAcento;
+  for (const t of document.querySelectorAll('.ia-propuesta')) t.classList.toggle('elegida', t === tarjeta);
+  previsualizar();
+  aviso('Propuesta lista en "Piezas de la campaña". Ajústala o descarga todos los tamaños.', 'ok');
+  $('#form-campana').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function pintarCampanaIA() {
+  const caja = $('#ia-propuestas');
+  const meta = $('#ia-meta');
+  if (!campanaIA) { caja.replaceChildren(); meta.hidden = true; return; }
+  meta.hidden = false;
+  meta.textContent = `${nombreArea(campanaIA.agente)} la construyó el ${fechaCorta(campanaIA.momento)} para: ${campanaIA.peticion.oferta}`;
+  caja.replaceChildren(...campanaIA.propuestas.map((p, i) => {
+    const tarjeta = crearElemento('article', { class: 'ia-propuesta' });
+    const lienzo = crearElemento('canvas', { 'aria-label': `Vista previa de la propuesta ${i + 1}` });
+    dibujarPieza(lienzo, PIEZA_MUESTRA, disenoDePropuesta(p));
+    const datos = crearElemento('dl');
+    const dato = (titulo, texto) => { if (texto) datos.append(crearElemento('dt', {}, titulo), crearElemento('dd', {}, texto)); };
+    dato('Texto para publicar', [p.texto, p.hashtags].filter(Boolean).join(' '));
+    dato('A quién dirigirla', p.publico);
+    dato('Inversión sugerida', p.presupuesto);
+    const acciones = crearElemento('div', { class: 'acciones-inline' });
+    const usar = crearElemento('button', { class: 'boton compacto', type: 'button' }, 'Usar esta propuesta');
+    usar.addEventListener('click', () => usarPropuesta(p, tarjeta));
+    acciones.append(usar);
+    if (p.texto) {
+      const copiar = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, 'Copiar texto');
+      copiar.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText([p.texto, p.hashtags].filter(Boolean).join('\n\n')); aviso('Texto copiado.', 'ok'); } catch { aviso('No se pudo copiar; selecciónalo a mano.', 'error'); }
+      });
+      acciones.append(copiar);
+    }
+    tarjeta.append(lienzo, crearElemento('h4', {}, p.titular));
+    if (p.angulo) tarjeta.append(crearElemento('p', { class: 'angulo' }, p.angulo));
+    tarjeta.append(datos, acciones);
+    return tarjeta;
+  }));
+}
+
+async function cargarCampanaIA() {
+  let r;
+  try { r = await fetch('/api/campanas').then((x) => x.json()); } catch { return; }
+  const llenar = (id, opciones) => { const s = $(id); if (!s.options.length) for (const [valor, texto] of Object.entries(opciones || {})) s.append(crearElemento('option', { value: valor }, texto)); };
+  llenar('#ia-objetivo', r.objetivos);
+  llenar('#ia-tono', r.tonos);
+  campanaIA = r.campana || null;
+  $('#ia-generar').disabled = Boolean(r.bloqueo);
+  if (r.bloqueo) mensaje($('#ia-mensaje'), `${r.bloqueo}. Mientras tanto puedes llenar las piezas a mano, aquí abajo.`);
+  else if (!$('#ia-mensaje').classList.contains('ok')) mensaje($('#ia-mensaje'), '');
+  pintarCampanaIA();
+}
+
+async function generarCampanaIA(evento) {
+  evento.preventDefault();
+  const boton = $('#ia-generar');
+  const oferta = $('#ia-oferta').value.trim();
+  if (!oferta) return mensaje($('#ia-mensaje'), 'Escribe qué quieres anunciar.', 'error');
+  boton.disabled = true;
+  mensaje($('#ia-mensaje'), 'El agente está construyendo la campaña… puede tardar hasta un minuto.');
+  try {
+    const res = await fetch('/api/campanas/generar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ oferta, objetivo: $('#ia-objetivo').value, tono: $('#ia-tono').value, publico: $('#ia-publico').value.trim() }) });
+    const cuerpo = await res.json();
+    if (!res.ok) return mensaje($('#ia-mensaje'), cuerpo.errores?.[0] || 'No se pudo construir la campaña.', 'error');
+    campanaIA = cuerpo.campana;
+    pintarCampanaIA();
+    mensaje($('#ia-mensaje'), `Listo: ${campanaIA.propuestas.length} propuestas. Elige una.`, 'ok');
+    refrescarEstadoIA();
+  } catch {
+    mensaje($('#ia-mensaje'), 'No hay conexión con el servidor local.', 'error');
+  } finally {
+    boton.disabled = false;
+  }
+}
+
 function prepararCampanas() {
   const selector = $('#camp-plataforma');
   if (!selector.options.length) {
@@ -532,7 +674,8 @@ function prepararCampanas() {
     renderPiezas();
   }
   if (!$('#camp-marca').value && estado.marca.nombre) $('#camp-marca').value = estado.marca.nombre;
-  cargarLogoCampana();
+  // Las propuestas se pintan cuando el logotipo ya cargó, para que salga en sus vistas previas.
+  cargarLogoCampana().then(() => { previsualizar(); cargarCampanaIA(); });
   previsualizar();
 }
 
@@ -566,8 +709,37 @@ function irA(seccion) {
 
 // ---------- Asistente: pasos ----------
 
+// Diagnóstico exprés: lo esencial de cada área en cuatro pasos, para tener un primer resultado en minutos
+// en cualquier giro. Son las preguntas que más pesan en el semáforo y que un dueño contesta de memoria.
+// El diagnóstico completo las incluye todas; al actualizarlo, lo ya contestado viene lleno.
+const CAMPOS_EXPRES = new Set([
+  'contacto_nombre', 'confianza', 'giro', 'empleados', 'ventas_anuales', 'antiguedad_anios',
+  'meses_caja', 'margen_pct', 'clientes_recurrentes_pct', 'concentracion_top3_pct', 'mide_marketing',
+  'proveedor_unico', 'quejas', 'imss_infonavit', 'manuales_puesto', 'respaldos',
+  'plan_escrito', 'dependencia_dueno', 'obligaciones_fiscales', 'contratos_escritos', 'cliente_unico', 'meta_crecimiento',
+]);
+const PASOS_EXPRES = [
+  { id: 'x-negocio', icono: 'building', titulo: 'Tu negocio', descripcion: 'Quién responde y de qué tamaño es el negocio.', secciones: ['contacto', 'identificacion'] },
+  { id: 'x-dinero', icono: 'wallet', titulo: 'Dinero y clientes', descripcion: 'Con aproximados basta. Si no sabes un dato, déjalo vacío.', secciones: ['finanzas', 'ventas', 'marketing'] },
+  { id: 'x-operacion', icono: 'gear', titulo: 'Operación y equipo', descripcion: 'Cómo se trabaja todos los días.', secciones: ['compras', 'operaciones', 'rh', 'tecnologia'] },
+  { id: 'x-rumbo', icono: 'compass', titulo: 'Orden y rumbo', descripcion: 'Lo que protege al negocio y hacia dónde quiere crecer.', secciones: ['direccion', 'fiscal', 'riesgos', 'crecimiento'] },
+];
+
+function modoGuardado() {
+  try { return localStorage.getItem('modo-diagnostico') === 'completo' ? 'completo' : 'expres'; } catch { return 'expres'; }
+}
+
+// Cambia entre exprés y completo sin perder lo ya contestado.
+function cambiarModoDiagnostico(modo) {
+  estado.modo = modo === 'completo' ? 'completo' : 'expres';
+  try { localStorage.setItem('modo-diagnostico', estado.modo); } catch { /* sin almacenamiento */ }
+  estado.paso = 0;
+  renderPaso();
+}
+
 function pasos() {
   if (!estado.esquema) return [];
+  if (estado.modo === 'expres') return PASOS_EXPRES.map((p) => ({ tipo: 'seccion', ...p }));
   const lista = [
     { tipo: 'identidad', id: 'identidad', titulo: 'Tu identidad', descripcion: 'Pon tu nombre y tu logotipo. Solo se guardan en tu equipo y son opcionales.' },
     { tipo: 'equipo', id: 'equipo', titulo: 'Tu equipo y tus agentes', descripcion: 'Quién responde por cada área y cómo se llama el agente que la acompaña. Los agentes apoyan a tu gente, no la sustituyen. Si eres solo tú, déjalo vacío.' },
@@ -581,6 +753,10 @@ function pasos() {
 
 function camposDelPaso(paso) {
   if (!estado.esquema || paso.tipo !== 'seccion') return [];
+  if (paso.secciones) {
+    // Paso exprés: junta varias secciones y deja solo las preguntas esenciales, en el orden de las secciones.
+    return paso.secciones.flatMap((s) => estado.esquema.campos.filter((c) => c.seccion === s && CAMPOS_EXPRES.has(c.id)));
+  }
   return estado.esquema.campos.filter((c) =>
     c.seccion === paso.id && (!c.giros || c.giros.includes(estado.respuestas.giro)));
 }
@@ -666,7 +842,19 @@ function renderPaso() {
   $('#descripcion-paso').textContent = paso.descripcion;
   $('#atras').hidden = estado.paso === 0;
   $('#texto-siguiente').textContent = estado.paso === lista.length - 1 ? 'Generar diagnóstico' : 'Siguiente';
-  $('#icono-paso').replaceChildren(icono(ICONO_SECCION[paso.id] || 'layers'));
+  $('#icono-paso').replaceChildren(icono(paso.icono || ICONO_SECCION[paso.id] || 'layers'));
+  // El tipo de diagnóstico se elige en el primer paso.
+  $('#modo-diagnostico').hidden = estado.paso !== 0;
+  for (const b of document.querySelectorAll('[data-modo-diag]')) {
+    const activo = b.dataset.modoDiag === estado.modo;
+    b.classList.toggle('activo', activo);
+    b.setAttribute('aria-pressed', String(activo));
+  }
+  $('#modo-ayuda').textContent = estado.modo === 'expres'
+    ? 'Lo esencial de cada área en cuatro pasos. Después puedes completarlo: lo que contestes aquí ya vendrá lleno.'
+    : 'Todas las preguntas, área por área, más las de tu giro. Da el diagnóstico más fino.';
+  $('#aviso-precarga').hidden = !estado.precargado;
+  if (estado.precargado) $('#aviso-precarga-texto').textContent = `Partes de tus respuestas del ${fechaLarga(estado.precargado)}. Revisa cada paso y cambia solo lo que cambió.`;
 
   if (paso.tipo === 'identidad') {
     const caja = crearElemento('div', { id: 'identidad-asistente' });
@@ -807,7 +995,7 @@ function controlOpcionales() {
   const detalle = estado.apoyo?.opcionales || {};
   const sectores = estado.apoyo?.sectores || [];
   caja.append(crearElemento('p', { class: 'subtitulo' }, sectores.length
-    ? `Sector detectado: ${sectores.map((s) => detalle[Object.keys(detalle).find((id) => detalle[id].sector === s)]?.sectorNombre || s).join(', ')}. Los subagentes de otros sectores quedan apagados salvo que los actives aquí.`
+    ? `Sector detectado: ${sectores.map((s) => estado.apoyo?.nombresSectores?.[s] || detalle[Object.keys(detalle).find((id) => detalle[id].sector === s)]?.sectorNombre || s).join(', ')}. Los subagentes de otros sectores quedan apagados salvo que los actives aquí.`
     : 'Sin sector detectado todavía: haz el diagnóstico o llena la ficha, o activa aquí los subagentes que necesites.'));
   for (const id of OPCIONALES) {
     const fila = crearElemento('label', { class: 'opcional' });
@@ -1346,7 +1534,7 @@ async function cargarInvestigacion() {
   }
   llenarProgramacion('inv', datos.programacion, datos.dias);
   const p = datos.programacion;
-  $('#inv-estado').textContent = `${p.puedeIA ? 'IA activa: la investigación corre sola.' : `${p.motivoIA}: la investigación automática no puede correr; puedes capturar reseñas a mano.`} ${textoProgramacion(p)}`;
+  $('#inv-estado').textContent = `${p.puedeIA ? (p.activa ? 'IA activa: la investigación corre sola.' : 'IA activa. La investigación está en pausa: elige "Activa" y guarda la programación para que corra sola.') : `${p.motivoIA}: la investigación automática no puede correr; puedes capturar reseñas a mano.`} ${textoProgramacion(p)}`;
   $('#inv-ejecutar').disabled = !p.puedeIA;
   const lista = $('#inv-lista');
   $('#inv-detalle').replaceChildren();
@@ -2180,10 +2368,11 @@ async function enviarDiagnostico() {
     if (!res.ok) return mostrarErrores(cuerpo.errores || ['No se pudo generar el diagnóstico.']);
     await borrarBorrador();
     estado.respuestas = {};
+    estado.precargado = null;
     estado.paso = 0;
     activarBorrador();
     await refrescarEstadoIA(); // el giro nuevo puede activar agentes opcionales
-    renderResultados({ ...cuerpo, creado: new Date().toISOString() });
+    renderResultados({ creado: new Date().toISOString(), ...cuerpo });
     renderLineaResultados(cuerpo.resultado, true);
   } catch {
     mostrarErrores(['No hay conexión con el servidor local.']);
@@ -2214,7 +2403,20 @@ function renderKpis(resultado, cuenta) {
   const evaluadas = cuenta.rojo + cuenta.amarillo + cuenta.verde;
   $('#kpi-evaluadas').textContent = `${evaluadas} / ${Object.keys(resultado.distritos).length}`;
   $('#kpi-acciones').textContent = String(resultado.plan.length);
-  $('#kpi-madurez').replaceChildren(String(madurez(resultado.distritos)), crearElemento('small', {}, ' / 5'));
+  const nivel = madurez(resultado.distritos);
+  $('#kpi-madurez').replaceChildren(String(nivel), crearElemento('small', {}, ' / 5'));
+  const nota = (id, texto) => { const el = $(id); el.textContent = texto; el.hidden = !texto; };
+  nota('#kpi-evaluadas-nota', cuenta.rojo ? `${cuenta.rojo} en atención` : cuenta.amarillo ? `${cuenta.amarillo} por revisar` : evaluadas ? 'Todas bien' : '');
+  const inmediatas = resultado.plan.filter((p) => p.color === 'rojo').length;
+  nota('#kpi-acciones-nota', inmediatas ? `${inmediatas} urgentes` : '');
+  nota('#kpi-madurez-nota', !evaluadas ? '' : nivel >= 4 ? 'Sólida' : nivel >= 2.5 ? 'En desarrollo' : 'Frágil');
+  pintarDial(nivel);
+}
+
+// Dial de madurez sobre la ciudad (0 a 5).
+function pintarDial(nivel) {
+  $('#dial-valor').textContent = String(nivel);
+  $('#dial-arco').setAttribute('stroke-dasharray', `${Math.max(0, Math.min(100, (nivel / 5) * 100)).toFixed(1)} 100`);
 }
 
 function renderEstadoArea(cuenta) {
@@ -2264,6 +2466,8 @@ function tarjetaAgente(id, color, etiqueta, alAbrir) {
   const nombre = crearElemento('span', { class: 'agente-nombre' }, nombreAgente(id));
   const con = crearElemento('span', { class: 'agente-con' }, `con ${responsableDe(id)}`);
   const estadoTexto = crearElemento('span', { class: 'agente-estado' }, estadoOperativo(id));
+  // Si el agente se llama igual que su área, el nombre no se repite.
+  if (nombre.textContent.trim().toLowerCase() === etiqueta.trim().toLowerCase()) nombre.hidden = true;
   tarjeta.append(foto, rol, nombre, con, estadoTexto);
   tarjeta.addEventListener('click', alAbrir);
   tarjeta.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alAbrir(); } });
@@ -2284,7 +2488,27 @@ function renderEquipo(distritos) {
   for (const id of idsPropios()) {
     contenedor.append(tarjetaAgente(id, 'propio', estado.personalizados.agentes[id].nombre, () => mostrarDetalle(id)));
   }
-  $('#equipo-contador').textContent = `${ORDEN_AREAS.length + apoyoActivos().length + idsPropios().length} agentes`;
+  const total = ORDEN_AREAS.length + apoyoActivos().length + idsPropios().length;
+  $('#equipo-contador').textContent = `${total} agentes`;
+  const cuentaMenu = $('#menu-agentes-cuenta');
+  cuentaMenu.textContent = String(total);
+  cuentaMenu.hidden = false;
+  contenedor.append(crearElemento('p', { class: 'equipo-vacio', hidden: '' }, 'Ningún agente en este grupo.'));
+  filtrarTarjetasEquipo(contenedor.dataset.filtro || 'todos');
+}
+
+// Filtro del equipo en el dashboard: todos, áreas, en atención, apoyo o propios.
+function filtrarTarjetasEquipo(filtro) {
+  const contenedor = $('#agentes');
+  contenedor.dataset.filtro = filtro;
+  for (const b of document.querySelectorAll('#equipo-filtros [data-filtro]')) {
+    const activo = b.dataset.filtro === filtro;
+    b.classList.toggle('activo', activo);
+    b.setAttribute('aria-pressed', String(activo));
+  }
+  const visibles = [...contenedor.querySelectorAll('.agente-card')].some((t) => getComputedStyle(t).display !== 'none');
+  const vacio = contenedor.querySelector('.equipo-vacio');
+  if (vacio) vacio.hidden = visibles;
 }
 
 function renderRadar(distritos) {
@@ -2303,13 +2527,13 @@ function renderRadar(distritos) {
     const pts = ORDEN_AREAS.map((_, i) => punto(i, nivel));
     svg.append(svgEl('polygon', {
       points: pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-      fill: 'none', stroke: 'rgba(143,160,189,0.22)', 'stroke-width': '1',
+      fill: nivel === 5 ? 'rgba(139,92,246,0.06)' : 'none', stroke: 'rgba(167,139,250,0.24)', 'stroke-width': '1',
     }));
   }
 
   ORDEN_AREAS.forEach((id, i) => {
     const fin = punto(i, 5);
-    svg.append(svgEl('line', { x1: cx, y1: cy, x2: fin.x.toFixed(1), y2: fin.y.toFixed(1), stroke: 'rgba(143,160,189,0.2)' }));
+    svg.append(svgEl('line', { x1: cx, y1: cy, x2: fin.x.toFixed(1), y2: fin.y.toFixed(1), stroke: 'rgba(167,139,250,0.2)' }));
     const etiqueta = punto(i, 5.9);
     const texto = svgEl('text', { x: etiqueta.x.toFixed(1), y: etiqueta.y.toFixed(1), 'text-anchor': 'middle', 'dominant-baseline': 'middle' });
     texto.textContent = distritos[id]?.nombre || id;
@@ -2318,14 +2542,20 @@ function renderRadar(distritos) {
 
   const datos = ORDEN_AREAS.map((id, i) => punto(i, PUNTAJE[distritos[id]?.color] ?? 0));
   const gradiente = svgEl('linearGradient', { id: 'gradiente-radar', x1: '0', y1: '0', x2: '1', y2: '1' });
-  gradiente.append(svgEl('stop', { offset: '0', 'stop-color': '#3fd3ff', 'stop-opacity': '0.7' }), svgEl('stop', { offset: '1', 'stop-color': '#8b6cff', 'stop-opacity': '0.5' }));
+  gradiente.append(svgEl('stop', { offset: '0', 'stop-color': '#25e2ff', 'stop-opacity': '0.6' }), svgEl('stop', { offset: '0.6', 'stop-color': '#8b5cf6', 'stop-opacity': '0.55' }), svgEl('stop', { offset: '1', 'stop-color': '#e24bf2', 'stop-opacity': '0.5' }));
   const defs = svgEl('defs');
   defs.append(gradiente);
   svg.append(defs);
   svg.append(svgEl('polygon', {
     points: datos.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-    fill: 'url(#gradiente-radar)', stroke: '#3fd3ff', 'stroke-width': '2',
+    fill: 'url(#gradiente-radar)', stroke: '#25e2ff', 'stroke-width': '2', 'stroke-linejoin': 'round',
   }));
+  // Cada vértice lleva el color del semáforo de su área.
+  const COLOR_PUNTO = { verde: '#2ef0b5', amarillo: '#ffb23e', rojo: '#ff3d8b' };
+  ORDEN_AREAS.forEach((id, i) => {
+    const color = COLOR_PUNTO[distritos[id]?.color];
+    if (color) svg.append(svgEl('circle', { cx: datos[i].x.toFixed(1), cy: datos[i].y.toFixed(1), r: '4', fill: color, stroke: '#0d0930', 'stroke-width': '1.5' }));
+  });
 }
 
 function renderNivel(distritos) {
@@ -2445,6 +2675,16 @@ function renderPlan(plan) {
       const item = crearElemento('div', { class: `plan-item${p.cruzado ? ' cruzado' : ''}` });
       const accion = crearElemento('span', { class: 'plan-accion' }, p.accion);
       accion.append(' ', crearElemento('span', { class: 'plan-responsable' }, `→ ${responsableDe(p.distrito)}`));
+      const entregables = crearElemento('span', { class: 'plan-entregable' });
+      const formato = crearElemento('button', { type: 'button', class: 'atajo', title: 'Descarga el formato en Word para llenarlo con tu equipo (sin IA)' }, 'Formato Word');
+      formato.addEventListener('click', () => descargarEntregable(p, false, formato));
+      entregables.append(formato);
+      if (estado.proveedorIA !== 'ninguno') {
+        const redactar = crearElemento('button', { type: 'button', class: 'atajo', title: 'El agente del área lo redacta con los datos de tu empresa. Gasta tokens de tu clave.' }, 'Redactar con IA');
+        redactar.addEventListener('click', () => descargarEntregable(p, true, redactar));
+        entregables.append(redactar);
+      }
+      accion.append(entregables);
       item.append(crearElemento('span', { class: `tag-distrito ${p.color}` }, p.nombre), accion);
       items.append(item);
     }
@@ -2488,6 +2728,153 @@ function descargar({ nombre, contenido, tipo }) {
   enlace.click();
   enlace.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Descarga el documento de Word de una acción del plan: el formato (sin IA) o el borrador que redacta el agente.
+async function descargarEntregable(paso, conIA, boton) {
+  const texto = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = conIA ? 'Redactando…' : 'Preparando…';
+  try {
+    const res = await fetch('/api/plan/entregable', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ distrito: paso.distrito, accion: paso.accion, conIA }) });
+    if (!res.ok) {
+      const cuerpo = await res.json().catch(() => ({}));
+      aviso(cuerpo.errores?.[0] || 'No se pudo generar el documento.', 'error');
+      return;
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const enlace = crearElemento('a', { href: url, download: `${paso.nombre} - ${paso.accion.slice(0, 50)}.docx`.replace(/[\\/:*?"<>|]/g, '') });
+    document.body.append(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (conIA) refrescarEstadoIA();
+  } catch {
+    aviso('No hay conexión con el servidor local.', 'error');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = texto;
+  }
+}
+
+// ---------- Datos reales: facturas CFDI y CSV de ventas ----------
+
+const pesosMx = (n) => `$${Math.round(n || 0).toLocaleString('es-MX')}`;
+
+function pintarDatosReales(a) {
+  $('#reales-resultado').hidden = !a;
+  $('#reales-hechos').hidden = !a;
+  $('#reales-olvidar').hidden = !a;
+  if (!a) return;
+  if (a.carpeta && !$('#reales-carpeta').value) $('#reales-carpeta').value = a.carpeta;
+  const arch = a.archivos || {};
+  $('#reales-periodo').textContent = `Del ${a.periodo.desde} al ${a.periodo.hasta} · ${a.comprobantes} comprobantes (${arch.xml || 0} facturas, ${arch.csv || 0} archivos CSV${arch.ignorados ? `, ${arch.ignorados} archivos que no eran de este tipo` : ''})${arch.truncado ? ' · se leyó hasta el máximo de archivos' : ''} · RFC del negocio: ${a.rfc || 'no identificado'} · analizado el ${fechaCorta(a.momento)}`;
+  const kpi = (etiqueta, valor) => {
+    const caja = crearElemento('div', { class: 'kpi' });
+    const t = crearElemento('div', { class: 'kpi-texto' });
+    t.append(crearElemento('span', { class: 'kpi-etiqueta' }, etiqueta), crearElemento('span', { class: 'kpi-valor' }, valor));
+    caja.append(t);
+    return caja;
+  };
+  $('#reales-kpis').replaceChildren(
+    kpi('Ventas facturadas', pesosMx(a.ventas.total)),
+    kpi('Gastos y nómina', pesosMx(a.gastos.total + a.nomina)),
+    kpi('Clientes identificados', String(a.ventas.clientes)),
+    kpi('Tres clientes principales', `${a.ventas.top3Pct}%`),
+    kpi('Venta a crédito', `${a.ventas.creditoPct}%`),
+  );
+  $('#reales-hallazgos').replaceChildren(...(a.hallazgos.length ? a.hallazgos.map((h) => {
+    const li = crearElemento('li', { class: h.color });
+    const t = crearElemento('div');
+    t.append(crearElemento('strong', {}, `${nombreArea(h.area)} · ${ETIQUETA_COLOR[h.color] || h.color}`), crearElemento('span', {}, h.texto));
+    li.append(crearElemento('span', { class: `punto-color ${h.color}` }), t);
+    return li;
+  }) : [crearElemento('li', {}, 'Con estos archivos no hay suficiente para sacar conclusiones: hacen falta facturas emitidas y recibidas de varios meses.')]));
+  const tabla = (id, filas) => $(id).replaceChildren(...(filas.length ? filas.map((f) => {
+    const tr = crearElemento('tr');
+    tr.append(crearElemento('td', {}, f.nombre), crearElemento('td', { class: 'num' }, pesosMx(f.total)), crearElemento('td', { class: 'num' }, `${f.pct}%`));
+    return tr;
+  }) : [(() => { const tr = crearElemento('tr'); tr.append(crearElemento('td', {}, 'Sin datos en estos archivos.')); return tr; })()]));
+  tabla('#reales-clientes', a.ventas.topClientes);
+  tabla('#reales-proveedores', a.gastos.topProveedores);
+}
+
+async function cargarDatosReales() {
+  try {
+    pintarDatosReales((await fetch('/api/datos-reales').then((r) => r.json())).analisis);
+  } catch { /* la tarjeta queda sin resultado */ }
+}
+
+async function analizarDatosReales() {
+  const carpeta = $('#reales-carpeta').value.trim();
+  if (!carpeta) return mensaje($('#reales-mensaje'), 'Escribe la ruta de la carpeta.', 'error');
+  mensaje($('#reales-mensaje'), 'Leyendo archivos…');
+  try {
+    const res = await fetch('/api/datos-reales/analizar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ carpeta }) });
+    const cuerpo = await res.json();
+    if (!res.ok) return mensaje($('#reales-mensaje'), cuerpo.errores?.[0] || 'No se pudo analizar.', 'error');
+    pintarDatosReales(cuerpo.analisis);
+    mensaje($('#reales-mensaje'), `Listo: ${cuerpo.analisis.comprobantes} comprobantes analizados.`, 'ok');
+    renderInforme();
+  } catch {
+    mensaje($('#reales-mensaje'), 'No hay conexión con el servidor local.', 'error');
+  }
+}
+
+async function registrarHechosReales() {
+  try {
+    const cuerpo = await fetch('/api/datos-reales/hechos', { method: 'POST' }).then((r) => r.json());
+    mensaje($('#reales-mensaje'), cuerpo.ok ? `${cuerpo.registrados} hechos registrados. Los ves en Agentes › Bitácora.` : (cuerpo.errores?.[0] || 'No se pudo registrar.'), cuerpo.ok ? 'ok' : 'error');
+  } catch {
+    mensaje($('#reales-mensaje'), 'No hay conexión con el servidor local.', 'error');
+  }
+}
+
+// ---------- Varias empresas ----------
+
+async function cargarEmpresas() {
+  const tarjeta = $('#empresas-card');
+  let datos;
+  try {
+    const res = await fetch('/api/empresas');
+    if (!res.ok) { tarjeta.hidden = true; return; }
+    datos = await res.json();
+  } catch { tarjeta.hidden = true; return; }
+  tarjeta.hidden = false;
+  $('#empresas-lista').replaceChildren(...datos.lista.map((e) => {
+    const li = crearElemento('li', { class: 'fuente' });
+    const info = crearElemento('div', { class: 'fuente-info' });
+    info.append(crearElemento('strong', {}, e.nombre), crearElemento('small', {}, e.id === 'principal' ? 'Carpeta data/' : `Carpeta data/empresas/${e.id}/`));
+    const acciones = crearElemento('div', { class: 'fuente-acciones' });
+    if (e.id === datos.activa) acciones.append(crearElemento('span', { class: 'empresa-activa' }, 'Abierta ahora'));
+    else {
+      const abrir = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, 'Abrir');
+      abrir.addEventListener('click', async () => {
+        abrir.disabled = true;
+        const res = await fetch('/api/empresas/activa', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: e.id }) }).catch(() => null);
+        if (res?.ok) window.location.reload();
+        else { abrir.disabled = false; mensaje($('#empresas-mensaje'), 'No se pudo cambiar de empresa.', 'error'); }
+      });
+      acciones.append(abrir);
+    }
+    li.append(info, acciones);
+    return li;
+  }));
+}
+
+async function crearEmpresaNueva() {
+  const nombre = $('#empresa-nueva').value.trim();
+  if (!nombre) return mensaje($('#empresas-mensaje'), 'Escribe el nombre de la empresa.', 'error');
+  try {
+    const res = await fetch('/api/empresas', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nombre }) });
+    const cuerpo = await res.json();
+    if (!res.ok) return mensaje($('#empresas-mensaje'), cuerpo.errores?.[0] || 'No se pudo crear.', 'error');
+    $('#empresa-nueva').value = '';
+    mensaje($('#empresas-mensaje'), `"${cuerpo.empresa.nombre}" creada. Ábrela para hacer su diagnóstico.`, 'ok');
+    cargarEmpresas();
+  } catch {
+    mensaje($('#empresas-mensaje'), 'No hay conexión con el servidor local.', 'error');
+  }
 }
 
 function archivosDelResultado(resp) {
@@ -2542,8 +2929,9 @@ function renderResultados(resp, { scroll = true } = {}) {
   const prio = resultado.prioridad.map((id) => resultado.distritos[id].nombre);
   $('#prioridades').textContent = prio.length ? `Atender primero: ${prio.join(', ')}.` : 'Sin prioridades críticas con las respuestas actuales.';
 
+  cerrarSimulador({ repintar: false });
   renderKpis(resultado, cuenta);
-  renderOficina($('#oficina'), resultado, { onSeleccion: mostrarDetalle });
+  renderOficina($('#oficina'), resultado, { onSeleccion: alElegirEnCiudad });
   renderEstadoArea(cuenta);
   cerrarDetalle();
   renderMotor(resultado.crecimiento);
@@ -2552,6 +2940,7 @@ function renderResultados(resp, { scroll = true } = {}) {
   renderNivel(resultado.distritos);
   renderOportunidades(resultado.distritos);
   renderHistorial();
+  renderAvance();
   renderPlan(resultado.plan);
   renderAnalisis(resultado.distritos);
   renderBandeja(resp);
@@ -2559,7 +2948,7 @@ function renderResultados(resp, { scroll = true } = {}) {
   const bloqueIA = $('#resumen-ia');
   if (resumenIA) {
     bloqueIA.hidden = false;
-    bloqueIA.replaceChildren(crearElemento('h3', {}, `Plan sugerido (${NOMBRE_PROVEEDOR[resumenIA.proveedor] || resumenIA.proveedor})`), crearElemento('p', {}, resumenIA.texto || resumenIA.error || 'Sin respuesta.'));
+    bloqueIA.replaceChildren(crearElemento('h3', {}, `Plan sugerido (${NOMBRE_PROVEEDOR[resumenIA.proveedor] || resumenIA.proveedor})`), (() => { const p = crearElemento('p'); p.append(...conNegritas(resumenIA.texto || resumenIA.error || 'Sin respuesta.')); return p; })());
   } else {
     bloqueIA.hidden = true;
   }
@@ -2567,6 +2956,192 @@ function renderResultados(resp, { scroll = true } = {}) {
   aplicarMarca();
   renderLineaResultados(resultado);
   mostrarVista('dashboard', { scroll });
+}
+
+// ---------- Ciudad: cámara y simulador de escenarios ----------
+
+// Clic en la ciudad: un edificio abre su área; el núcleo de la plaza lleva al Orquestador.
+function alElegirEnCiudad(id) {
+  if (id === 'orquestador') return irASeccionAgentes('orquestador');
+  return mostrarDetalle(id);
+}
+
+function prepararControlesCiudad() {
+  const barra = $('.hud-camaras');
+  barra.addEventListener('click', (e) => {
+    const boton = e.target.closest('button');
+    if (!boton) return;
+    if (boton.dataset.camara) {
+      vistaCamara(boton.dataset.camara);
+      for (const b of barra.querySelectorAll('[data-camara]')) {
+        const activo = b === boton;
+        b.classList.toggle('activo', activo);
+        b.setAttribute('aria-pressed', String(activo));
+      }
+    } else if (boton.dataset.modo) {
+      const encender = boton.getAttribute('aria-pressed') !== 'true';
+      const quedo = boton.dataset.modo === 'orbita' ? orbita(encender) : (rayosX(encender), encender);
+      boton.setAttribute('aria-pressed', String(quedo));
+      if (boton.dataset.modo === 'orbita' && encender && !quedo) aviso('Tu sistema pide menos movimiento: la órbita queda apagada.');
+    } else if (boton.dataset.zoom) {
+      acercar(Number(boton.dataset.zoom));
+    }
+  });
+  $('#simular').addEventListener('click', () => ($('#simulador').hidden ? abrirSimulador() : cerrarSimulador()));
+  $('#sim-cerrar').addEventListener('click', () => cerrarSimulador());
+  $('.sim-atajos').addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-escenario]');
+    if (boton) aplicarEscenario(boton.dataset.escenario);
+  });
+  $('#equipo-filtros').addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-filtro]');
+    if (boton) filtrarTarjetasEquipo(boton.dataset.filtro);
+  });
+}
+
+// El simulador cambia el color de las áreas solo en pantalla: recalcula la madurez con la misma
+// fórmula del dashboard y vuelve a levantar la ciudad. Nunca toca el diagnóstico guardado.
+const SUBE_UN_NIVEL = { rojo: 'amarillo', amarillo: 'verde', verde: 'verde', sin_datos: 'sin_datos' };
+let simulacion = null; // { [idArea]: color }
+
+function distritosSimulados() {
+  const reales = estado.ultimo.resultado.distritos;
+  const copia = {};
+  for (const [id, d] of Object.entries(reales)) copia[id] = { ...d, color: simulacion?.[id] || d.color };
+  return copia;
+}
+
+function abrirSimulador() {
+  if (!estado.ultimo) return;
+  simulacion = {};
+  $('#simulador').hidden = false;
+  $('#escenario').classList.add('simulando');
+  $('#simular').setAttribute('aria-expanded', 'true');
+  pintarSimulador();
+  $('#sim-cerrar').focus({ preventScroll: true });
+}
+
+function cerrarSimulador({ repintar = true } = {}) {
+  const habia = simulacion && Object.keys(simulacion).length > 0;
+  simulacion = null;
+  $('#simulador').hidden = true;
+  $('#sim-aviso').hidden = true;
+  $('#escenario').classList.remove('simulando');
+  $('#simular').setAttribute('aria-expanded', 'false');
+  if (!repintar || !estado.ultimo) return;
+  const { resultado } = estado.ultimo;
+  if (habia) renderOficina($('#oficina'), resultado, { onSeleccion: alElegirEnCiudad });
+  renderEstadoArea(contarColores(resultado.distritos));
+  pintarDial(madurez(resultado.distritos));
+}
+
+function aplicarEscenario(nombre) {
+  if (!estado.ultimo) return;
+  const { distritos, plan } = estado.ultimo.resultado;
+  simulacion = {};
+  for (const [id, d] of Object.entries(distritos)) {
+    if (nombre === 'criticos' && d.color === 'rojo') simulacion[id] = 'amarillo';
+    if (nombre === 'plan' && plan.some((p) => p.distrito === id)) simulacion[id] = SUBE_UN_NIVEL[d.color];
+    if (nombre === 'todo' && d.color !== 'sin_datos') simulacion[id] = 'verde';
+    if (simulacion[id] === d.color) delete simulacion[id];
+  }
+  pintarSimulador();
+}
+
+function pintarSimulador() {
+  const reales = estado.ultimo.resultado.distritos;
+  const simulados = distritosSimulados();
+  const lista = $('#sim-areas');
+  lista.replaceChildren();
+  for (const id of ORDEN_AREAS) {
+    const real = reales[id];
+    if (!real) continue;
+    const li = crearElemento('li', { class: simulados[id].color !== real.color ? 'cambio' : '' });
+    const grupo = crearElemento('span', { class: 'sim-semaforo', role: 'group', 'aria-label': `Estado simulado de ${real.nombre}` });
+    for (const color of ['rojo', 'amarillo', 'verde']) {
+      const b = crearElemento('button', { type: 'button', 'data-color': color, 'aria-pressed': String(simulados[id].color === color), 'aria-label': ETIQUETA_COLOR[color], title: ETIQUETA_COLOR[color] });
+      b.addEventListener('click', () => {
+        if (color === real.color) delete simulacion[id];
+        else simulacion[id] = color;
+        pintarSimulador();
+      });
+      grupo.append(b);
+    }
+    li.append(crearElemento('span', {}, real.nombre), grupo);
+    lista.append(li);
+  }
+
+  const antes = madurez(reales);
+  const despues = madurez(simulados);
+  const cambios = Object.keys(simulacion).length;
+  $('#sim-antes').textContent = String(antes);
+  $('#sim-despues').textContent = String(despues);
+  const delta = Math.round((despues - antes) * 10) / 10;
+  const p = $('#sim-delta');
+  p.className = delta > 0 ? 'sube' : delta < 0 ? 'baja' : '';
+  p.textContent = !cambios ? 'Elige un escenario o cambia el color de un área.'
+    : `${delta > 0 ? '+' : ''}${delta} de madurez con ${cambios} ${cambios === 1 ? 'área distinta' : 'áreas distintas'}.`;
+  $('#sim-aviso').hidden = !cambios;
+  renderOficina($('#oficina'), { ...estado.ultimo.resultado, distritos: simulados }, { onSeleccion: alElegirEnCiudad });
+  renderEstadoArea(contarColores(simulados));
+  pintarDial(despues);
+}
+
+// ---------- Red de agentes ----------
+
+const NOMBRE_ESTADO_RED = { trabajando: 'Trabajando', activo: 'Activos', bloqueado: 'Bloqueados', sin_actividad: 'Sin actividad' };
+
+async function cargarRed() {
+  let jer;
+  let sit;
+  try {
+    [jer, sit] = await Promise.all([fetch('/api/jerarquia').then((r) => r.json()), fetch('/api/situacion').then((r) => r.json())]);
+  } catch {
+    $('#red-resumen').textContent = 'No se pudo leer la red de agentes.';
+    return;
+  }
+  estado.subagentes = jer.subagentes || {};
+  estado.tipos = jer.tipos || {};
+  const porAgente = new Map((sit.agentes || []).map((a) => [a.id, a]));
+  const enCurso = new Set([...trabajosEnCurso.values()].map((t) => t.area));
+  const estadoDe = (id) => (enCurso.has(id) ? 'trabajando' : porAgente.get(id)?.estado === 'inactivo' ? 'sin_actividad' : porAgente.get(id)?.estado || 'sin_actividad');
+  const distritos = estado.ultimo?.resultado?.distritos || {};
+
+  pintarRed($('#red'), jer.arbol, {
+    nombre: (id) => (id === 'orquestador' ? 'Orquestador' : nombreArea(id)),
+    avatar: (id) => AREAS_ASSETS[id]?.avatar || estado.personalizados.agentes[id]?.avatar || '',
+    estado: estadoDe,
+    semaforo: (id) => distritos[id]?.color || null,
+    alElegir: alElegirEnCiudad,
+  });
+
+  const r = sit.resumen || {};
+  const cuenta = { trabajando: enCurso.size || r.trabajando || 0, activo: r.activo || 0, bloqueado: r.bloqueado || 0, sin_actividad: (r.sin_actividad || 0) + (r.inactivo || 0) };
+  const total = (sit.agentes || []).length;
+  $('#red-resumen').textContent = `${total} agentes coordinados por el Orquestador. Se arma con reglas, sin gastar IA.`;
+  const TONO = { trabajando: 'var(--cian)', activo: 'var(--verde)', bloqueado: 'var(--rojo)', sin_actividad: 'var(--gris)' };
+  $('#red-conteo').replaceChildren(...Object.keys(NOMBRE_ESTADO_RED).map((k) => {
+    const caja = crearElemento('div', { style: `--tono: ${TONO[k]}` });
+    caja.append(crearElemento('strong', {}, String(cuenta[k])), crearElemento('span', {}, NOMBRE_ESTADO_RED[k]));
+    return caja;
+  }));
+
+  const fila = (a, detalle) => {
+    const li = crearElemento('li', { class: 'pulsable', tabindex: '0', role: 'button' });
+    li.append(crearElemento('strong', {}, a.nombre), crearElemento('small', {}, detalle));
+    const abrir = () => alElegirEnCiudad(a.id);
+    li.addEventListener('click', abrir);
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } });
+    return li;
+  };
+  const atencion = (sit.agentes || []).filter((a) => a.estado === 'bloqueado' || a.acciones?.vencidas || a.pendientes);
+  $('#red-atencion').replaceChildren(...(atencion.length
+    ? atencion.slice(0, 6).map((a) => fila(a, a.estado === 'bloqueado' ? (a.ultimaRespuesta?.resumen || 'Bloqueado') : a.acciones?.vencidas ? `${a.acciones.vencidas} acciones vencidas` : `${a.pendientes} órdenes pendientes sin IA`))
+    : [crearElemento('li', { class: 'vacio' }, 'Nadie está bloqueado ni tiene acciones vencidas.')]));
+  const recientes = (sit.agentes || []).filter((a) => a.ultimaActividad).sort((a, b) => String(b.ultimaActividad).localeCompare(String(a.ultimaActividad))).slice(0, 5);
+  $('#red-reciente').replaceChildren(...(recientes.length
+    ? recientes.map((a) => fila(a, `${fechaCorta(a.ultimaActividad)} ${horaCorta(a.ultimaActividad)}${a.ultimaRespuesta?.resumen ? ` · ${a.ultimaRespuesta.resumen}` : ''}`))
+    : [crearElemento('li', { class: 'vacio' }, 'Todavía no hay movimiento. Dale una orden a un agente.')]));
 }
 
 // ---------- Conversación con los agentes ----------
@@ -2676,7 +3251,9 @@ function crearChat(seccion) {
       const autorEl = crearElemento('span', { class: 'chat-autor' }, autor);
       // El clasificador marca qué dio el usuario: un hecho de la empresa, una idea o una pregunta de concepto.
       if (m.rol === 'usuario' && m.tipo && m.tipo !== 'orden') autorEl.append(' ', crearElemento('span', { class: `chip-tipo ${m.tipo}` }, ETIQUETA_TIPO[m.tipo]));
-      li.append(autorEl, crearElemento('p', { class: 'chat-cuerpo' }, m.texto), crearElemento('span', { class: 'chat-hora' }, horaCorta(m.momento)));
+      const cuerpo = crearElemento('p', { class: 'chat-cuerpo' });
+      cuerpo.append(...conNegritas(m.texto));
+      li.append(autorEl, cuerpo, crearElemento('span', { class: 'chat-hora' }, horaCorta(m.momento)));
       lista.append(li);
     }
     lista.scrollTop = lista.scrollHeight;
@@ -2841,6 +3418,7 @@ function cerrarDetalle() {
 // ---------- Reportes ----------
 
 async function cargarReportes() {
+  cargarPasaporte();
   const lista = $('#reportes-lista');
   lista.replaceChildren();
   const diagnosticos = await listarDiagnosticos();
@@ -2861,10 +3439,172 @@ async function cargarReportes() {
     pdf.addEventListener('click', () => abrirPdf(d.id));
     const datos = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, 'Datos');
     datos.addEventListener('click', () => descargarDiagnostico(d.id, 0));
-    acciones.append(ver, word, pdf, datos);
+    const borrar = crearElemento('button', { class: 'boton secundario compacto peligro', type: 'button' }, 'Borrar');
+    borrar.addEventListener('click', () => {
+      if (!borrar.classList.contains('confirmar')) {
+        borrar.classList.add('confirmar');
+        borrar.textContent = '¿Borrar para siempre?';
+        setTimeout(() => { borrar.classList.remove('confirmar'); borrar.textContent = 'Borrar'; }, 4000);
+        return;
+      }
+      borrarDiagnostico(d.id);
+    });
+    acciones.append(ver, word, pdf, datos, borrar);
     li.append(info, acciones);
     lista.append(li);
   }
+}
+
+// ---------- Pasaporte de madurez ----------
+
+async function cargarPasaporte() {
+  const tarjeta = $('#pasaporte-card');
+  const cifras = $('#pasaporte-cifras').checked;
+  let p = null;
+  try {
+    const res = await fetch(`/api/pasaporte${cifras ? '?cifras=1' : ''}`);
+    p = res.ok ? (await res.json()).pasaporte : null;
+  } catch { p = null; }
+  tarjeta.hidden = !p;
+  if (!p) return;
+  $('#pasaporte-valor').textContent = String(p.madurez.valor);
+  $('#pasaporte-nivel').textContent = `${p.madurez.nivel} · de 5`;
+  const dato = (titulo, texto) => { const li = crearElemento('li'); li.append(crearElemento('strong', {}, `${titulo}: `), document.createTextNode(texto)); return li; };
+  const f = p.facturas;
+  $('#pasaporte-datos').replaceChildren(
+    dato('Tendencia', p.madurez.tendencia.texto),
+    dato('Historial', p.historial.diagnosticos > 1 ? `${p.historial.diagnosticos} diagnósticos en ${p.historial.dias === 1 ? '1 día' : `${p.historial.dias} días`}` : 'un diagnóstico; con el segundo se verá la tendencia'),
+    dato('Áreas', `${p.resumenAreas.bien} bien, ${p.resumenAreas.revisar} por revisar, ${p.resumenAreas.atencion} en atención`),
+    dato('Facturas', f ? `${f.comprobantes} comprobantes del ${f.desde} al ${f.hasta}${cifras ? ` · ventas ${pesosMx(f.ventas)}` : ''}` : 'sin analizar; hazlo en Configuración › Datos reales para que el pasaporte tenga respaldo'),
+    dato('Folio', p.folio),
+  );
+  if (p.historial.diasDesdeUltimo > 120) $('#pasaporte-datos').append(dato('Aviso', `el último diagnóstico tiene ${p.historial.diasDesdeUltimo} días; actualízalo antes de entregarlo`));
+  const sufijo = cifras ? '?cifras=1' : '';
+  $('#pasaporte-word').href = `/api/pasaporte/reporte.docx${sufijo}`;
+  $('#pasaporte-pdf').href = `/api/pasaporte/reporte.html${sufijo}`;
+}
+
+async function verificarPasaporte() {
+  const huella = $('#pasaporte-huella').value.trim();
+  if (!huella) return mensaje($('#pasaporte-mensaje'), 'Escribe el folio o la huella.', 'error');
+  try {
+    const r = await fetch(`/api/pasaporte/verificar?huella=${encodeURIComponent(huella)}`).then((x) => x.json());
+    if (r.coincide) mensaje($('#pasaporte-mensaje'), `Coincide con tus datos actuales (versión ${r.conCifras ? 'con' : 'sin'} montos).`, 'ok');
+    else mensaje($('#pasaporte-mensaje'), 'No coincide: el documento fue alterado o tus datos cambiaron desde que lo emitiste.', 'error');
+  } catch {
+    mensaje($('#pasaporte-mensaje'), 'No hay conexión con el servidor local.', 'error');
+  }
+}
+
+// Quita un diagnóstico del historial. Si era el que está en pantalla, el dashboard pasa al más reciente que quede.
+async function borrarDiagnostico(id) {
+  try {
+    const res = await fetch(`/api/diagnosticos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('no se pudo');
+  } catch {
+    aviso('No se pudo borrar el diagnóstico.', 'error');
+    return;
+  }
+  aviso('Diagnóstico borrado.', 'ok');
+  const [reciente] = await listarDiagnosticos();
+  if (estado.ultimo?.id === id || !reciente) {
+    estado.ultimo = null;
+    if (reciente) {
+      try { renderResultados(await obtenerDiagnostico(reciente.id), { scroll: false }); } catch { /* queda el estado vacío */ }
+    }
+  } else {
+    renderHistorial();
+    renderAvance();
+  }
+  await cargarReportes();
+  mostrarVista('reportes', { scroll: false });
+}
+
+// ---------- Avance entre diagnósticos ----------
+
+const FLECHA_CAMBIO = { mejoro: '▲', empeoro: '▼', nuevo: '●', sin_datos: '○' };
+
+// Compara el diagnóstico en pantalla con uno anterior (el que elija el servidor o el del selector).
+async function renderAvance(contra = '') {
+  const tarjeta = $('#avance-card');
+  const id = estado.ultimo?.id;
+  let p = null;
+  if (id) {
+    try {
+      const res = await fetch(`/api/progreso?id=${encodeURIComponent(id)}${contra ? `&contra=${encodeURIComponent(contra)}` : ''}`);
+      p = res.ok ? await res.json() : null;
+    } catch { p = null; }
+  }
+  if (!p || estado.ultimo?.id !== id) { tarjeta.hidden = !p; return; }
+  tarjeta.hidden = false;
+  const c = p.comparacion;
+  $('#avance-vacio').hidden = Boolean(c);
+  $('#avance-cuerpo').hidden = !c;
+  $('#avance-selector').hidden = !c || p.candidatos.length < 2;
+  if (!c) return;
+
+  const selector = $('#avance-contra');
+  selector.replaceChildren(...p.candidatos.map((d) => crearElemento('option', { value: d.id }, `${fechaCorta(d.creado)} · ${d.nombre}`)));
+  selector.value = c.anterior.id;
+
+  const { antes, despues, delta } = c.madurez;
+  const caja = $('.avance-delta');
+  caja.className = `avance-delta ${delta > 0 ? 'sube' : delta < 0 ? 'baja' : ''}`.trim();
+  $('#avance-delta').textContent = delta === 0 ? 'Sin cambio' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`;
+  const lapso = c.dias === 0 ? 'el mismo día' : c.dias === 1 ? 'en 1 día' : `en ${c.dias} días`;
+  $('#avance-rango').textContent = `Madurez de ${antes} a ${despues} de 5, ${lapso}.`;
+  pintarSerieAvance(p.serie, c);
+
+  const cambiadas = c.areas.filter((a) => a.cambio !== 'igual');
+  $('#avance-areas').replaceChildren(...(cambiadas.length ? cambiadas.map((a) => {
+    const li = crearElemento('li', { class: a.cambio });
+    li.append(crearElemento('span', { class: 'flecha', 'aria-hidden': 'true' }, FLECHA_CAMBIO[a.cambio] || ''), crearElemento('span', {}, a.nombre), crearElemento('small', {}, `${ETIQUETA_COLOR[a.antes]} → ${ETIQUETA_COLOR[a.despues]}`));
+    return li;
+  }) : [crearElemento('li', { class: 'vacio' }, 'Ninguna área cambió de color entre los dos diagnósticos.')]));
+
+  const cifra = (n, texto, tono) => {
+    const d = crearElemento('div', { style: `--tono: ${tono}` });
+    d.append(crearElemento('strong', {}, String(n)), crearElemento('span', {}, texto));
+    return d;
+  };
+  const { resueltas, persistentes, nuevas } = c.acciones;
+  $('#avance-plan').replaceChildren(cifra(resueltas.length, 'ya no hacen falta', 'var(--verde)'), cifra(persistentes.length, 'siguen pendientes', 'var(--amarillo)'), cifra(nuevas.length, 'nuevas', 'var(--cian)'));
+  $('#avance-resueltas').replaceChildren(...(resueltas.length
+    ? resueltas.slice(0, 5).map((a) => crearElemento('li', {}, `${a.accion} (${a.nombre})`))
+    : [crearElemento('li', { class: 'vacio' }, 'Todas las acciones del plan anterior siguen apareciendo. Con tus respuestas nuevas, el motor todavía las pide.')]));
+}
+
+// Línea de madurez (0 a 5) con un punto por diagnóstico guardado; resalta los dos que se comparan.
+function pintarSerieAvance(serie, c) {
+  const svg = $('#avance-serie');
+  svg.replaceChildren();
+  if (serie.length < 2) return;
+  const ancho = 300;
+  const x = (i) => 14 + (i * (ancho - 28)) / (serie.length - 1);
+  const y = (v) => 78 - (v / 5) * 62;
+  const grad = svgEl('linearGradient', { id: 'grad-avance', x1: '0', y1: '0', x2: '1', y2: '0' });
+  grad.append(svgEl('stop', { offset: '0', 'stop-color': '#8b5cf6' }), svgEl('stop', { offset: '1', 'stop-color': '#25e2ff' }));
+  const defs = svgEl('defs');
+  defs.append(grad);
+  svg.append(defs);
+  for (const v of [0, 2.5, 5]) svg.append(svgEl('line', { x1: 14, x2: ancho - 14, y1: y(v), y2: y(v), stroke: 'rgba(167,139,250,0.18)', 'stroke-dasharray': v === 0 ? '' : '3 6' }));
+  svg.append(svgEl('polyline', { points: serie.map((s, i) => `${x(i).toFixed(1)},${y(s.madurez).toFixed(1)}`).join(' '), fill: 'none', stroke: 'url(#grad-avance)', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  serie.forEach((s, i) => {
+    const comparado = s.id === c.anterior.id || s.id === c.actual.id;
+    const punto = svgEl('circle', { cx: x(i).toFixed(1), cy: y(s.madurez).toFixed(1), r: comparado ? '5.5' : '3', fill: comparado ? '#fff' : '#8b5cf6', stroke: '#0d0930', 'stroke-width': '1.5' });
+    const titulo = svgEl('title');
+    titulo.textContent = `${fechaCorta(s.creado)}: ${s.madurez} de 5`;
+    punto.append(titulo);
+    svg.append(punto);
+    if (comparado) {
+      const t = svgEl('text', { x: x(i).toFixed(1), y: (y(s.madurez) - 10).toFixed(1), 'text-anchor': i === 0 ? 'start' : i === serie.length - 1 ? 'end' : 'middle' });
+      t.textContent = String(s.madurez);
+      svg.append(t);
+    }
+  });
+  const pie = (i, ancla) => { const t = svgEl('text', { x: x(i).toFixed(1), y: '94', 'text-anchor': ancla }); t.textContent = fechaCorta(serie[i].creado); svg.append(t); };
+  pie(0, 'start');
+  pie(serie.length - 1, 'end');
 }
 
 async function obtenerDiagnostico(id) {
@@ -2958,6 +3698,8 @@ async function cargarConfiguracion() {
   cargarEmpresa();
   cargarFuentes();
   cargarUso();
+  cargarDatosReales();
+  cargarEmpresas();
   try {
     const cfg = await fetch('/api/configuracion').then((r) => r.json());
     pintarConfiguracion(cfg);
@@ -3023,8 +3765,14 @@ async function guardarIdentidadConfig() {
 
 // ---------- Diagnóstico nuevo y avance ----------
 
-function reiniciar() {
-  estado.respuestas = {};
+// Abre el asistente para un diagnóstico nuevo. Si ya hay uno, parte de sus respuestas: el dueño solo corrige
+// lo que cambió y el resultado se puede comparar con el anterior. "Empezar en blanco" las descarta.
+function reiniciar({ enBlanco = false } = {}) {
+  const previas = !enBlanco && estado.ultimo?.datos && Object.keys(estado.ultimo.datos).length ? estado.ultimo.datos : null;
+  estado.respuestas = previas ? Object.fromEntries(Object.entries(previas).map(([k, v]) => [k, String(v)])) : {};
+  estado.precargado = previas ? estado.ultimo.creado : null;
+  // Al actualizar conviene el completo: lo esencial ya viene lleno y solo falta afinar.
+  estado.modo = previas ? 'completo' : modoGuardado();
   estado.paso = 0;
   borrarBorrador().then(activarBorrador);
   renderPaso();
@@ -3144,8 +3892,18 @@ async function iniciar() {
   for (const boton of document.querySelectorAll('.menu-item')) boton.addEventListener('click', manejarMenu);
   $('#formulario').addEventListener('submit', avanzar);
   $('#atras').addEventListener('click', retroceder);
-  $('#nuevo').addEventListener('click', reiniciar);
-  $('#accion-nuevo').addEventListener('click', reiniciar);
+  $('#nuevo').addEventListener('click', () => reiniciar());
+  prepararControlesCiudad();
+  $('#accion-nuevo').addEventListener('click', () => reiniciar());
+  $('#avance-actualizar').addEventListener('click', () => reiniciar());
+  $('#reales-analizar').addEventListener('click', analizarDatosReales);
+  $('#reales-hechos').addEventListener('click', registrarHechosReales);
+  $('#reales-olvidar').addEventListener('click', async () => { await fetch('/api/datos-reales', { method: 'DELETE' }); pintarDatosReales(null); mensaje($('#reales-mensaje'), 'Análisis olvidado. Los hechos ya registrados siguen en la bitácora.', 'ok'); renderInforme(); });
+  $('#empresa-crear').addEventListener('click', crearEmpresaNueva);
+  $('#pasaporte-cifras').addEventListener('change', cargarPasaporte);
+  $('#pasaporte-verificar').addEventListener('click', verificarPasaporte);
+  $('#empezar-en-blanco').addEventListener('click', () => reiniciar({ enBlanco: true }));
+  $('#avance-contra').addEventListener('change', (e) => renderAvance(e.target.value));
   $('#vacio-empezar').addEventListener('click', () => { renderPaso(); mostrarVista('asistente'); });
   // El panel lateral vive directo en <body>: así "position: fixed" no depende de ninguna tarjeta con transformaciones.
   document.body.append($('#detalle-fondo'), $('#detalle'));
@@ -3184,6 +3942,11 @@ async function iniciar() {
   document.querySelectorAll('.pestana').forEach((b) => b.addEventListener('click', () => { mostrarPestana(b.dataset.pestana); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
   $('#equipo-filtro').addEventListener('input', filtrarEquipo);
   $('#form-campana').addEventListener('submit', descargarPiezaActual);
+  $('#form-campana-ia').addEventListener('submit', generarCampanaIA);
+  $('#modo-diagnostico').addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-modo-diag]');
+    if (boton) cambiarModoDiagnostico(boton.dataset.modoDiag);
+  });
   $('#camp-descargar-todas').addEventListener('click', descargarTodasLasPiezas);
   $('#camp-plataforma').addEventListener('change', renderPiezas);
   $('#camp-pieza').addEventListener('change', previsualizar);

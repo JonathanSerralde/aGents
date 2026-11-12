@@ -42,6 +42,13 @@ import { estadoApoyo } from './apoyo.js';
 import { HABILIDADES } from './habilidades.js';
 import { contextoSectores } from './sectores.js';
 import { informeOficina } from './informe.js';
+import { compararDiagnosticos, serieDeMadurez, elegirAnterior } from './progreso.js';
+import { crearDatosReales, leerCarpeta, analizarComprobantes } from './datos-reales.js';
+import { bloquesEntregable, instruccionEntregable, tipoDeEntregable } from './entregable.js';
+import { crearEmpresas } from './empresas.js';
+import { armarPasaporte, bloquesPasaporte } from './pasaporte.js';
+import { crearCampanas, sanitizarPeticion, instruccionCampana, parsearCampana, OBJETIVOS, TONOS } from './campana.js';
+import { rutasDe } from './config.js';
 import { situacionOficina, situacionParaPrompt, respuestaDeEstado } from './situacion.js';
 import { clasificarTexto, extraerHechosDeTexto, instruccionPorTipo, DESCRIPCION_TIPO, esPreguntaDeEstado } from './clasificador.js';
 import { crearCalendario, generarIcs, eventosDeOficina, agendaParaPrompt, LIMITE_ICS } from './calendario.js';
@@ -109,6 +116,17 @@ function leerBinario(req, limite) {
     req.on('end', () => resolver(Buffer.concat(partes)));
     req.on('error', rechazar);
   });
+}
+
+// Solo se atienden peticiones hechas a la dirección local y, si cambian algo, desde la propia interfaz.
+// Así otra página abierta en el navegador no puede dar órdenes a la oficina (CSRF) ni llegar por un dominio
+// que apunte a 127.0.0.1 (DNS rebinding).
+const LOCAL = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
+export function origenPermitido(req) {
+  if (!LOCAL.test(String(req.headers.host || ''))) return false;
+  const origen = req.headers.origin;
+  if (!origen || req.method === 'GET' || req.method === 'HEAD') return true;
+  return LOCAL.test(String(origen).replace(/^https?:\/\//i, ''));
 }
 
 export function crearServidor(opciones = {}) {
@@ -406,7 +424,21 @@ export function crearServidor(opciones = {}) {
 
   // Informe del Orquestador (reglas, sin IA): estado, contradicciones, acciones vencidas, mercado y sitio.
   function informeActual() {
-    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual() });
+    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual(), progreso: progresoDe()?.comparacion || null, datosReales: datosReales.leer() });
+  }
+
+  // Avance entre diagnósticos. Sin `id` usa el más reciente; sin `contra` elige el anterior del mismo giro.
+  // Devuelve null si se pidió un diagnóstico que no existe.
+  function progresoDe(id = '', contra = '') {
+    const lista = store.listar();
+    const actual = id ? store.obtener(id) : store.ultimo();
+    if (id && !actual) return null;
+    const serie = serieDeMadurez(lista.map((d) => store.obtener(d.id)).filter(Boolean));
+    if (!actual) return { serie, actual: null, comparacion: null, candidatos: [] };
+    const candidatos = lista.filter((d) => d.id !== actual.id && d.creado < actual.creado);
+    const elegido = contra ? candidatos.find((d) => d.id === contra) : elegirAnterior(lista, { id: actual.id, creado: actual.creado, giro: actual.datos?.giro });
+    const anterior = elegido ? store.obtener(elegido.id) : null;
+    return { serie, actual: { id: actual.id, creado: actual.creado }, comparacion: compararDiagnosticos(anterior, actual), candidatos };
   }
 
   async function analizarDocumento(req, res, id) {
@@ -455,7 +487,9 @@ export function crearServidor(opciones = {}) {
   const idsPropios = () => personalizados.ids();
   const equipo = crearEquipo(config.archivoEquipo, idsPropios);
   const conversaciones = crearConversaciones(config.dirConversaciones, idsPropios);
-  const configuracion = crearConfiguracion(config.archivoConfig);
+  const configuracion = crearConfiguracion(config.archivoConfig, { proteger: config.protegerClaves === true });
+  const datosReales = crearDatosReales(config.archivoDatosReales);
+  const campanas = crearCampanas(config.archivoCampanas);
   const HISTORIAL_PARA_IA = 12;
   const HISTORIAL_AUTOMATICO = 6; // piloto y rutinas: menos historial, menos tokens
 
@@ -465,7 +499,7 @@ export function crearServidor(opciones = {}) {
   const BUSQUEDAS_EN_CHAT = 5;
   const investigaciones = crearInvestigaciones(config.dirInvestigaciones);
   const analisisSitio = crearAnalisisSitio(config.dirSitio);
-  const programacion = crearProgramacion(config.archivoProgramacion);
+  const programacion = crearProgramacion(config.archivoProgramacion, { pausadas: ['investigacion'] });
   const memoria = crearMemoria(config.archivoMemoria);
   const calendario = crearCalendario(config.archivoCalendario);
   const rutinas = crearRutinas(config.archivoRutinas);
@@ -764,6 +798,7 @@ export function crearServidor(opciones = {}) {
     await revisarLotes().catch(() => {});
     if (cfg.permisos?.piloto === false || bloqueoIA(cfg)) return [];
     const propios = personalizados.leer().agentes;
+    piloto.asegurarEncendido(ahora);
     const vencidos = piloto.vencidos(idsPiloto(), ahora, propios);
     if (!vencidos.length) return [];
     const proveedor = proveedorActivo(cfg);
@@ -843,7 +878,8 @@ export function crearServidor(opciones = {}) {
       prioridad: resultado.prioridad,
     });
 
-    enviarJSON(res, 201, { ok: true, id: registro.id, resultado, resumenIA: ia });
+    // `datos` y `creado` permiten actualizar el diagnóstico después sin volver a pedirlo al servidor.
+    enviarJSON(res, 201, { ok: true, id: registro.id, creado: registro.creado, datos, resultado, resumenIA: ia });
   }
 
   function flujoEventos(req, res) {
@@ -887,6 +923,7 @@ export function crearServidor(opciones = {}) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const ruta = url.pathname;
     const metodo = req.method;
+    if (!origenPermitido(req)) return enviarJSON(res, 403, { ok: false, errores: ['Solo se aceptan peticiones desde esta computadora'] });
 
     if (ruta === '/api/formulario' && metodo === 'GET') {
       return enviarJSON(res, 200, {
@@ -902,7 +939,133 @@ export function crearServidor(opciones = {}) {
       return enviarJSON(res, 200, { diagnosticos: store.listar() });
     }
 
+    // Datos reales: facturas CFDI y CSV de ventas leídos de una carpeta de este equipo. Solo se guarda el resumen.
+    if (ruta === '/api/datos-reales' && metodo === 'GET') return enviarJSON(res, 200, { analisis: datosReales.leer() });
+    if (ruta === '/api/datos-reales' && metodo === 'DELETE') { datosReales.borrar(); return enviarJSON(res, 200, { ok: true }); }
+    if (ruta === '/api/datos-reales/analizar' && metodo === 'POST') {
+      try {
+        const cuerpo = await leerCuerpo(req);
+        const carpeta = String(cuerpo.carpeta || '').trim().slice(0, 500);
+        const rfc = empresa.leer().rfc || '';
+        const { comprobantes, archivos } = leerCarpeta(carpeta, rfc);
+        if (!comprobantes.length) return enviarJSON(res, 422, { ok: false, errores: ['En esa carpeta no hay facturas CFDI (.xml) ni archivos CSV de ventas con columnas de fecha e importe'] });
+        const analisis = datosReales.guardar({ ...analizarComprobantes(comprobantes, rfc), carpeta, archivos, momento: new Date().toISOString() });
+        return enviarJSON(res, 200, { ok: true, analisis });
+      } catch (err) {
+        return enviarJSON(res, 422, { ok: false, errores: [err.message] });
+      }
+    }
+    // Los hechos solo se registran cuando el usuario lo pide: con IA activa viajan en el contexto de los agentes.
+    if (ruta === '/api/datos-reales/hechos' && metodo === 'POST') {
+      const a = datosReales.leer();
+      if (!a) return enviarJSON(res, 404, { ok: false, errores: ['Primero analiza una carpeta'] });
+      const porArea = {};
+      for (const h of a.hechos || []) (porArea[h.area] ||= []).push(h.texto);
+      for (const [area, textos] of Object.entries(porArea)) memoria.agregarHechos(area, textos, 'facturas y ventas');
+      return enviarJSON(res, 200, { ok: true, registrados: (a.hechos || []).length });
+    }
+
+    // Pasaporte de madurez: documento para terceros con el historial del negocio. `cifras=1` incluye montos en pesos.
+    if (ruta.startsWith('/api/pasaporte') && metodo === 'GET') {
+      const emitir_ = (cifras) => {
+        const diagnostico = store.ultimo();
+        if (!diagnostico) return null;
+        const avance = progresoDe();
+        const acc = memoria.leer().acciones || [];
+        return armarPasaporte({
+          diagnostico, serie: avance.serie, comparacion: avance.comparacion, datosReales: datosReales.leer(), cifras,
+          acciones: { hechas: acc.filter((a) => a.estado === 'hecha').length, abiertas: acc.filter((a) => a.estado === 'pendiente').length, vencidas: memoria.vencidas().length },
+          marca: marca.leer(), ficha: empresa.leer(),
+        });
+      };
+      const conCifras = url.searchParams.get('cifras') === '1';
+      if (ruta === '/api/pasaporte/verificar') {
+        // Acepta la huella completa o el folio (sus primeros 12 caracteres). Compara contra las dos versiones.
+        const dada = String(url.searchParams.get('huella') || '').toLowerCase().replace(/[^0-9a-f]/g, '');
+        const versiones = [emitir_(false), emitir_(true)].filter(Boolean);
+        const hallada = dada.length >= 12 ? versiones.find((v) => v.huella === dada || (dada.length === 12 && v.huella.startsWith(dada))) : null;
+        return enviarJSON(res, 200, { coincide: Boolean(hallada), conCifras: hallada ? hallada.conCifras : null, hayDiagnostico: versiones.length > 0 });
+      }
+      const p = emitir_(conCifras);
+      if (!p) return enviarJSON(res, 404, { error: 'Aún no hay diagnóstico' });
+      if (ruta === '/api/pasaporte') return enviarJSON(res, 200, { pasaporte: p });
+      const formato = ruta.match(/^\/api\/pasaporte\/reporte\.(docx|html)$/);
+      if (formato) return entregarReporte(res, bloquesPasaporte(p), formato[1], `pasaporte-${p.folio}`);
+    }
+
+    // Campañas: la IA construye la campaña completa (tres propuestas). El agente es Tráfico digital; si está
+    // inactivo, Marketing. Una sola llamada, con el modelo principal; la última campaña queda guardada.
+    if (ruta === '/api/campanas' && metodo === 'GET') {
+      return enviarJSON(res, 200, { campana: campanas.leer(), objetivos: OBJETIVOS, tonos: TONOS, bloqueo: bloqueoIA(configActual()) });
+    }
+    if (ruta === '/api/campanas/generar' && metodo === 'POST') {
+      let cuerpo;
+      try { cuerpo = await leerCuerpo(req); } catch (err) { return enviarJSON(res, 400, { ok: false, errores: [err.message] }); }
+      const peticion = sanitizarPeticion(cuerpo);
+      if (!peticion.oferta) return enviarJSON(res, 422, { ok: false, errores: ['Escribe qué quieres ofrecer o anunciar'] });
+      const cfg = configActual();
+      const bloqueo = bloqueoIA(cfg);
+      if (bloqueo) return enviarJSON(res, 409, { ok: false, errores: [`${bloqueo}. Puedes armar la pieza a mano con el formulario.`] });
+      const agente = motivoInactivo('trafico') ? 'marketing' : 'trafico';
+      const fin = trabajo(agente, 'orden', `Campaña: ${peticion.oferta.slice(0, 80)}`);
+      agenteEnCurso = agente;
+      try {
+        const respuesta = (await conversar(cfg, sistemaDe(agente), [{ rol: 'usuario', texto: instruccionCampana(peticion) }])) || '';
+        const propuestas = parsearCampana(respuesta);
+        if (!propuestas.length) throw new Error('el agente no entregó propuestas con el formato esperado; inténtalo otra vez');
+        const campana = campanas.guardar({ peticion, agente, propuestas, momento: new Date().toISOString() });
+        conversaciones.agregar(agente, { rol: 'usuario', texto: `Construye una campaña: ${peticion.oferta}` });
+        conversaciones.agregar(agente, { rol: 'agente', texto: respuesta });
+        fin(true);
+        return enviarJSON(res, 200, { ok: true, campana });
+      } catch (err) {
+        fin(false, { error: err.message });
+        return enviarJSON(res, 502, { ok: false, errores: [`No se pudo construir la campaña: ${err.message}`] });
+      } finally {
+        agenteEnCurso = '';
+      }
+    }
+
+    // Entregable de una acción del plan, en Word. Sin IA: el formato para llenar. Con IA: lo redacta el agente del área.
+    if (ruta === '/api/plan/entregable' && metodo === 'POST') {
+      let cuerpo;
+      try { cuerpo = await leerCuerpo(req); } catch (err) { return enviarJSON(res, 400, { ok: false, errores: [err.message] }); }
+      const ultimo = store.ultimo();
+      const paso = ultimo?.resultado?.plan?.find((p) => p.distrito === cuerpo.distrito && p.accion === cuerpo.accion);
+      if (!paso) return enviarJSON(res, 404, { ok: false, errores: ['Esa acción ya no está en el plan del último diagnóstico'] });
+      let textoIA = '';
+      if (cuerpo.conIA === true) {
+        const cfg = configActual();
+        const bloqueo = bloqueoIA(cfg);
+        if (bloqueo) return enviarJSON(res, 409, { ok: false, errores: [`${bloqueo}. Puedes descargar el formato sin IA.`] });
+        agenteEnCurso = paso.distrito;
+        try {
+          textoIA = (await conversar(cfg, sistemaDe(paso.distrito), [{ rol: 'usuario', texto: instruccionEntregable({ accion: paso.accion, tipo: tipoDeEntregable(paso.accion) }) }])) || '';
+        } catch (err) {
+          return enviarJSON(res, 502, { ok: false, errores: [`No se pudo redactar: ${err.message}`] });
+        } finally {
+          agenteEnCurso = '';
+        }
+      }
+      const { bloques } = bloquesEntregable({
+        accion: paso.accion, nombreArea: paso.nombre, plazo: paso.plazo, textoIA,
+        responsable: equipo.leer().areas?.[paso.distrito]?.responsable || '', empresa: marca.leer().nombre,
+        hallazgos: ultimo.resultado.distritos[paso.distrito]?.hallazgos || [],
+      });
+      return entregarReporte(res, bloques, 'docx', `entregable-${paso.distrito}`);
+    }
+
+    if (ruta === '/api/progreso' && metodo === 'GET') {
+      const p = progresoDe(url.searchParams.get('id') || '', url.searchParams.get('contra') || '');
+      return p ? enviarJSON(res, 200, p) : enviarJSON(res, 404, { error: 'No encontrado' });
+    }
+
     const coincide = ruta.match(/^\/api\/diagnosticos\/([^/]+)$/);
+    if (coincide && metodo === 'DELETE') {
+      // Solo sale del historial; la bitácora y las conversaciones no se tocan.
+      if (!store.borrar(coincide[1])) return enviarJSON(res, 404, { error: 'No encontrado' });
+      return enviarJSON(res, 200, { ok: true });
+    }
     if (coincide && metodo === 'GET') {
       const registro = store.obtener(coincide[1]);
       return registro ? enviarJSON(res, 200, registro) : enviarJSON(res, 404, { error: 'No encontrado' });
@@ -1143,7 +1306,7 @@ export function crearServidor(opciones = {}) {
     const tareaProg = ruta.match(/^\/api\/(investigacion|sitio)\/programacion$/);
     if (tareaProg && metodo === 'PUT') {
       try {
-        programacion.guardar(tareaProg[1], await leerCuerpo(req));
+        programacion.guardar(tareaProg[1], await leerCuerpo(req), config.ahora ? config.ahora() : new Date());
         return enviarJSON(res, 200, { ok: true, programacion: estadoTarea(tareaProg[1]) });
       } catch (err) {
         return enviarJSON(res, 400, { ok: false, errores: [err.message] });
@@ -1254,7 +1417,10 @@ export function crearServidor(opciones = {}) {
     if (ruta === '/api/permisos' && metodo === 'PUT') {
       try {
         const cuerpo = await leerCuerpo(req);
-        configuracion.guardarPermisos(cuerpo.permisos || cuerpo);
+        const pilotoAntes = configuracion.leer().permisos?.piloto === true;
+        const permisos = configuracion.guardarPermisos(cuerpo.permisos || cuerpo);
+        // Al encender el piloto, los agentes sin configuración propia empiezan a contar desde este momento.
+        if (!pilotoAntes && permisos.piloto === true) piloto.encender(config.ahora ? config.ahora() : new Date());
         emitir('permisos_cambiados', {});
         return enviarJSON(res, 200, panelPermisos());
       } catch (err) {
@@ -1458,6 +1624,51 @@ export function crearServidor(opciones = {}) {
   return servidor;
 }
 
+// Servidor para varias empresas: un servidor HTTP externo que entrega cada petición al servidor interno de la
+// empresa activa. Cambiar de empresa apaga las tareas del interno anterior y monta uno nuevo con otra carpeta
+// de datos; la clave de IA y los permisos son de la instalación y no cambian.
+export function crearServidorMultiempresa(opciones = {}) {
+  const raiz = opciones.dirRaizDatos || configBase.dirRaizDatos;
+  const registro = crearEmpresas(join(raiz, 'empresas.json'), raiz);
+  let interno = null;
+  const montar = () => {
+    if (interno) interno.emit('close');
+    interno = crearServidor({ ...opciones, ...rutasDe(registro.dirActiva()) });
+    if (externo.listening) interno.emit('listening');
+  };
+  const externo = createServer(async (req, res) => {
+    const ruta = new URL(req.url, 'http://127.0.0.1').pathname;
+    if (!ruta.startsWith('/api/empresas')) return interno.emit('request', req, res);
+    try {
+      if (!origenPermitido(req)) return enviarJSON(res, 403, { ok: false, errores: ['Solo se aceptan peticiones desde esta computadora'] });
+      if (ruta === '/api/empresas' && req.method === 'GET') return enviarJSON(res, 200, registro.leer());
+      if (ruta === '/api/empresas' && req.method === 'POST') {
+        const cuerpo = await leerCuerpo(req);
+        return enviarJSON(res, 201, { ok: true, empresa: registro.crear(cuerpo.nombre), ...registro.leer() });
+      }
+      if (ruta === '/api/empresas/activa' && req.method === 'PUT') {
+        const cuerpo = await leerCuerpo(req);
+        if (!registro.activar(String(cuerpo.id || ''))) return enviarJSON(res, 404, { ok: false, errores: ['Esa empresa no existe'] });
+        montar();
+        return enviarJSON(res, 200, { ok: true, ...registro.leer() });
+      }
+      const renombrar = ruta.match(/^\/api\/empresas\/([a-z0-9-]+)$/);
+      if (renombrar && req.method === 'PUT') {
+        const cuerpo = await leerCuerpo(req);
+        const empresa = registro.renombrar(renombrar[1], cuerpo.nombre);
+        return empresa ? enviarJSON(res, 200, { ok: true, empresa, ...registro.leer() }) : enviarJSON(res, 422, { ok: false, errores: ['No se pudo renombrar'] });
+      }
+      return enviarJSON(res, 404, { error: 'No encontrado' });
+    } catch (err) {
+      return enviarJSON(res, 422, { ok: false, errores: [err.message] });
+    }
+  });
+  externo.on('listening', () => interno.emit('listening'));
+  externo.on('close', () => interno.emit('close'));
+  montar();
+  return externo;
+}
+
 // Abre la dirección local en el navegador predeterminado. La URL es fija, nunca viene del usuario.
 function abrirNavegador(url) {
   const comando = process.platform === 'win32' ? `start "" "${url}"`
@@ -1468,7 +1679,10 @@ function abrirNavegador(url) {
 // Arranque directo: node src/server.js
 if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('server.js')) {
   const url = `http://${configBase.host}:${configBase.puerto}`;
-  const servidor = crearServidor();
+  // El arranque normal cifra la clave de API en disco (Windows) y permite varias empresas.
+  const cifrada = crearConfiguracion(configBase.archivoConfig, { proteger: true }).protegerExistentes();
+  if (cifrada) console.log('La clave de API quedó cifrada con tu usuario de Windows.');
+  const servidor = crearServidorMultiempresa({ protegerClaves: true });
 
   servidor.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {

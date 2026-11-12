@@ -21,6 +21,35 @@ function leerEnv(ruta) {
 const archivo = leerEnv(join(RAIZ, '.env'));
 const env = { ...archivo, ...process.env };
 
+// Rutas de los datos de una empresa dentro de una carpeta. La clave de IA, los permisos (config.json) y el pid
+// son de la instalación y no entran aquí: los comparten todas las empresas.
+export function rutasDe(dir) {
+  return {
+    dirDatos: join(dir, 'diagnosticos'),
+    dirMarca: join(dir, 'marca'),
+    archivoBorrador: join(dir, 'borrador.json'),
+    archivoEquipo: join(dir, 'equipo.json'),
+    dirConversaciones: join(dir, 'conversaciones'),
+    archivoAgentes: join(dir, 'agentes.json'),
+    archivoEmpresa: join(dir, 'empresa.json'),
+    archivoFuentes: join(dir, 'fuentes.json'),
+    dirDocumentos: join(dir, 'documentos'),
+    archivoUso: join(dir, 'uso.json'),
+    archivoAjustes: join(dir, 'ajustes.json'),
+    dirInvestigaciones: join(dir, 'investigaciones'),
+    dirSitio: join(dir, 'sitio'),
+    archivoProgramacion: join(dir, 'programacion.json'),
+    archivoMemoria: join(dir, 'memoria.json'),
+    archivoCalendario: join(dir, 'calendario.json'),
+    archivoRutinas: join(dir, 'rutinas.json'),
+    archivoActividad: join(dir, 'actividad.json'),
+    archivoPiloto: join(dir, 'piloto.json'),
+    archivoLotes: join(dir, 'lotes.json'),
+    archivoDatosReales: join(dir, 'datos-reales.json'),
+    archivoCampanas: join(dir, 'campanas.json'),
+  };
+}
+
 export const config = {
   raiz: RAIZ,
   host: '127.0.0.1', // nunca escuchar fuera de la máquina local
@@ -47,6 +76,10 @@ export const config = {
   archivoActividad: join(RAIZ, 'data', 'actividad.json'), // registro de lo que hacen los agentes (búsquedas, consultas, encargos)
   archivoPiloto: join(RAIZ, 'data', 'piloto.json'), // piloto automático: revisión periódica por agente
   archivoLotes: join(RAIZ, 'data', 'lotes.json'), // lotes del piloto enviados al proveedor y aún sin resultado
+  archivoDatosReales: join(RAIZ, 'data', 'datos-reales.json'), // resumen del último análisis de CFDI y CSV (nunca los archivos)
+  archivoCampanas: join(RAIZ, 'data', 'campanas.json'), // última campaña propuesta por la IA
+  dirRaizDatos: join(RAIZ, 'data'), // carpeta de la empresa principal; las demás viven en data/empresas/<id>/
+  protegerClaves: false, // el arranque normal lo enciende: cifra la clave de API con DPAPI en Windows
   abrirNavegador: env.ABRIR_NAVEGADOR === '1', // lo usa el lanzador de doble clic
   proveedor: (env.PROVEEDOR_IA || 'ninguno').toLowerCase(), // anthropic | openai | ninguno
   anthropicKey: env.ANTHROPIC_API_KEY || '',

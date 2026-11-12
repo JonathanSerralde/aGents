@@ -60,5 +60,6 @@ export function estadoApoyo({ giro = '', ficha = null, opcionales = {} } = {}) {
     if (!activo) inactivos[id] = modo === 'no' ? 'desactivado por el usuario en el equipo' : `inactivo: ${regla.condicion}`;
     detalle[id] = { sector: regla.sector, sectorNombre: SECTORES[regla.sector].nombre, condicion: regla.condicion, modo, activo };
   }
-  return { activos: AGENTES_APOYO.filter((id) => !inactivos[id]), inactivos, sectores, opcionales: detalle };
+  const nombresSectores = Object.fromEntries(sectores.map((id) => [id, SECTORES[id].nombre]));
+  return { activos: AGENTES_APOYO.filter((id) => !inactivos[id]), inactivos, sectores, nombresSectores, opcionales: detalle };
 }

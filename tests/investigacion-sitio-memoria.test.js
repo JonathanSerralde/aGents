@@ -136,8 +136,11 @@ test('el programador corre la tarea una sola vez cuando toca y anota el error si
   const dir = mkdtempSync(join(tmpdir(), 'prog-'));
   try {
     const programacion = crearProgramacion(join(dir, 'programacion.json'));
-    programacion.guardar('investigacion', { diaSemana: 1, hora: 9 });
-    let reloj = new Date(2026, 10, 4, 12);
+    let reloj = new Date(2026, 10, 4, 12); // miércoles 4 de noviembre de 2026
+    // Las dos tareas se activan con el reloj de la prueba: así nada depende de la fecha real en que corre.
+    programacion.guardar('investigacion', { diaSemana: 1, hora: 9 }, reloj);
+    programacion.guardar('sitio', { diaSemana: 1, hora: 9 }, reloj);
+    assert.equal(programacion.leer('investigacion').activadaEn, reloj.toISOString());
     let corridas = 0;
     const programador = crearProgramador({ programacion, tareas: { investigacion: async () => { corridas++; return { ok: true }; }, sitio: async () => { throw new Error('sin sitio'); } }, ahora: () => reloj });
     await programador.tick();
@@ -210,7 +213,7 @@ async function conServidor(extra, fn) {
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${servidor.address().port}`;
   try {
-    await fn(base, servidor);
+    await fn(base, servidor, dir);
   } finally {
     await new Promise((r) => servidor.close(r));
     rmSync(dir, { recursive: true, force: true });
@@ -239,7 +242,8 @@ test('la investigación semanal busca, informa al Orquestador y reparte a Ventas
     await fetch(`${base}/api/empresa`, json('PUT', { municipio: 'Guadalajara', estado: 'Jalisco', productos: 'tornillos\npintura', sitioWeb: 'https://ejemplo.mx' }));
     // "Optimizar agentes" también puede proponer subagentes nuevos; el mock del Orquestador no propone ninguno aquí.
     const estado0 = await (await fetch(`${base}/api/investigacion`)).json();
-    assert.equal(estado0.programacion.activa, true);
+    assert.equal(estado0.programacion.activa, false); // gasta IA: empieza en pausa hasta que el usuario la active
+    assert.equal(estado0.programacion.proxima, null);
     assert.equal(estado0.programacion.puedeIA, true);
     assert.equal(estado0.investigaciones.length, 0);
 
@@ -385,8 +389,11 @@ test('las tareas programadas corren desde el servidor cuando toca y usan el siti
   const recibido = [];
   let reloj = new Date(2026, 10, 4, 12);
   const fetchSitio = async (url) => ({ url: url.replace(/^http:/, 'https:'), status: 200, headers: new Headers(), body: null, arrayBuffer: async () => new TextEncoder().encode('<html lang="es"><head><title>Tienda segura y rápida</title><meta name="viewport" content="w"></head><body><a href="https://wa.me/521">wa</a></body></html>').buffer });
-  await conServidor({ llamarIA: iaSimulada(recibido), fetchSitio, ahora: () => reloj }, async (base, servidor) => {
+  await conServidor({ llamarIA: iaSimulada(recibido), fetchSitio, ahora: () => reloj }, async (base, servidor, dir) => {
     await fetch(`${base}/api/empresa`, json('PUT', { sitioWeb: 'tienda.mx' }));
+    // Las tareas quedan activadas con el reloj de la prueba (mismo archivo que usa el servidor), no con la fecha real.
+    const programacion = crearProgramacion(join(dir, 'programacion.json'));
+    for (const tarea of ['investigacion', 'sitio']) programacion.guardar(tarea, {}, reloj);
     await servidor.programador.tick();
     assert.equal((await (await fetch(`${base}/api/investigacion`)).json()).investigaciones.length, 0);
     reloj = new Date(2026, 10, 9, 9, 5); // lunes 9:05: ya tocó

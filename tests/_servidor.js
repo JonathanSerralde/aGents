@@ -25,6 +25,9 @@ export function opcionesTemporales(dir, extra = {}) {
     archivoActividad: join(dir, 'actividad.json'),
     archivoPiloto: join(dir, 'piloto.json'),
     archivoLotes: join(dir, 'lotes.json'),
+    archivoDatosReales: join(dir, 'datos-reales.json'),
+    archivoCampanas: join(dir, 'campanas.json'),
+    dirRaizDatos: dir,
     archivoPid: join(dir, 'servidor.pid'),
     programador: false, // las pruebas no corren tareas semanales por sí solas
     proveedor: 'ninguno',

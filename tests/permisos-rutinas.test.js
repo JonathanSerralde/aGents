@@ -159,7 +159,7 @@ test('el servidor expone el panel de permisos, los aplica y sugiere/ejecuta ruti
     assert.equal((await fetch(`${base}/api/rutinas`, json('POST', { area: 'nadie', texto: 'x' }))).status, 422);
     // Tareas semanales apagadas: el programador anota el motivo y no corre.
     await fetch(`${base}/api/permisos`, json('PUT', { tareasAutomaticas: false }));
-    await fetch(`${base}/api/investigacion/programacion`, json('PUT', { diaSemana: reloj.getDay(), hora: 7 }));
+    await fetch(`${base}/api/investigacion/programacion`, json('PUT', { diaSemana: reloj.getDay(), hora: 7, activa: true }));
     reloj = new Date(reloj); reloj.setDate(reloj.getDate() + 7);
     await servidor.programador.tick();
     assert.match((await (await fetch(`${base}/api/investigacion`)).json()).programacion.ultimoIntento?.error || '', /desactivadas/);

@@ -53,6 +53,49 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Rutinas**: si repites una orden tres veces, la oficina te ofrece automatizarla.
 - Ingesta de documentos (Word, PDF con texto, imágenes con IA), bóvedas de notas Obsidian u otras carpetas Markdown, ficha completa de la empresa.
 
+### Tareas automáticas que sí arrancan, y solo las que el usuario enciende
+- Un agente del piloto o una tarea semanal sin configuración propia cuenta desde que se encendió (`_encendido` en `data/piloto.json`, `_inicio` en `data/programacion.json`), no desde "ahora" en cada lectura. Antes su próxima corrida siempre quedaba en el futuro y no corría nunca.
+- El piloto sigue apagado de fábrica. Al encenderlo, cada agente hace su primera revisión en su próximo día y hora, no de inmediato.
+- La investigación semanal de mercado (gasta IA y búsquedas) empieza en pausa hasta que el usuario la active; una investigación hecha a mano ya no la enciende. El análisis semanal del sitio (sin IA) corre solo.
+- Reactivar una tarea que estuvo en pausa cuenta desde ese momento: no dispara la corrida "atrasada".
+
+### Para cualquier industria
+- **16 giros** en el diagnóstico: comercio, servicios profesionales, manufactura, construcción, alimentos, agencia, educación, salud, transporte y logística, tecnología y software, hospedaje y turismo, agropecuario, servicios personales, automotriz, inmobiliario y otro.
+- **Cada giro tiene su contexto de sector** (`src/sectores.js`): indicadores de referencia, cumplimiento en México y qué hunde o hace crecer a ese tipo de negocio. Llega al prompt de todos los agentes. Los rangos son referencias generales, no cifras oficiales.
+- **Preguntas de profundidad por giro** (Bloque B en `src/formulario.js`, reglas en `src/diagnostico.js`): dos indicadores que el dueño conoce de memoria por cada giro, con umbrales que pintan el semáforo y proponen la acción.
+
+### Diagnóstico exprés
+- El asistente ofrece dos caminos: **exprés** (22 preguntas esenciales en cuatro pasos, unos cinco minutos, para cualquier giro) y **completo** (todas las áreas más las preguntas del giro). El exprés da un primer semáforo y plan; al actualizar, el completo ya trae lleno lo contestado. La lista de preguntas esenciales vive en `CAMPOS_EXPRES` (`public/app.js`); el servidor no cambia, porque el motor ya tolera respuestas parciales.
+
+### Avance medible
+- **Tu avance** (`src/progreso.js`, `GET /api/progreso`): compara el diagnóstico en pantalla con uno anterior y dice, con reglas y sin IA, cuánto cambió la madurez, qué áreas mejoraron o empeoraron y qué acciones del plan anterior ya no hacen falta. Incluye la línea de madurez de todos los diagnósticos guardados y un selector para elegir contra cuál comparar. El Informe del Orquestador (pantalla, Word y PDF) abre con ese avance.
+- **Actualizar diagnóstico**: el asistente parte de las respuestas del diagnóstico anterior; el dueño solo corrige lo que cambió (o elige "Empezar en blanco").
+- **Borrar diagnósticos** de prueba desde Reportes (`DELETE /api/diagnosticos/:id`), con confirmación en el mismo botón.
+
+### Datos reales, entregables y varias empresas
+- **Datos reales** (`src/datos-reales.js`, Configuración › Datos reales): lee en este equipo una carpeta con facturas CFDI 3.3/4.0 (.xml emitidos y recibidos) y CSV de ventas, sin IA y sin subir nada. Calcula ventas, gastos, nómina timbrada, concentración de clientes y proveedores, recurrencia y venta a crédito (PPD), y saca hallazgos por área. Solo guarda el resumen; los hechos se registran en la bitácora si el usuario lo pide. El Informe del Orquestador lo incluye.
+- **Entregables del plan** (`src/entregable.js`): cada acción del plan descarga su documento de Word. Sin IA sale el formato adecuado (manual de procedimiento, política, formato de control, plan de una página o ficha de acción); con IA, el agente del área lo redacta con los datos de la empresa.
+- **Varias empresas** (`src/empresas.js`, Configuración › Empresas): para consultores y despachos. Cada empresa tiene su carpeta (`data/` para la principal, `data/empresas/<id>/` para las demás); la clave de IA y los permisos son de la instalación.
+
+### Pasaporte de madurez
+- **Pasaporte** (`src/pasaporte.js`, Reportes › Pasaporte de madurez): documento en Word o PDF para terceros (financiera, cliente grande, socio) con el nivel de madurez, su tendencia, el estado por área, el avance entre diagnósticos, lo que dicen las facturas y el seguimiento de acciones. Sin IA y para cualquier giro. Los montos en pesos solo van si el dueño lo marca. Lleva folio y huella SHA-256 del contenido: `GET /api/pasaporte/verificar` dice si coincide con los datos actuales. Es una autodeclaración, no una auditoría, y el documento lo dice.
+
+### Campañas construidas por la IA
+- **Campañas** (`src/campana.js`, `POST /api/campanas/generar`): el dueño dice qué quiere anunciar y el agente de Tráfico digital (o Marketing, si aquel está inactivo) arma tres propuestas completas con lo que la oficina sabe del negocio: titular, texto de apoyo, llamada a la acción, colores, texto para publicar, hashtags, a quién dirigirla e inversión sugerida. Una sola llamada al proveedor; la última campaña queda guardada. El navegador dibuja la vista previa de cada propuesta y, al elegir una, pasa al formulario de piezas para descargarla en todos los tamaños. Sin IA, el formulario manual sigue funcionando.
+
+### Protección de la instalación
+- La clave de API se guarda **cifrada con DPAPI en Windows** (`src/boveda.js`), ligada al usuario que la guardó. En otros sistemas sigue en texto plano.
+- El servidor solo atiende peticiones dirigidas a la dirección local y, si cambian algo, hechas desde la propia interfaz: otra página abierta en el navegador no puede dar órdenes a la oficina.
+
+### Piloto
+- `docs/03-piloto.md`: protocolo de ocho semanas con cinco negocios de giros distintos y criterios para decidir si se sigue.
+
+### Interfaz
+- **Ciudad 3D nocturna** (`public/oficina.js`): cada área es un edificio de cristal cuyo aro, aristas y acentos muestran su semáforo; las áreas en atención llevan una baliza. En la plaza vive el núcleo del Orquestador, enlazado con cada edificio (el enlace se enciende cuando ese agente trabaja). Cámaras isométrica, panorámica y aérea, órbita, rayos X y acercamiento; arrastrar gira, Mayús + arrastrar desplaza, Ctrl + rueda acerca.
+- **Simulador de escenarios** sobre la ciudad: cambia el color de cada área (o usa un escenario) y recalcula la madurez con la misma fórmula del dashboard. Solo en pantalla: nunca modifica el diagnóstico guardado.
+- **Red de agentes** (`public/red.js`): mapa radial de la jerarquía real con el estado operativo de cada agente (`/api/jerarquia` + `/api/situacion`), quién está bloqueado y el último movimiento. Sin IA.
+- Tema "cromo líquido" (`public/estilos.css`) con tipografías del sistema: sigue sin cargar nada de internet.
+
 ### Control y ahorro
 - **Accesos y permisos** en el dashboard: interruptor por capacidad (IA, búsqueda web, documentos, tareas semanales, sitio, rutinas, piloto) con la nota de qué sale de tu equipo.
 - **Monitor de consumo**: tokens por mes y por día, por agente y por modelo; caché leída y búsquedas; límites mensual y diario que bloquean con motivo claro.
@@ -106,7 +149,7 @@ src/            Servidor http (sin frameworks), motor de reglas, agentes, memori
   habilidades.js  Las skills de cada agente: edítalas para moldear la oficina a tu negocio
   sectores.js     Paquetes por sector: agentes opcionales y contexto
   prompts.js      Cómo se arma el contexto de cada agente
-public/         Interfaz (vanilla JS), ciudad 3D (Three.js guardado en vendor/), campañas
+public/         Interfaz (vanilla JS), ciudad 3D (Three.js guardado en vendor/), red de agentes, campañas
 docs/           Principios y decisiones, descubrimiento (por qué fracasan las pymes), formulario
 tests/          node --test; siempre escriben en carpetas temporales, nunca en data/
 instalador/     Constructores de los paquetes de Windows y Mac
