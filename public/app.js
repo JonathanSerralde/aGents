@@ -295,6 +295,7 @@ function mostrarVista(vista, { scroll = true } = {}) {
     $('#dashboard-vacio').hidden = hay;
     $('#vista-resultados').hidden = !hay;
     renderPrimerosPasos();
+    renderFlujo();
     renderInforme();
     renderPermisos();
   }
@@ -379,6 +380,7 @@ function describirEvento(e) {
     case 'diagnostico_creado': return `Diagnóstico generado · ${d.prioridad?.length || 0} prioridades`;
     case 'propuestas_ajustes': return `Optimización: ${d.agentes} ajustes y ${d.nuevos || 0} subagentes propuestos`;
     case 'calendario_importado': return `Agenda importada: ${d.eventos} eventos`;
+    case 'datos_reales_actualizados': return `Llegaron facturas nuevas a la carpeta: ${d.comprobantes} comprobantes analizados y flujo de caja actualizado`;
     default: return e.tipo.replace(/_/g, ' ');
   }
 }
@@ -523,6 +525,7 @@ async function renderInforme() {
   const filas = [];
   if (r.avance) filas.push(fila('Avance desde el diagnóstico anterior', r.avance, 'siguiente'));
   if (r.datosReales) filas.push(fila('Datos reales', r.datosReales));
+  if (r.flujo) filas.push(fila('Flujo de caja a 13 semanas', r.flujo, r.flujoNivel === 'verde' ? '' : r.flujoNivel));
   if (r.rojos.length) filas.push(fila('En atención', r.rojos.join(', '), 'rojo'));
   if (r.amarillos.length) filas.push(fila('Por revisar', r.amarillos.join(', '), 'amarillo'));
   if (r.cruzados) filas.push(fila('Contradicciones entre áreas', `${r.cruzados} detectadas por el motor; están en el plan como "Entre áreas".`, 'rojo'));
@@ -2869,6 +2872,116 @@ async function registrarHechosReales() {
   }
 }
 
+// ---------- Flujo de caja a 13 semanas ----------
+
+let escenarioFlujo = 'base';
+
+async function renderFlujo() {
+  const tarjeta = $('#flujo-card');
+  let r = null;
+  try {
+    const res = await fetch(`/api/flujo${escenarioFlujo === 'conservador' ? '?escenario=conservador' : ''}`);
+    r = res.ok ? await res.json() : null; // un servidor anterior no tiene esta ruta: la tarjeta no aparece
+  } catch { r = null; }
+  if (!r || (!r.flujo && !estado.ultimo)) { tarjeta.hidden = true; return; }
+  tarjeta.hidden = false;
+  const f = r.flujo;
+  $('#flujo-cuerpo').hidden = !f;
+  $('#flujo-escenario').hidden = !f;
+  $('#flujo-vacio').replaceChildren(...(f ? [] : [estadoVacio({ etiqueta: 'div', icono: 'wallet', titulo: 'Todavía no hay facturas para proyectar', texto: 'Indica la carpeta donde guardas tus facturas (los XML del SAT) y aquí verás, semana por semana, cuándo entra y cuándo sale el dinero, y si en alguna te va a faltar.', accion: { texto: 'Elegir carpeta de facturas', alHacer: () => { cargarConfiguracion(); mostrarVista('configuracion', { scroll: false }); setTimeout(() => $('#reales-card').scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); } } })]));
+  if (!f) return;
+
+  for (const b of document.querySelectorAll('[data-escenario-flujo]')) {
+    const activo = b.dataset.escenarioFlujo === f.escenario;
+    b.classList.toggle('activo', activo);
+    b.setAttribute('aria-pressed', String(activo));
+  }
+  const alerta = $('#flujo-alerta');
+  alerta.className = `flujo-alerta ${f.alerta.nivel}`;
+  alerta.textContent = f.alerta.texto;
+  pintarGraficaFlujo(f);
+
+  const cifra = (valor, texto, tono) => { const d = crearElemento('div', { style: `--tono: ${tono}` }); d.append(crearElemento('strong', {}, valor), crearElemento('span', {}, texto)); return d; };
+  $('#flujo-cifras').replaceChildren(
+    cifra(pesosMx(f.totales.porCobrar), 'te deben', 'var(--verde)'),
+    cifra(pesosMx(f.totales.porCobrarVencido), 'de eso, ya vencido', f.totales.porCobrarVencido ? 'var(--rojo)' : 'var(--gris)'),
+    cifra(pesosMx(f.totales.porPagar), 'debes a proveedores', 'var(--amarillo)'),
+    cifra(`${f.diasCobro} días`, 'tardan en pagarte', 'var(--cian)'),
+  );
+  const saldo = $('#flujo-saldo');
+  if (document.activeElement !== saldo) saldo.value = f.saldoInicial ?? '';
+  $('#flujo-saldo-nota').textContent = f.tieneSaldo
+    ? `Capturado el ${r.saldoFecha ? fechaCorta(r.saldoFecha) : 'día de hoy'}. Actualízalo cuando cambie: la proyección parte de ese número.`
+    : 'Sin este dato la gráfica muestra solo cuánto sube o baja tu dinero, no cuánto tendrías.';
+  $('#flujo-supuestos').replaceChildren(...f.supuestos.map((s) => crearElemento('li', {}, s)), crearElemento('li', {}, `Facturas leídas el ${r.momento ? fechaCorta(r.momento) : '—'}${r.vigilar ? '; la carpeta se revisa sola cada diez minutos mientras la aplicación esté abierta.' : '; la revisión automática de la carpeta está apagada.'}`));
+  $('#flujo-deudores').replaceChildren(...(f.deudores.length ? f.deudores.map((d) => {
+    const tr = crearElemento('tr');
+    tr.append(crearElemento('td', {}, d.nombre), crearElemento('td', { class: 'num' }, pesosMx(d.saldo)), crearElemento('td', { class: 'num' }, d.diasVencido ? `${d.diasVencido} días vencido` : 'al corriente'));
+    return tr;
+  }) : [(() => { const tr = crearElemento('tr'); tr.append(crearElemento('td', {}, 'Nadie te debe facturas a crédito.')); return tr; })()]));
+}
+
+// Arriba, el saldo al cierre de cada semana; abajo, lo que entra y lo que sale. Cada semana dice sus cifras al pasar el cursor.
+function pintarGraficaFlujo(f) {
+  const svg = $('#flujo-grafica');
+  svg.replaceChildren();
+  const n = f.semanas.length;
+  const X0 = 58;
+  const ancho = (780 - X0 - 10) / n;
+  const x = (i) => X0 + i * ancho;
+  const corto = (v) => (Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)} M` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)} mil` : String(Math.round(v)));
+
+  // Panel del saldo (y de 14 a 150).
+  const saldos = f.semanas.map((s) => s.saldo);
+  const maxS = Math.max(0, f.saldoInicial ?? 0, ...saldos);
+  const minS = Math.min(0, f.saldoInicial ?? 0, ...saldos);
+  const rango = maxS - minS || 1;
+  const yS = (v) => 14 + ((maxS - v) / rango) * 136;
+  for (const v of [maxS, minS]) {
+    if (v === 0) continue;
+    svg.append(svgEl('line', { class: 'eje', x1: X0, x2: 770, y1: yS(v), y2: yS(v) }));
+    const t = svgEl('text', { x: X0 - 8, y: yS(v) + 4, 'text-anchor': 'end' }); t.textContent = `${v < 0 ? '−' : ''}$${corto(Math.abs(v))}`; svg.append(t);
+  }
+  svg.append(svgEl('line', { class: 'cero', x1: X0, x2: 770, y1: yS(0), y2: yS(0) }));
+  const cero = svgEl('text', { x: X0 - 8, y: yS(0) + 4, 'text-anchor': 'end' }); cero.textContent = '$0'; svg.append(cero);
+
+  // Panel de entradas y salidas (base en y = 274, alto 86).
+  const maxM = Math.max(1, ...f.semanas.flatMap((s) => [s.totalEntradas, s.totalSalidas]));
+  const alto = (v) => (v / maxM) * 86;
+  svg.append(svgEl('line', { class: 'eje', x1: X0, x2: 770, y1: 274, y2: 274 }));
+  const tope = svgEl('text', { x: X0 - 8, y: 192, 'text-anchor': 'end' }); tope.textContent = `$${corto(maxM)}`; svg.append(tope);
+
+  f.semanas.forEach((s, i) => {
+    const g = svgEl('g', { class: 'semana' });
+    const titulo = svgEl('title');
+    titulo.textContent = `Semana ${s.numero} (del ${s.desde} al ${s.hasta})\nEntra: ${pesosMx(s.totalEntradas)} (contado ${pesosMx(s.entradas.contado)}, cobranza ${pesosMx(s.entradas.cobranza)})\nSale: ${pesosMx(s.totalSalidas)} (gastos ${pesosMx(s.salidas.gastos)}, nómina ${pesosMx(s.salidas.nomina)}, proveedores ${pesosMx(s.salidas.proveedores)})\nSaldo al cierre: ${s.saldo < 0 ? '−' : ''}${pesosMx(Math.abs(s.saldo))}`;
+    const b = ancho * 0.3;
+    g.append(titulo,
+      svgEl('rect', { class: 'fondo', x: x(i), y: 8, width: ancho, height: 272 }),
+      svgEl('rect', { class: 'barra entra', x: x(i) + ancho * 0.16, y: 274 - alto(s.totalEntradas), width: b, height: alto(s.totalEntradas), rx: 3, style: `animation-delay: ${i * 25}ms` }),
+      svgEl('rect', { class: 'barra sale', x: x(i) + ancho * 0.54, y: 274 - alto(s.totalSalidas), width: b, height: alto(s.totalSalidas), rx: 3, style: `animation-delay: ${i * 25 + 12}ms` }));
+    const etiqueta = svgEl('text', { x: x(i) + ancho / 2, y: 292, 'text-anchor': 'middle' }); etiqueta.textContent = `S${s.numero}`;
+    g.append(etiqueta);
+    svg.append(g);
+  });
+  svg.append(svgEl('polyline', { class: 'saldo-linea', pathLength: '1', points: f.semanas.map((s, i) => `${(x(i) + ancho / 2).toFixed(1)},${yS(s.saldo).toFixed(1)}`).join(' ') }));
+  f.semanas.forEach((s, i) => svg.append(svgEl('circle', { class: `saldo-punto${s.saldo < 0 ? ' negativo' : ''}`, cx: (x(i) + ancho / 2).toFixed(1), cy: yS(s.saldo).toFixed(1), r: s.numero === f.alerta.semana ? 5.5 : 3 })));
+}
+
+async function guardarSaldoFlujo() {
+  const valor = $('#flujo-saldo').value.trim();
+  try {
+    const res = await fetch('/api/flujo', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ saldoInicial: valor === '' ? null : Number(valor) }) });
+    const cuerpo = await res.json();
+    if (!res.ok) return aviso(cuerpo.errores?.[0] || 'No se pudo guardar el saldo.', 'error');
+    aviso(valor === '' ? 'Saldo borrado.' : 'Saldo guardado.', 'ok');
+    renderFlujo();
+    renderInforme();
+  } catch {
+    aviso('No hay conexión con el servidor local.', 'error');
+  }
+}
+
 // ---------- Varias empresas ----------
 
 async function cargarEmpresas() {
@@ -3871,6 +3984,7 @@ function conectarFeed() {
     if (evento.tipo === 'trabajo_inicio' || evento.tipo === 'trabajo_fin') pintarTrabajando();
     const listaAct = $('#act-lista');
     if (listaAct && estado.vista === 'actividad' && evento.tipo !== 'permisos_cambiados') { listaAct.querySelector('.act-item:only-child:not(.trabajo_inicio)')?.remove(); listaAct.prepend(filaActividad(evento)); }
+    if (evento.tipo === 'datos_reales_actualizados') { renderFlujo(); renderInforme(); cargarDatosReales(); }
     if (evento.tipo === 'trabajo_inicio') return; // el feed del dashboard solo muestra lo terminado
     if (feed.querySelector('.vacio')) feed.replaceChildren();
     const nombreDe = (area) => (area === 'orquestador' ? 'Orquestador' : nombreArea(area));
@@ -3939,6 +4053,12 @@ async function iniciar() {
   $('#reales-hechos').addEventListener('click', registrarHechosReales);
   $('#reales-olvidar').addEventListener('click', async () => { await fetch('/api/datos-reales', { method: 'DELETE' }); pintarDatosReales(null); mensaje($('#reales-mensaje'), 'Análisis olvidado. Los hechos ya registrados siguen en la bitácora.', 'ok'); renderInforme(); });
   $('#empresa-crear').addEventListener('click', crearEmpresaNueva);
+  $('#flujo-guardar').addEventListener('click', guardarSaldoFlujo);
+  $('#flujo-saldo').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarSaldoFlujo(); } });
+  $('#flujo-escenario').addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-escenario-flujo]');
+    if (boton) { escenarioFlujo = boton.dataset.escenarioFlujo; renderFlujo(); }
+  });
   $('#pasaporte-cifras').addEventListener('change', cargarPasaporte);
   $('#pasaporte-verificar').addEventListener('click', verificarPasaporte);
   $('#empezar-en-blanco').addEventListener('click', () => reiniciar({ enBlanco: true }));

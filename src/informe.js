@@ -9,12 +9,12 @@ import { resumenDatosReales } from './datos-reales.js';
 const ETIQUETA = { verde: 'bien', amarillo: 'por revisar', rojo: 'en atención', sin_datos: 'sin datos' };
 const fecha = (iso) => new Date(iso || Date.now()).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, situacion = null, progreso = null, datosReales = null, ahora = new Date() }) {
+export function informeOficina({ diagnostico, equipo, marca, memoria, investigacion, sitio, apoyo, propios = {}, situacion = null, progreso = null, datosReales = null, flujo = null, ahora = new Date() }) {
   const r = diagnostico?.resultado;
   const b = [];
   const push = (tipo, texto) => b.push({ tipo, texto });
   const responsable = (id) => equipo?.areas?.[id]?.responsable || 'el dueño';
-  const resumen = { rojos: [], amarillos: [], verdes: [], cruzados: 0, vencidas: 0, porVencer: 0, abiertas: 0, porArea: {}, siguientePaso: '', avance: '', datosReales: '', sector: (apoyo?.sectores || []).map((id) => apoyo.nombresSectores?.[id] || id) };
+  const resumen = { rojos: [], amarillos: [], verdes: [], cruzados: 0, vencidas: 0, porVencer: 0, abiertas: 0, porArea: {}, siguientePaso: '', avance: '', datosReales: '', flujo: '', flujoNivel: '', sector: (apoyo?.sectores || []).map((id) => apoyo.nombresSectores?.[id] || id) };
 
   push('titulo', `Informe del Orquestador — ${marca?.nombre || 'Tu negocio'}`);
   push('parrafo', `Generado el ${fecha(ahora.toISOString())} con reglas locales, sin IA. ${diagnostico ? `Último diagnóstico: ${fecha(diagnostico.creado)}.` : 'Todavía no hay diagnóstico.'}`);
@@ -51,6 +51,14 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
     push('subtitulo', 'Datos reales (facturas y ventas)');
     push('parrafo', resumen.datosReales);
     for (const h of datosReales.hallazgos || []) push('vineta', `${NOMBRES_DISTRITOS[h.area] || h.area} (${ETIQUETA[h.color] || h.color}): ${h.texto}`);
+  }
+  // Flujo de caja a 13 semanas (src/flujo.js): cuándo faltaría dinero.
+  if (flujo) {
+    resumen.flujo = flujo.alerta.texto;
+    resumen.flujoNivel = flujo.alerta.nivel;
+    push('subtitulo', 'Flujo de caja a 13 semanas');
+    push('parrafo', flujo.alerta.texto);
+    push('vineta', `Por cobrar: $${Math.round(flujo.totales.porCobrar).toLocaleString('es-MX')} (vencido: $${Math.round(flujo.totales.porCobrarVencido).toLocaleString('es-MX')}). Por pagar: $${Math.round(flujo.totales.porPagar).toLocaleString('es-MX')}.`);
   }
 
   push('subtitulo', 'Acciones de los agentes');

@@ -72,6 +72,10 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Actualizar diagnóstico**: el asistente parte de las respuestas del diagnóstico anterior; el dueño solo corrige lo que cambió (o elige "Empezar en blanco").
 - **Borrar diagnósticos** de prueba desde Reportes (`DELETE /api/diagnosticos/:id`), con confirmación en el mismo botón.
 
+### Flujo de caja a 13 semanas
+- **Flujo de caja** (`src/flujo.js`, `GET/PUT /api/flujo`, tarjeta en el dashboard): proyecta semana por semana lo que entra (venta de contado promedio y cobranza de lo facturado a crédito que sigue abierto) y lo que sale (gastos de contado, nómina timbrada y pagos a proveedores), y avisa en qué semana faltaría dinero. Usa los complementos de pago para saber qué facturas siguen abiertas y cuánto tardan en pagar los clientes. El dueño captura su saldo de hoy; hay un escenario conservador. Sin IA. Los supuestos se muestran en pantalla: solo ve lo que tiene factura.
+- **Carpeta vigilada:** mientras la aplicación esté abierta revisa cada diez minutos la carpeta de facturas; si hay archivos nuevos vuelve a analizarla sola y actualiza el flujo y el informe. Se puede apagar.
+
 ### Datos reales, entregables y varias empresas
 - **Datos reales** (`src/datos-reales.js`, Configuración › Datos reales): lee en este equipo una carpeta con facturas CFDI 3.3/4.0 (.xml emitidos y recibidos) y CSV de ventas, sin IA y sin subir nada. Calcula ventas, gastos, nómina timbrada, concentración de clientes y proveedores, recurrencia y venta a crédito (PPD), y saca hallazgos por área. Solo guarda el resumen; los hechos se registran en la bitácora si el usuario lo pide. El Informe del Orquestador lo incluye.
 - **Entregables del plan** (`src/entregable.js`): cada acción del plan descarga su documento de Word. Sin IA sale el formato adecuado (manual de procedimiento, política, formato de control, plan de una página o ficha de acción); con IA, el agente del área lo redacta con los datos de la empresa.

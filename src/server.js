@@ -43,7 +43,8 @@ import { HABILIDADES } from './habilidades.js';
 import { contextoSectores } from './sectores.js';
 import { informeOficina } from './informe.js';
 import { compararDiagnosticos, serieDeMadurez, elegirAnterior } from './progreso.js';
-import { crearDatosReales, leerCarpeta, analizarComprobantes } from './datos-reales.js';
+import { crearDatosReales, leerCarpeta, analizarComprobantes, firmaCarpeta } from './datos-reales.js';
+import { proyectarFlujo } from './flujo.js';
 import { bloquesEntregable, instruccionEntregable, tipoDeEntregable } from './entregable.js';
 import { crearEmpresas } from './empresas.js';
 import { armarPasaporte, bloquesPasaporte } from './pasaporte.js';
@@ -424,7 +425,41 @@ export function crearServidor(opciones = {}) {
 
   // Informe del Orquestador (reglas, sin IA): estado, contradicciones, acciones vencidas, mercado y sitio.
   function informeActual() {
-    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual(), progreso: progresoDe()?.comparacion || null, datosReales: datosReales.leer() });
+    return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual(), progreso: progresoDe()?.comparacion || null, datosReales: datosReales.leer(), flujo: flujoActual() });
+  }
+
+  const relojActual = () => (config.ahora ? config.ahora() : new Date());
+
+  // Lee la carpeta de facturas y guarda el resumen. Conserva lo que el usuario capturó (saldo de hoy, vigilancia).
+  function analizarCarpeta(carpeta) {
+    const rfc = empresa.leer().rfc || '';
+    const { comprobantes, archivos } = leerCarpeta(carpeta, rfc);
+    if (!comprobantes.length) throw new Error('En esa carpeta no hay facturas CFDI (.xml) ni archivos CSV de ventas con columnas de fecha e importe');
+    const previo = datosReales.leer();
+    return datosReales.guardar({
+      ...analizarComprobantes(comprobantes, rfc), carpeta, archivos, firma: firmaCarpeta(carpeta), momento: relojActual().toISOString(),
+      saldoInicial: previo?.saldoInicial ?? null, saldoFecha: previo?.saldoFecha ?? null, vigilar: previo?.vigilar !== false,
+    });
+  }
+
+  // Carpeta vigilada: si cambiaron los archivos, se vuelve a analizar sola. Solo lectura local, sin IA.
+  function revisarDatosReales() {
+    const a = datosReales.leer();
+    if (!a?.carpeta || a.vigilar === false) return false;
+    const firma = firmaCarpeta(a.carpeta);
+    if (!firma || firma === a.firma) return false;
+    try {
+      const nuevo = analizarCarpeta(a.carpeta);
+      emitir('datos_reales_actualizados', { comprobantes: nuevo.comprobantes });
+      return true;
+    } catch {
+      return false; // la carpeta quedó vacía o ilegible: se conserva el último análisis
+    }
+  }
+
+  function flujoActual(escenario = 'base') {
+    const a = datosReales.leer();
+    return a?.flujoBase ? proyectarFlujo(a.flujoBase, { hoy: relojActual(), saldoInicial: a.saldoInicial ?? null, escenario }) : null;
   }
 
   // Avance entre diagnósticos. Sin `id` usa el más reciente; sin `contra` elige el anterior del mismo giro.
@@ -945,16 +980,33 @@ export function crearServidor(opciones = {}) {
     if (ruta === '/api/datos-reales/analizar' && metodo === 'POST') {
       try {
         const cuerpo = await leerCuerpo(req);
-        const carpeta = String(cuerpo.carpeta || '').trim().slice(0, 500);
-        const rfc = empresa.leer().rfc || '';
-        const { comprobantes, archivos } = leerCarpeta(carpeta, rfc);
-        if (!comprobantes.length) return enviarJSON(res, 422, { ok: false, errores: ['En esa carpeta no hay facturas CFDI (.xml) ni archivos CSV de ventas con columnas de fecha e importe'] });
-        const analisis = datosReales.guardar({ ...analizarComprobantes(comprobantes, rfc), carpeta, archivos, momento: new Date().toISOString() });
+        const analisis = analizarCarpeta(String(cuerpo.carpeta || '').trim().slice(0, 500));
         return enviarJSON(res, 200, { ok: true, analisis });
       } catch (err) {
         return enviarJSON(res, 422, { ok: false, errores: [err.message] });
       }
     }
+    // Flujo de caja a 13 semanas. `escenario=conservador` supone menos venta y cobranza más lenta.
+    if (ruta === '/api/flujo' && metodo === 'GET') {
+      const a = datosReales.leer();
+      return enviarJSON(res, 200, { flujo: flujoActual(url.searchParams.get('escenario') === 'conservador' ? 'conservador' : 'base'), carpeta: a?.carpeta || '', vigilar: a ? a.vigilar !== false : false, momento: a?.momento || null, saldoFecha: a?.saldoFecha || null });
+    }
+    if (ruta === '/api/flujo' && metodo === 'PUT') {
+      const a = datosReales.leer();
+      if (!a) return enviarJSON(res, 404, { ok: false, errores: ['Primero analiza una carpeta de facturas'] });
+      let cuerpo;
+      try { cuerpo = await leerCuerpo(req); } catch (err) { return enviarJSON(res, 400, { ok: false, errores: [err.message] }); }
+      if ('saldoInicial' in cuerpo) {
+        const n = cuerpo.saldoInicial === null || cuerpo.saldoInicial === '' ? null : Number(cuerpo.saldoInicial);
+        if (n !== null && (!Number.isFinite(n) || Math.abs(n) > 1e12)) return enviarJSON(res, 422, { ok: false, errores: ['Escribe el saldo en pesos, solo números'] });
+        a.saldoInicial = n;
+        a.saldoFecha = n === null ? null : relojActual().toISOString();
+      }
+      if ('vigilar' in cuerpo) a.vigilar = cuerpo.vigilar !== false;
+      datosReales.guardar(a);
+      return enviarJSON(res, 200, { ok: true, flujo: flujoActual() });
+    }
+
     // Los hechos solo se registran cuando el usuario lo pide: con IA activa viajan en el contexto de los agentes.
     if (ruta === '/api/datos-reales/hechos' && metodo === 'POST') {
       const a = datosReales.leer();
@@ -1612,7 +1664,13 @@ export function crearServidor(opciones = {}) {
   if (config.programador !== false) {
     servidor.on('listening', () => {
       programador.iniciar();
-      temporizadorRutinas = setInterval(() => { tickRutinas().catch(() => {}); tickPiloto().catch(() => {}); }, 60 * 1000);
+      let minutos = 0;
+      temporizadorRutinas = setInterval(() => {
+        tickRutinas().catch(() => {});
+        tickPiloto().catch(() => {});
+        // La carpeta de facturas se revisa cada diez minutos.
+        if (++minutos % 10 === 0) { try { revisarDatosReales(); } catch { /* la vigilancia nunca tumba el servidor */ } }
+      }, 60 * 1000);
       temporizadorRutinas.unref?.();
     });
   }
@@ -1621,6 +1679,7 @@ export function crearServidor(opciones = {}) {
   servidor.tickRutinas = tickRutinas;
   servidor.tickPiloto = tickPiloto;
   servidor.revisarLotes = revisarLotes;
+  servidor.revisarDatosReales = revisarDatosReales;
   return servidor;
 }
 

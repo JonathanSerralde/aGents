@@ -165,7 +165,7 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 /* ---------- Esqueleto de carga ---------- */
 .carga { display: none; gap: 20px; order: 0; }
 body.cargando .carga { display: grid; }
-body.cargando #dashboard-vacio, body.cargando #vista-resultados > *, body.cargando #primeros-pasos, body.cargando #informe-card, body.cargando #permisos-card { display: none !important; }
+body.cargando #dashboard-vacio, body.cargando #vista-resultados > *, body.cargando #primeros-pasos, body.cargando #flujo-card, body.cargando #informe-card, body.cargando #permisos-card { display: none !important; }
 .hueso { position: relative; overflow: hidden; height: 108px; border-radius: 18px; background: rgba(139, 92, 246, 0.1); border: 1px solid var(--borde); }
 .hueso::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.2), transparent); animation: barrido 1.4s ease-in-out infinite; }
 .hueso-escena { height: clamp(380px, 56vh, 620px); border-radius: var(--radio); }
@@ -314,6 +314,7 @@ input[type="color"] { padding: 2px; }
 #dashboard-vacio { order: 1; }
 .kpis { order: 2; }
 #avance-card { order: 3; }
+#flujo-card { order: 3; }
 #informe-card { order: 4; }
 #primeros-pasos { order: 5; }
 #motor { order: 6; }
@@ -486,6 +487,44 @@ input[type="color"] { padding: 2px; }
 .plan-entregable { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 8px; vertical-align: middle; }
 .plan-entregable .atajo { padding: 2px 10px; font-size: 0.72rem; }
 .empresa-activa { color: var(--verde); font-size: 0.8rem; font-weight: 700; }
+
+/* ---------- Flujo de caja ---------- */
+.flujo-alerta { --tono: var(--verde); margin-bottom: 14px; padding: 12px 16px; border-radius: 14px; font-weight: 600; background: color-mix(in srgb, var(--tono) 9%, transparent); border: 1px solid color-mix(in srgb, var(--tono) 45%, transparent); box-shadow: inset 3px 0 0 var(--tono); }
+.flujo-alerta.rojo { --tono: var(--rojo); }
+.flujo-alerta.amarillo { --tono: var(--amarillo); }
+#flujo-grafica { display: block; width: 100%; height: auto; overflow: visible; }
+#flujo-grafica text { fill: var(--texto-suave); font-size: 11px; font-family: var(--cuerpo); }
+#flujo-grafica .eje { stroke: rgba(167, 139, 250, 0.22); }
+#flujo-grafica .cero { stroke: rgba(223, 230, 247, 0.5); stroke-dasharray: 4 5; }
+#flujo-grafica .saldo-linea { fill: none; stroke: var(--plata); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+#flujo-grafica .saldo-punto { fill: var(--plata); stroke: #0d0930; stroke-width: 1.5; }
+#flujo-grafica .saldo-punto.negativo { fill: var(--rojo); }
+#flujo-grafica .barra { transform-box: fill-box; transform-origin: 50% 100%; }
+#flujo-grafica .barra.entra { fill: var(--verde); }
+#flujo-grafica .barra.sale { fill: var(--rojo); }
+#flujo-grafica .semana:hover .fondo { fill: rgba(139, 92, 246, 0.12); }
+#flujo-grafica .fondo { fill: transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  #flujo-grafica .barra { animation: barra-crecer 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  #flujo-grafica .saldo-linea { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trazar 1s ease-out 0.2s forwards; }
+}
+@keyframes barra-crecer { from { transform: scaleY(0); } to { transform: none; } }
+.flujo-leyenda { list-style: none; margin: 6px 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.8rem; color: var(--texto-suave); }
+.flujo-leyenda li { display: inline-flex; align-items: center; gap: 7px; }
+.flujo-leyenda .marca { width: 14px; height: 10px; border-radius: 3px; }
+.flujo-leyenda .marca.saldo { height: 3px; background: var(--plata); }
+.flujo-leyenda .marca.entra { background: var(--verde); }
+.flujo-leyenda .marca.sale { background: var(--rojo); }
+.flujo-pie { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; }
+@media (min-width: 1000px) { .flujo-pie { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); align-items: start; } }
+.flujo-cifras { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.flujo-cifras div { --tono: var(--cian); padding: 10px 12px; border-radius: 14px; background: var(--hundido); border: 1px solid var(--borde); }
+.flujo-cifras strong { display: block; font-family: var(--display); font-size: 1.45rem; line-height: 1.1; color: var(--tono); font-variant-numeric: tabular-nums; }
+.flujo-cifras span { font-size: 0.76rem; color: var(--texto-suave); }
+.flujo-saldo { margin-top: 0; flex-wrap: nowrap; }
+.flujo-saldo input { min-width: 0; }
+.flujo-saldo .boton { white-space: nowrap; flex: 0 0 auto; }
+.flujo .plegable { margin-top: 8px; }
 
 /* ---------- Motor de crecimiento ---------- */
 .motor-preparado { margin-bottom: 14px; padding: 12px 16px; border-radius: 14px; font-size: 0.92rem; font-weight: 600; border: 1px solid var(--borde-fuerte); background: var(--hundido); }

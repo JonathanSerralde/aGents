@@ -4,6 +4,7 @@
 // Los archivos nunca se copian ni se suben: solo se guarda el resumen.
 import { readdirSync, readFileSync, statSync, existsSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname, extname } from 'node:path';
+import { baseDeFlujo } from './flujo.js';
 
 export const MAX_ARCHIVOS = 5000;
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -41,7 +42,18 @@ export function leerCfdi(xml) {
   if (!c || !emisor || !receptor || !c.fecha) return null;
   const timbre = atributos(String(xml), 'TimbreFiscalDigital');
   const cambio = c.moneda && c.moneda !== 'MXN' && c.moneda !== 'XXX' ? numero(c.tipocambio) || 1 : 1;
+  // Complemento de pago: qué facturas cubre y con cuánto. Sirve para saber qué sigue por cobrar o por pagar.
+  const pagos = [];
+  if ((c.tipodecomprobante || '').toUpperCase()[0] === 'P') {
+    const fechaPago = (String(xml).match(/FechaPago\s*=\s*"([^"]+)"/i)?.[1] || c.fecha).slice(0, 10);
+    for (const m of String(xml).matchAll(/<(?:[\w-]+:)?DoctoRelacionado\b([^>]*)>/gi)) {
+      const id = m[1].match(/IdDocumento\s*=\s*"([^"]+)"/i)?.[1];
+      const importe = numero(m[1].match(/ImpPagado\s*=\s*"([^"]+)"/i)?.[1]);
+      if (id && importe > 0) pagos.push({ uuid: id.toUpperCase(), importe, fecha: fechaPago });
+    }
+  }
   return {
+    pagos,
     uuid: (timbre?.uuid || '').toUpperCase(),
     fecha: c.fecha.slice(0, 10),
     tipo: (c.tipodecomprobante || 'I').toUpperCase()[0], // I ingreso, E egreso, N nómina, P pago, T traslado
@@ -135,6 +147,30 @@ export function leerCarpeta(carpeta, rfcPropio = '') {
   return { comprobantes, archivos: cuenta };
 }
 
+// Huella barata de la carpeta (cuántos archivos, su tamaño y el cambio más reciente) para saber si hay algo
+// nuevo sin volver a leer todo. La usa la vigilancia de la carpeta.
+export function firmaCarpeta(carpeta) {
+  if (!carpeta || !existsSync(carpeta)) return '';
+  let n = 0;
+  let bytes = 0;
+  let reciente = 0;
+  const recorrer = (dir, nivel) => {
+    for (const nombre of readdirSync(dir)) {
+      if (n >= MAX_ARCHIVOS) return;
+      let info;
+      try { info = statSync(join(dir, nombre)); } catch { continue; }
+      if (info.isDirectory()) { if (nivel < MAX_PROFUNDIDAD) recorrer(join(dir, nombre), nivel + 1); continue; }
+      const ext = extname(nombre).toLowerCase();
+      if (ext !== '.xml' && ext !== '.csv') continue;
+      n += 1;
+      bytes += info.size;
+      reciente = Math.max(reciente, Math.round(info.mtimeMs));
+    }
+  };
+  try { recorrer(carpeta, 0); } catch { return ''; }
+  return `${n}:${bytes}:${reciente}`;
+}
+
 // ---------- Análisis ----------
 
 function agrupar(lista, clave) {
@@ -207,6 +243,7 @@ export function analizarComprobantes(comprobantes, rfcPropio = '') {
     diferencia: pesos(ventas - gastos - nomina),
     porMes,
   };
+  r.flujoBase = baseDeFlujo(lista, esPropio);
   r.hallazgos = hallazgosDe(r);
   r.hechos = hechosDe(r);
   return r;

@@ -108,6 +108,39 @@
             <ul id="pasos-lista" class="pasos-lista"></ul>
           </section>
 
+          <section id="flujo-card" class="tarjeta flujo" hidden>
+            <div class="panel-encabezado">
+              <h3>Flujo de caja a 13 semanas</h3>
+              <div id="flujo-escenario" class="segmentos" role="group" aria-label="Escenario">
+                <button type="button" class="segmento activo" data-escenario-flujo="base" aria-pressed="true">Esperado</button>
+                <button type="button" class="segmento" data-escenario-flujo="conservador" aria-pressed="false">Conservador</button>
+              </div>
+            </div>
+            <div id="flujo-vacio"></div>
+            <div id="flujo-cuerpo" hidden>
+              <p id="flujo-alerta" class="flujo-alerta"></p>
+              <svg id="flujo-grafica" viewBox="0 0 780 300" role="img" aria-label="Saldo proyectado y entradas contra salidas de cada semana"></svg>
+              <ul class="flujo-leyenda" aria-hidden="true">
+                <li><span class="marca saldo"></span>Saldo al cierre de la semana</li>
+                <li><span class="marca entra"></span>Entra</li>
+                <li><span class="marca sale"></span>Sale</li>
+              </ul>
+              <div class="flujo-pie">
+                <div id="flujo-cifras" class="flujo-cifras"></div>
+                <div class="campo">
+                  <label for="flujo-saldo">Dinero disponible hoy (bancos y caja)</label>
+                  <div class="acciones-inline flujo-saldo">
+                    <input id="flujo-saldo" type="number" step="any" inputmode="decimal" placeholder="Ej. 85000">
+                    <button id="flujo-guardar" class="boton secundario compacto" type="button">Guardar saldo</button>
+                  </div>
+                  <p id="flujo-saldo-nota" class="ayuda"></p>
+                </div>
+              </div>
+              <details class="plegable"><summary>Con qué supuestos se calcula</summary><ul id="flujo-supuestos" class="lista-datos compacta"></ul></details>
+              <details class="plegable"><summary>Quién te debe más</summary><table id="flujo-deudores" class="tabla-calculo"></table></details>
+            </div>
+          </section>
+
           <section id="informe-card" class="tarjeta" hidden>
             <div class="panel-encabezado">
               <h3>Informe del Orquestador</h3>
