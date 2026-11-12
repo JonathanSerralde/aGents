@@ -117,7 +117,7 @@ export function describirPosicion(id, propios = {}, inactivos = []) {
   if (tipo === 'subagente') partes.push(`Eres subagente de ${nombreDe(pos.reportaA, propios)}: tu trabajo alimenta a esa área y sus prioridades mandan sobre las tuyas.`);
   if (pos.reportaA) partes.push(`Reportas a ${nombreDe(pos.reportaA, propios)}; el Coordinador dirige a todos.`);
   const sub = subordinadosDe(id, propios, inactivos).map((x) => nombreDe(x, propios));
-  if (sub.length) partes.push(`Puedes encargar trabajo con "DELEGAR: [agente] — orden" solo a: ${sub.join(', ')}.`);
+  if (sub.length) partes.push(`Puedes encargar trabajo con "DELEGAR: [agente] — orden" solo a: ${sub.join(', ')}. Son tus especialistas: el dueño te escribe a ti y no siempre sabe que existen, así que cuando la orden toque el tema de alguno, encárgaselo o consúltalo antes de responder, sin esperar a que te lo pida.`);
   else if (id !== ORQ) partes.push('No puedes delegar; sí puedes consultar a cualquier agente.');
   return partes.join(' ');
 }

@@ -36,6 +36,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8.5 15.5l2.2 2.2 4.3-4.4"/></svg>
           <span>Junta semanal</span>
         </button>
+        <button id="menu-agenda" class="menu-item" type="button" data-vista="agenda" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="2.4"/></svg>
+          <span>Agenda</span>
+        </button>
         <button class="menu-item" type="button" data-vista="asistente">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M9 11h6M9 15h6"/></svg>
           <span>Diagnóstico</span>
@@ -115,6 +119,21 @@
             <div class="carga-fila"><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div></div>
             <div class="carga-dos"><div class="hueso hueso-alto"></div><div class="hueso hueso-alto"></div></div>
           </div>
+          <section id="pedir-card" class="tarjeta semana" hidden aria-labelledby="pedir-titulo">
+            <div class="semana-cabecera">
+              <div>
+                <h2 id="pedir-titulo">Pide lo que necesites</h2>
+                <p class="subtitulo">Escríbelo sin elegir agente. La oficina decide quién lo atiende, con reglas y sin gastar IA, y te lo dice antes de enviar.</p>
+              </div>
+            </div>
+            <form id="pedir-form" class="pedir-form">
+              <textarea id="pedir-texto" rows="2" maxlength="2000" placeholder="Ej. ¿Cómo cobro lo que me deben? · Calcula el finiquito de un empleado · Quiero abrir otra sucursal" aria-label="Tu orden"></textarea>
+              <button id="pedir-enviar" class="boton" type="submit" disabled>Enviar</button>
+            </form>
+            <p id="pedir-ruta" class="ayuda" aria-live="polite"></p>
+            <div id="pedir-otros" class="semana-llevar"></div>
+          </section>
+
           <div id="respaldo-aviso" class="demo-aviso respaldo-aviso" role="status" hidden>
             <p><strong id="respaldo-aviso-titulo">Guarda un respaldo.</strong> Todo vive en esta computadora: si se daña o se pierde, se va con ella. Un respaldo tarda unos segundos.</p>
             <div class="acciones-inline">
@@ -132,6 +151,7 @@
               <button id="semana-junta" class="boton secundario compacto" type="button">Abrir la junta</button>
             </div>
             <ul id="semana-lista" class="bitacora-lista"></ul>
+            <div id="semana-resultado" class="semana-resultado" hidden></div>
             <p id="semana-mas" class="ayuda" hidden></p>
             <div id="semana-llevar" class="semana-llevar" hidden>
               <span class="ayuda">Llévalos en tu celular:</span>
@@ -149,6 +169,16 @@
               <button id="gastos-presupuesto" class="boton secundario compacto" type="button">Ver presupuesto</button>
             </div>
             <ul id="gastos-lista" class="bitacora-lista"></ul>
+          </section>
+
+          <section id="avisos-card" class="tarjeta semana" hidden aria-labelledby="avisos-titulo">
+            <div class="semana-cabecera">
+              <div>
+                <h2 id="avisos-titulo">Tus agentes detectaron</h2>
+                <p class="subtitulo">Avisos sacados de tus datos con reglas, sin gastar IA. Si pides una propuesta, se abre el chat con la orden escrita y tú decides si la envías.</p>
+              </div>
+            </div>
+            <ul id="avisos-lista" class="bitacora-lista"></ul>
           </section>
 
           <section id="primeros-pasos" class="tarjeta" hidden>
@@ -418,15 +448,16 @@
                 <button id="editar-equipo" class="boton secundario compacto" type="button">Editar equipo</button>
               </div>
               <div id="equipo-filtros" class="equipo-filtros" role="group" aria-label="Filtrar el equipo">
-                <button type="button" class="atajo activo" data-filtro="recomendados" aria-pressed="true">Para tu negocio</button>
-                <button type="button" class="atajo" data-filtro="todos" aria-pressed="false">Todos</button>
-                <button type="button" class="atajo" data-filtro="areas" aria-pressed="false">Áreas</button>
+                <button type="button" class="atajo activo" data-filtro="areas" aria-pressed="true">Áreas</button>
+                <button type="button" class="atajo" data-filtro="recomendados" aria-pressed="false">Para tu negocio</button>
                 <button type="button" class="atajo" data-filtro="atencion" aria-pressed="false">En atención</button>
-                <button type="button" class="atajo" data-filtro="apoyo" aria-pressed="false">Apoyo</button>
-                <button type="button" class="atajo" data-filtro="propio" aria-pressed="false">Míos</button>
+                <button type="button" class="atajo" data-filtro="persona" aria-pressed="false">Por persona</button>
+                <button type="button" class="atajo" data-filtro="todos" aria-pressed="false">Todos</button>
+                <input id="equipo-buscar" type="search" class="filtro equipo-buscar" placeholder="Busca por lo que saben hacer (ej. nómina, inventario)" aria-label="Buscar agentes por lo que saben hacer">
               </div>
+              <button id="equipo-volver" class="atajo" type="button" hidden>‹ Volver a las áreas</button>
               <p id="equipo-nota" class="ayuda"></p>
-              <div id="agentes" class="equipo-grid" data-filtro="recomendados"></div>
+              <div id="agentes" class="equipo-grid" data-filtro="areas"></div>
             </section>
 
             <section class="tarjeta">
@@ -546,6 +577,48 @@
         </section>
 
         <!-- ===================== DIAGNÓSTICO (asistente) ===================== -->
+        <section id="vista-agenda" data-vista-panel hidden>
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3 id="agenda-titulo">Agenda</h3>
+              <div class="acciones-inline">
+                <button id="agenda-antes" class="boton secundario compacto" type="button" aria-label="Semana anterior">‹ Anterior</button>
+                <button id="agenda-hoy" class="boton secundario compacto" type="button">Hoy</button>
+                <button id="agenda-despues" class="boton secundario compacto" type="button" aria-label="Semana siguiente">Siguiente ›</button>
+              </div>
+              <p class="subtitulo">Tus citas de la semana. Los nombres y teléfonos se quedan en esta computadora: a tus agentes solo les llegan las cifras (cuántas citas, cuántas faltaron, cuánto se cobró).</p>
+            </div>
+            <div id="agenda-cifras" class="kpis kpis-uso"></div>
+            <form id="agenda-nueva" class="agenda-nueva">
+              <div class="campo"><label for="agenda-nombre">Nombre</label><input id="agenda-nombre" type="text" maxlength="100" list="agenda-personas" autocomplete="off" required><datalist id="agenda-personas"></datalist></div>
+              <div class="campo"><label for="agenda-telefono">Teléfono (opcional)</label><input id="agenda-telefono" type="tel" maxlength="20" placeholder="10 dígitos"></div>
+              <div class="campo"><label for="agenda-fecha">Fecha</label><input id="agenda-fecha" type="date" required></div>
+              <div class="campo"><label for="agenda-hora">Hora</label><input id="agenda-hora" type="time" step="300" required></div>
+              <div class="campo"><label for="agenda-duracion">Minutos</label><input id="agenda-duracion" type="number" min="5" max="600" step="5" value="30"></div>
+              <div class="campo"><label for="agenda-servicio">Servicio (opcional)</label><input id="agenda-servicio" type="text" maxlength="120"></div>
+              <div class="campo"><label for="agenda-atiende">Quién atiende (opcional)</label><input id="agenda-atiende" type="text" maxlength="80"></div>
+              <div class="campo"><label for="agenda-precio">Precio (opcional)</label><input id="agenda-precio" type="number" min="0" step="10"></div>
+              <div class="acciones-inline">
+                <button class="boton" type="submit">Agendar cita</button>
+                <span id="agenda-mensaje" class="mensaje-estado" role="status"></span>
+              </div>
+            </form>
+          </section>
+
+          <section class="tarjeta">
+            <div id="agenda-dias" class="agenda-dias"></div>
+          </section>
+
+          <section class="tarjeta">
+            <div class="panel-encabezado">
+              <h3 id="agenda-personas-titulo">Personas</h3>
+              <p class="subtitulo">Visitas, faltas y lo que deben. La nota es de trato (cómo prefiere que le llamen, horario que le acomoda): no escribas aquí diagnósticos ni datos de salud. Borrar a una persona borra también sus citas.</p>
+            </div>
+            <input id="agenda-filtro" type="search" class="filtro" placeholder="Buscar por nombre o teléfono" aria-label="Buscar personas">
+            <ul id="agenda-lista-personas" class="bitacora-lista"></ul>
+          </section>
+        </section>
+
         <section id="vista-asistente" class="tarjeta asistente" data-vista-panel hidden>
           <div class="progreso" aria-hidden="true"><div id="barra"></div></div>
 
@@ -863,10 +936,28 @@
               <div class="campo"><label for="ajuste-acciones">Acciones adicionales (una por línea)</label><textarea id="ajuste-acciones" rows="2" maxlength="1200"></textarea></div>
               <div class="campo ancho"><label for="ajuste-limites">Límites adicionales (uno por línea)</label><textarea id="ajuste-limites" rows="2" maxlength="1200"></textarea></div>
             </div>
+            <details id="ajuste-habilidad" class="plegable"><summary>Ver todo lo que sabe este agente y apagar lo que no uses</summary>
+              <div id="ajuste-habilidad-cuerpo" class="habilidad-cuerpo"></div>
+            </details>
             <div class="acciones-inline">
               <button id="ajuste-guardar" class="boton" type="button">Guardar ajustes</button>
               <span id="ajuste-mensaje" class="mensaje-estado" role="status"></span>
             </div>
+          </section>
+
+          <section id="calidad-card" class="tarjeta" data-pestana="ajustes">
+            <div class="panel-encabezado">
+              <h3>Calidad de los agentes</h3>
+              <p class="subtitulo">Comprueba con tu IA real si un agente usa su habilidad, respeta sus límites y entrega lo que promete. Cada agente recibe seis órdenes típicas y sus respuestas se revisan con reglas. La prueba gasta de tu clave y no toca tus conversaciones ni la memoria.</p>
+            </div>
+            <div id="calidad-agentes" class="areas-check"></div>
+            <div class="acciones-inline">
+              <button id="calidad-probar" class="boton" type="button">Probar ahora</button>
+              <span id="calidad-estado" class="costo-ia"></span>
+            </div>
+            <div id="calidad-resultado"></div>
+            <h4>Lo que tú has calificado</h4>
+            <ul id="calidad-votos" class="lista-datos compacta"></ul>
           </section>
 
           <section id="orquestador" class="tarjeta" data-pestana="hablar">
@@ -1045,6 +1136,19 @@
 
         <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="vista-configuracion" data-vista-panel hidden>
+          <section id="modulos-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Módulos opcionales</h3>
+              <p class="subtitulo">Funciones que no todos los negocios necesitan. Apagadas no aparecen en el menú; al apagarlas no se borra nada.</p>
+            </div>
+            <label class="interruptor"><input id="agenda-activa" type="checkbox"><span>Agenda de citas y clientes: para negocios que atienden con cita (consultorio, salón, taller, despacho, clases)</span></label>
+            <div class="form-grid">
+              <div class="campo"><label for="agenda-etiqueta">Cómo llamas a quienes atiendes</label><select id="agenda-etiqueta"><option value="clientes">Clientes</option><option value="pacientes">Pacientes</option><option value="alumnos">Alumnos</option><option value="huespedes">Huéspedes</option></select></div>
+            </div>
+            <p class="ayuda">La agenda guarda nombre, teléfono y citas en este equipo. No es un expediente clínico ni una agenda en línea: las personas no reservan solas. Si tu negocio maneja datos personales, necesitas tu aviso de privacidad.</p>
+            <span id="modulos-mensaje" class="mensaje-estado" role="status"></span>
+          </section>
+
           <section id="presupuesto-card" class="tarjeta">
             <div class="panel-encabezado">
               <h3>Presupuesto del mes por área</h3>
@@ -1169,6 +1273,21 @@
                   <input id="cfg-anthropic-modelo-automatico" type="text" autocomplete="off" placeholder="Vacío = claude-haiku-5-5">
                 </div>
                 <div class="campo">
+                  <label class="interruptor"><input id="cfg-herramientas" type="checkbox" checked><span>Dejar que los agentes usen herramientas de este equipo (calculadora laboral, presupuesto, flujo de caja y búsqueda en la memoria y en mis documentos)</span></label>
+                  <p class="ayuda">Así dan cifras calculadas en tu computadora en lugar de estimarlas. Cada uso es otra ida y vuelta con la IA: sube un poco el costo de esa orden. Con OpenAI no aplica.</p>
+                  <label class="interruptor"><input id="cfg-revision" type="checkbox" checked><span>Revisar las respuestas antes de entregármelas</span></label>
+                  <p class="ayuda">Las reglas revisan gratis cada respuesta: si un gasto no cabe en el presupuesto o una acción no trae responsable y plazo, el agente la corrige antes de mostrártela. Los agentes con modelo mayor pasan además por un revisor. Solo cuesta cuando hay algo que corregir.</p>
+                </div>
+                <div class="campo">
+                  <label for="cfg-anthropic-modelo-experto">Modelo mayor para decisiones grandes (opcional)</label>
+                  <input id="cfg-anthropic-modelo-experto" type="text" autocomplete="off" placeholder="Vacío = todos usan el modelo principal">
+                </div>
+                <div class="campo">
+                  <label for="cfg-agentes-expertos">Agentes que usan el modelo mayor (Ctrl + clic para elegir varios)</label>
+                  <select id="cfg-agentes-expertos" multiple size="5"></select>
+                  <p class="ayuda">Solo en las órdenes que tú les mandas. Un modelo mayor razona mejor y cuesta varias veces más por orden; el costo aparece junto al botón de enviar.</p>
+                </div>
+                <div class="campo">
                   <label for="cfg-anthropic-modelo-busqueda">Modelo para búsquedas en internet (investigación de mercado e inversiones)</label>
                   <input id="cfg-anthropic-modelo-busqueda" type="text" autocomplete="off" placeholder="Vacío = el económico">
                   <p class="ayuda">Cada búsqueda vuelve a enviar sus resultados a la IA, así que investigar es lo que más cuesta: con un modelo grande una sola investigación puede salir cara. El costo estimado aparece junto al botón antes de correrla.</p>
@@ -1219,6 +1338,8 @@
             </div>
             <div id="reales-resultado" hidden>
               <label class="interruptor reales-semaforo"><input id="reales-semaforo" type="checkbox" checked><span>Mover el semáforo del diagnóstico con estas facturas</span></label>
+              <label class="interruptor reales-semaforo"><input id="reales-compartir" type="checkbox"><span>Compartir con mis agentes las cifras de mis facturas (totales y porcentajes; nunca nombres de clientes ni proveedores)</span></label>
+              <p class="subtitulo">Apagado, los agentes solo conocen lo que respondiste en el diagnóstico. Encendido, proponen con tus cifras reales; con la IA activa, esas cifras viajan al proveedor.</p>
               <p class="subtitulo">Las facturas solo pueden bajar el color de un área o darle color a una sin respuestas; nunca lo mejoran, porque no ven todo el negocio. Tus respuestas quedan guardadas como las diste.</p>
               <p id="reales-periodo" class="subtitulo"></p>
               <div id="reales-kpis" class="kpis kpis-uso"></div>

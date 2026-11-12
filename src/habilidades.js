@@ -1,6 +1,9 @@
 // Habilidad de cada agente: qué sabe hacer, qué pregunta primero, qué marcos usa y dónde se detiene.
 // Es conocimiento del proyecto, no datos del usuario. Se inyecta en el prompt de cada agente (prompts.js).
 // Mantener cada bloque corto: el modelo lo recibe en cada orden.
+import { EXTRA } from './habilidades-extra.js';
+import { NOMBRES_DISTRITOS } from './diagnostico.js';
+import { NOMBRES_APOYO } from './apoyo.js';
 
 export const HABILIDADES = {
   orquestador: {
@@ -417,19 +420,49 @@ export const HABILIDADES = {
   },
 };
 
+// Segunda capa, igual para todos (src/habilidades-extra.js): cuándo usar al agente, qué entrega, en quién se apoya,
+// indicadores para quien no los tenía y refuerzo de marcos y acciones para las habilidades más cortas.
+for (const [id, extra] of Object.entries(EXTRA)) {
+  const h = HABILIDADES[id];
+  if (!h) continue;
+  h.cuando = extra.cuando;
+  h.entrega = extra.entrega;
+  h.apoyo = (extra.apoyo || []).filter((otro) => otro !== id && HABILIDADES[otro]);
+  if (extra.indicadores && !h.indicadores) h.indicadores = extra.indicadores;
+  if (extra.marcos) h.marcos = [...h.marcos, ...extra.marcos];
+  if (extra.acciones) h.acciones = [...h.acciones, ...extra.acciones];
+}
+
+const nombreDeAgente = (id) => (id === 'orquestador' ? 'el Coordinador' : NOMBRES_DISTRITOS[id] || NOMBRES_APOYO[id] || id);
+
 // Texto compacto para el prompt del sistema, a partir de un objeto de habilidad (del proyecto o del usuario).
-export function describirHabilidadDe(h) {
-  if (!h) return '';
+// compacto: para responder la consulta de otro agente basta el rol, los marcos principales, los indicadores y los
+// límites; las preguntas, las acciones y el formato de entrega son para las órdenes del dueño.
+// apagados: marcos o acciones que el dueño apagó para su negocio (src/ajustes.js); los límites nunca se apagan.
+export function describirHabilidadDe(original, { compacto = false, apagados = [] } = {}) {
+  if (!original) return '';
+  const fuera = new Set(apagados);
+  const vivos = (lista) => (lista || []).filter((t) => !fuera.has(String(t).trim().slice(0, 80)));
+  const h = fuera.size ? { ...original, marcos: vivos(original.marcos), acciones: vivos(original.acciones) } : original;
   const lineas = [];
+  if (compacto) {
+    if (h.rol || h.especialidad) lineas.push(`Tu rol: ${h.rol || 'agente de apoyo'}. Especialidad: ${h.especialidad || 'la que te indique la persona responsable'}`);
+    if (h.marcos?.length) lineas.push(`Marcos que usas: ${h.marcos.slice(0, 4).join('; ')}.`);
+    if (h.indicadores?.length) lineas.push(`Indicadores que vigilas: ${h.indicadores.join('; ')}.`);
+    if (h.limites?.length) lineas.push(`Límites: ${h.limites.join('; ')}.`);
+    return lineas.join('\n');
+  }
   if (h.rol || h.especialidad) lineas.push(`Tu rol: ${h.rol || 'agente de apoyo'}. Especialidad: ${h.especialidad || 'la que te indique la persona responsable'}`);
   if (h.pregunta_primero?.length) lineas.push(`Antes de proponer, pregunta: ${h.pregunta_primero.join(' ')}`);
   if (h.marcos?.length) lineas.push(`Marcos que usas: ${h.marcos.join('; ')}.`);
   if (h.acciones?.length) lineas.push(`Lo que sabes hacer: ${h.acciones.join('; ')}.`);
   if (h.indicadores?.length) lineas.push(`Indicadores que vigilas (pídelos si no los tienes y úsalos en tus propuestas): ${h.indicadores.join('; ')}.`);
+  if (h.entrega) lineas.push(`Lo que entregas al terminar (dale esa forma a tu respuesta, no consejos sueltos): ${h.entrega}`);
+  if (h.apoyo?.length) lineas.push(`Te apoyas en ${h.apoyo.map(nombreDeAgente).join(', ')}: si la orden toca el tema de alguno, consúltalo con CONSULTAR antes de responder en lugar de suponer.`);
   if (h.limites?.length) lineas.push(`Límites: ${h.limites.join('; ')}.`);
   return lineas.join('\n');
 }
 
-export function describirHabilidad(area) {
-  return describirHabilidadDe(HABILIDADES[area]);
+export function describirHabilidad(area, opciones = {}) {
+  return describirHabilidadDe(HABILIDADES[area], opciones);
 }

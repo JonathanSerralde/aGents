@@ -232,6 +232,53 @@ export async function conversar(config, sistema, mensajes, { nivel = 'principal'
   return llamarOpenAI(config, sistema, mensajes, nivel);
 }
 
+// ---- Conversación con herramientas locales ----
+// El modelo puede pedir una herramienta (src/herramientas.js); se ejecuta en este equipo y se le devuelve el resultado,
+// hasta `maxUsos` veces. Devuelve { texto, usos: [{ nombre, entrada }] }. Con OpenAI se conversa sin herramientas.
+export async function conversarConHerramientas(config, sistema, mensajes, { nivel = 'principal', herramientas = null, maxUsos = 3 } = {}) {
+  const proveedor = proveedorActivo(config);
+  if (!proveedor) throw new Error('Sin proveedor de IA configurado');
+  const usos = [];
+  if (!herramientas?.definiciones?.length || proveedor === 'openai') return { texto: await conversar(config, sistema, mensajes, { nivel }), usos };
+  const usar = (nombre, entrada) => {
+    usos.push({ nombre, entrada: entrada || {} });
+    return herramientas.ejecutar(nombre, entrada);
+  };
+
+  if (proveedor === 'prueba') {
+    // Las pruebas piden una herramienta devolviendo { herramienta: { nombre, entrada } }; el resultado les llega en `resultados`.
+    const resultados = [];
+    for (let vuelta = 0; ; vuelta++) {
+      const r = await config.llamarIA({ sistema: sistemaPlano(sistema), mensajes, nivel, modelo: modeloPara({ proveedor: 'anthropic', anthropicModelo: 'principal-prueba', modoAhorro: config.modoAhorro }, nivel), herramientas: herramientas.definiciones.map((d) => d.name), resultados, sinHerramientas: vuelta >= maxUsos });
+      const pedido = r && typeof r === 'object' && vuelta < maxUsos ? r.herramienta : null;
+      const texto = r && typeof r === 'object' ? r.texto : r;
+      // Igual que en conversar: las pruebas pueden devolver { texto, uso } para ejercitar el monitor de consumo.
+      if (r && typeof r === 'object' && r.uso) registrarUso(config, { proveedor: 'prueba', modelo: 'prueba', entrada: r.uso.entrada, salida: r.uso.salida });
+      else registrarUso(config, { proveedor: 'prueba', modelo: 'prueba', entrada: Math.ceil(sistema.length / 4), salida: Math.ceil(String(pedido ? JSON.stringify(pedido) : texto || '').length / 4) });
+      if (!pedido) return { texto: texto || null, usos };
+      resultados.push({ nombre: pedido.nombre, resultado: usar(pedido.nombre, pedido.entrada) });
+    }
+  }
+
+  const cuerpo = { ...cuerpoAnthropic(config, sistema, mensajes, nivel), tools: herramientas.definiciones };
+  let messages = cuerpo.messages;
+  for (let vuelta = 0; ; vuelta++) {
+    // En la última vuelta ya no se ofrecen herramientas: el modelo responde con lo que tiene.
+    const body = vuelta >= maxUsos ? { ...cuerpo, messages, tool_choice: { type: 'none' } } : { ...cuerpo, messages };
+    const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: CABECERAS(config), body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`Anthropic respondió ${res.status}`);
+    const data = await res.json();
+    usoAnthropic(config, cuerpo.model, data);
+    const pedidos = (data.content || []).filter((b) => b.type === 'tool_use');
+    if (data.stop_reason !== 'tool_use' || !pedidos.length || vuelta >= maxUsos) {
+      const texto = textoDeBloques(data.content);
+      return { texto: texto ? (data.stop_reason === 'max_tokens' ? `${texto}${AVISO_CORTE}` : texto) : null, usos };
+    }
+    const resultados = pedidos.map((b) => ({ type: 'tool_result', tool_use_id: b.id, content: usar(b.name, b.input) }));
+    messages = [...messages, { role: 'assistant', content: data.content }, { role: 'user', content: resultados }];
+  }
+}
+
 // ---- Conversación con búsqueda web (investigación de mercado) ----
 // Usa la búsqueda web del propio proveedor con la clave del usuario: no hay servicios ni cuentas adicionales.
 // Cada búsqueda se cobra aparte en la cuenta del proveedor; por eso se limita el número por llamada.

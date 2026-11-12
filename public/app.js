@@ -16,11 +16,12 @@ const TEXTO_META = { vertical: 'Meta: vertical', horizontal: 'Meta: horizontal',
 const NOMBRE_PROVEEDOR = { anthropic: 'Anthropic', openai: 'OpenAI', prueba: 'el proveedor de prueba' };
 const LIMITE_LOGO = 2 * 1024 * 1024;
 const TIPOS_LOGO = ['image/png', 'image/jpeg', 'image/webp'];
-const VISTAS = ['dashboard', 'junta', 'asistente', 'red', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
+const VISTAS = ['dashboard', 'junta', 'agenda', 'asistente', 'red', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
 // Título y bajada de la barra superior en cada vista.
 const TITULO_VISTA = {
   dashboard: ['Ciudad de agentes', 'El estado de tu negocio, área por área.'],
   junta: ['Junta semanal', 'Diez minutos cada lunes: tres cifras, tres decisiones y los compromisos de la semana.'],
+  agenda: ['Agenda', 'Citas de la semana, recordatorios y quién vino.'],
   asistente: ['Diagnóstico', 'Exprés en cinco minutos o completo en quince; tus respuestas se guardan solas.'],
   red: ['Red de agentes', 'Quién reporta a quién y qué está haciendo cada agente.'],
   agentes: ['Agentes', 'Habla con tu equipo, reparte trabajo y revisa lo que acordaron.'],
@@ -306,8 +307,10 @@ function mostrarVista(vista, { scroll = true } = {}) {
     const hay = estado.ultimo !== null;
     $('#dashboard-vacio').hidden = hay;
     $('#vista-resultados').hidden = !hay;
+    $('#pedir-card').hidden = estado.ultimo === null;
     renderSemana();
     pintarGastos();
+    pintarAvisos();
     pintarRespaldo();
     renderPrimerosPasos();
     renderFlujo();
@@ -355,11 +358,12 @@ function manejarMenu(evento) {
   if (vista === 'asistente') renderPaso();
   if (vista === 'agentes') prepararAgentes();
   if (vista === 'reportes') cargarReportes();
-  if (vista === 'configuracion') { cargarConfiguracion(); pintarRespaldo(); pintarGastos(); if ($('#contexto-detalle').open) pintarContexto(); }
+  if (vista === 'configuracion') { cargarConfiguracion(); pintarRespaldo(); pintarGastos(); pintarModulos(); if ($('#contexto-detalle').open) pintarContexto(); }
   if (vista === 'campanas') prepararCampanas();
   if (vista === 'actividad') cargarActividad();
   if (vista === 'red') cargarRed();
   if (vista === 'junta') cargarJunta();
+  if (vista === 'agenda') cargarAgenda();
   mostrarVista(vista);
 }
 
@@ -1130,11 +1134,11 @@ async function prepararAgentes() {
     for (const id of ids) g.append(crearElemento('option', { value: id }, nombreArea(id)));
     selector.append(g);
   };
-  const resto = (ids) => ids.filter((id) => !recomendados.includes(id));
-  grupo('Para tu negocio hoy', recomendados);
-  grupo(recomendados.length ? 'Otras áreas del negocio' : 'Áreas del negocio', resto(ORDEN_AREAS));
-  grupo(recomendados.length ? 'Otros agentes de apoyo' : 'Agentes de apoyo', resto(apoyoActivos()));
-  grupo(recomendados.length ? 'Otros agentes míos' : 'Mis agentes', resto(propios));
+  const { deArea, apoyoGeneral } = gruposDeEquipo();
+  grupo('Áreas del negocio', ORDEN_AREAS);
+  grupo('Mis agentes', propios);
+  for (const area of ORDEN_AREAS) grupo(`Especialistas de ${nombreArea(area)}`, deArea[area] || []);
+  grupo('Apoyo del Coordinador', apoyoGeneral);
   const validos = [...ORDEN_AREAS, ...apoyoActivos(), ...propios];
   selector.value = validos.includes(actual) ? actual : (recomendados[0] || ORDEN_AREAS[0]);
   chatAgentes?.cargar(selector.value);
@@ -1867,6 +1871,7 @@ async function cargarAjustes() {
 
 function pintarAjuste() {
   const a = ajustesCache[$('#ajuste-agente').value] || {};
+  if ($('#ajuste-habilidad').open) pintarHabilidadCompleta(); else $('#ajuste-habilidad-cuerpo').replaceChildren();
   $('#ajuste-notas').value = a.notas || '';
   $('#ajuste-marcos').value = (a.marcos || []).join('\n');
   $('#ajuste-acciones').value = (a.acciones || []).join('\n');
@@ -1876,7 +1881,7 @@ function pintarAjuste() {
 async function guardarAjuste() {
   const id = $('#ajuste-agente').value;
   try {
-    const res = await fetch(`/api/ajustes/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ notas: $('#ajuste-notas').value, marcos: $('#ajuste-marcos').value, acciones: $('#ajuste-acciones').value, limites: $('#ajuste-limites').value }) });
+    const res = await fetch(`/api/ajustes/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ apagados: apagadosDelFormulario(id), notas: $('#ajuste-notas').value, marcos: $('#ajuste-marcos').value, acciones: $('#ajuste-acciones').value, limites: $('#ajuste-limites').value }) });
     const j = await res.json();
     if (!res.ok) return mensaje($('#ajuste-mensaje'), j.errores?.[0] || 'No se pudo guardar.', 'error');
     ajustesCache[id] = j;
@@ -1938,8 +1943,10 @@ async function optimizarAgentes() {
 // Costo estimado en pesos junto a cada acción que gasta IA (src/precios.js). Sin IA configurada no se muestra nada.
 const costoDe = (accion) => (estado.costos?.activo ? estado.costos.acciones?.[accion] || null : null);
 function pintarCostos() {
+  // Si el agente elegido en el chat usa el modelo mayor, su orden cuesta distinto y se dice.
+  const conModeloMayor = (estado.costos?.agentesExpertos || []).includes($('#chat-selector')?.value);
   for (const el of document.querySelectorAll('[data-costo]')) {
-    const c = costoDe(el.dataset.costo);
+    const c = (el.dataset.costo === 'orden' && conModeloMayor && el.closest('#chat-agentes') && costoDe('ordenExperto')) || costoDe(el.dataset.costo);
     el.hidden = !c;
     el.textContent = c ? c.texto : '';
   }
@@ -2566,6 +2573,7 @@ function tarjetaAgente(id, color, etiqueta, alAbrir) {
   const nombre = crearElemento('span', { class: 'agente-nombre' }, nombreAgente(id));
   const con = crearElemento('span', { class: 'agente-con' }, `con ${responsableDe(id)}`);
   const estadoTexto = crearElemento('span', { class: 'agente-estado' }, estadoOperativo(id));
+  if (estado.habilidades?.[id]?.cuando) tarjeta.title = estado.habilidades[id].cuando;
   // Si el agente se llama igual que su área, el nombre no se repite.
   if (nombre.textContent.trim().toLowerCase() === etiqueta.trim().toLowerCase()) nombre.hidden = true;
   tarjeta.append(foto, rol, nombre, con, estadoTexto);
@@ -2574,44 +2582,140 @@ function tarjetaAgente(id, color, etiqueta, alAbrir) {
   return tarjeta;
 }
 
+// Equipo en la portada: en lugar de 45 tarjetas, el Coordinador, las áreas y los agentes que creó el dueño. Los
+// especialistas viven dentro de su área ("+3 especialistas") y los que no son de ninguna, en "Apoyo del Coordinador".
+// Nada se quita: se entra a cada grupo con un clic, se busca por lo que saben hacer y "Todos" sigue ahí.
+let equipoGrupos = { deArea: {}, apoyoGeneral: [] };
+let equipoOrden = []; // tarjetas en su orden original, para volver a él después de agrupar por persona
+let jerarquiaPedida = false;
+const sinAcentos = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function gruposDeEquipo() {
+  const activos = apoyoActivos();
+  const sub = estado.subagentes || {};
+  const deArea = {};
+  const colocados = new Set();
+  for (const area of ORDEN_AREAS) {
+    deArea[area] = (sub[area] || []).filter((id) => activos.includes(id));
+    for (const id of deArea[area]) colocados.add(id);
+  }
+  return { deArea, apoyoGeneral: activos.filter((id) => !colocados.has(id)) };
+}
+
 function renderEquipo(distritos) {
+  // La jerarquía (quién depende de quién) se pide una vez; al llegar, el equipo se vuelve a pintar agrupado.
+  if (!estado.subagentes && !jerarquiaPedida) {
+    jerarquiaPedida = true;
+    cargarJerarquia().then(() => { if (estado.ultimo) renderEquipo(estado.ultimo.resultado.distritos); });
+  }
   const contenedor = $('#agentes');
   contenedor.replaceChildren();
+  equipoGrupos = gruposDeEquipo();
+  const { deArea, apoyoGeneral } = equipoGrupos;
+  const recomendados = agentesRecomendados();
+  // Lo que se puede buscar de cada agente: su nombre, su área y lo que sabe hacer.
+  const preparar = (tarjeta, id, tipo, etiqueta) => {
+    tarjeta.dataset.id = id;
+    tarjeta.dataset.tipo = tipo;
+    tarjeta.dataset.responsable = responsableDe(id);
+    tarjeta.dataset.busqueda = sinAcentos([etiqueta, nombreAgente(id), responsableDe(id), JSON.stringify(estado.habilidades?.[id] || estado.personalizados?.agentes?.[id] || '')].join(' '));
+    tarjeta.classList.toggle('recomendado', recomendados.includes(id));
+    return tarjeta;
+  };
+
+  const coordinador = preparar(tarjetaAgente('orquestador', 'apoyo', 'Coordinador', () => { mostrarVista('agentes'); prepararAgentes(); mostrarPestana('hablar'); setTimeout(() => $('#orquestador').scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); }), 'orquestador', 'principal', 'Coordinador');
+  coordinador.querySelector('.agente-estado').textContent = 'Reparte el trabajo';
+  coordinador.querySelector('.agente-nombre').hidden = true;
+  coordinador.querySelector('.agente-con').textContent = 'dirige a todos los agentes';
+  contenedor.append(coordinador);
+
   for (const id of ORDEN_AREAS) {
     const d = distritos[id];
     if (!d) continue;
-    contenedor.append(tarjetaAgente(id, d.color, d.nombre, () => mostrarDetalle(id)));
+    const tarjeta = preparar(tarjetaAgente(id, d.color, d.nombre, () => mostrarDetalle(id)), id, 'principal', d.nombre);
+    const suyos = deArea[id] || [];
+    if (suyos.length) {
+      const mas = crearElemento('button', { type: 'button', class: 'agente-mas', title: `Ver a ${suyos.map((s) => NOMBRES_APOYO[s]).join(', ')}` }, `+${suyos.length} ${suyos.length === 1 ? 'especialista' : 'especialistas'}`);
+      mas.addEventListener('click', (e) => { e.stopPropagation(); filtrarTarjetasEquipo(`de:${id}`); });
+      mas.addEventListener('keydown', (e) => e.stopPropagation());
+      tarjeta.append(mas);
+    }
+    contenedor.append(tarjeta);
+    for (const s of suyos) contenedor.append(preparar(tarjetaAgente(s, 'apoyo', NOMBRES_APOYO[s], () => mostrarDetalle(s)), s, 'especialista', `${NOMBRES_APOYO[s]} ${d.nombre}`));
   }
-  const recomendados = agentesRecomendados();
-  for (const id of apoyoActivos()) {
-    contenedor.append(tarjetaAgente(id, 'apoyo', NOMBRES_APOYO[id], () => mostrarDetalle(id)));
+  for (const id of idsPropios()) contenedor.append(preparar(tarjetaAgente(id, 'propio', estado.personalizados.agentes[id].nombre, () => mostrarDetalle(id)), id, 'principal', estado.personalizados.agentes[id].nombre));
+
+  // Una sola tarjeta para el apoyo que no pertenece a ningún área; al abrirla se ven todos.
+  if (apoyoGeneral.length) {
+    const grupo = crearElemento('article', { class: 'agente-card apoyo grupo', role: 'button', tabindex: '0', 'aria-label': `Apoyo del Coordinador: ${apoyoGeneral.length} especialistas` });
+    grupo.dataset.tipo = 'grupo';
+    grupo.dataset.id = '';
+    grupo.dataset.busqueda = '';
+    const pila = crearElemento('span', { class: 'agente-pila', 'aria-hidden': 'true' }, `${apoyoGeneral.length}`);
+    grupo.append(pila, crearElemento('span', { class: 'agente-rol' }, 'Apoyo general'), crearElemento('span', { class: 'agente-con' }, 'ven todo el negocio'), crearElemento('span', { class: 'agente-estado' }, `Ver los ${apoyoGeneral.length} especialistas`));
+    const abrir = () => filtrarTarjetasEquipo('de:apoyo');
+    grupo.addEventListener('click', abrir);
+    grupo.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } });
+    contenedor.append(grupo);
+    for (const id of apoyoGeneral) contenedor.append(preparar(tarjetaAgente(id, 'apoyo', NOMBRES_APOYO[id], () => mostrarDetalle(id)), id, 'especialista', NOMBRES_APOYO[id]));
   }
-  for (const id of idsPropios()) {
-    contenedor.append(tarjetaAgente(id, 'propio', estado.personalizados.agentes[id].nombre, () => mostrarDetalle(id)));
-  }
-  const total = ORDEN_AREAS.length + apoyoActivos().length + idsPropios().length;
-  // Las tarjetas van en el mismo orden en que se agregaron: áreas, apoyo y propios.
-  const orden = [...ORDEN_AREAS.filter((id) => distritos[id]), ...apoyoActivos(), ...idsPropios()];
-  [...contenedor.querySelectorAll('.agente-card')].forEach((t, i) => t.classList.toggle('recomendado', recomendados.includes(orden[i])));
-  $('#equipo-contador').textContent = `${recomendados.length} de ${total} agentes`;
-  $('#equipo-nota').textContent = `Estos ${recomendados.length} son los que más te sirven hoy: tus áreas más urgentes y los agentes que mejor las apoyan. Los otros ${total - recomendados.length} están en “Todos”.`;
-  contenedor.append(crearElemento('p', { class: 'equipo-vacio', hidden: '' }, 'Ningún agente en este grupo.'));
-  filtrarTarjetasEquipo(contenedor.dataset.filtro || 'recomendados');
+
+  equipoOrden = [...contenedor.children];
+  const especialistas = apoyoActivos().length;
+  $('#equipo-contador').textContent = `${ORDEN_AREAS.length} áreas · ${especialistas} especialistas`;
+  $('#menu-agentes-cuenta').hidden = true;
+  contenedor.append(crearElemento('p', { class: 'equipo-vacio', hidden: '' }, 'Ningún agente coincide.'));
+  const actual = contenedor.dataset.filtro || 'areas';
+  filtrarTarjetasEquipo(actual.startsWith('de:') ? 'areas' : actual);
 }
 
-// Filtro del equipo en el dashboard: todos, áreas, en atención, apoyo o propios.
+// Qué tarjetas se ven: las principales, un grupo abierto, las recomendadas, por persona, todas o lo que coincida con la búsqueda.
 function filtrarTarjetasEquipo(filtro) {
   const contenedor = $('#agentes');
   contenedor.dataset.filtro = filtro;
+  const q = sinAcentos($('#equipo-buscar').value.trim());
   for (const b of document.querySelectorAll('#equipo-filtros [data-filtro]')) {
-    const activo = b.dataset.filtro === filtro;
+    const activo = !q && b.dataset.filtro === filtro;
     b.classList.toggle('activo', activo);
     b.setAttribute('aria-pressed', String(activo));
   }
-  $('#equipo-nota').hidden = filtro !== 'recomendados';
-  const visibles = [...contenedor.querySelectorAll('.agente-card')].some((t) => getComputedStyle(t).display !== 'none');
+  const { deArea, apoyoGeneral } = equipoGrupos;
+  const grupo = filtro.startsWith('de:') ? filtro.slice(3) : '';
+  const seVe = (t) => {
+    const { id, tipo } = t.dataset;
+    if (q) return tipo !== 'grupo' && t.dataset.busqueda.includes(q);
+    if (grupo === 'apoyo') return apoyoGeneral.includes(id);
+    if (grupo) return id === grupo || (deArea[grupo] || []).includes(id);
+    if (filtro === 'recomendados') return t.classList.contains('recomendado');
+    if (filtro === 'atencion') return t.classList.contains('rojo');
+    if (filtro === 'todos' || filtro === 'persona') return tipo !== 'grupo';
+    return tipo === 'principal' || tipo === 'grupo';
+  };
+  // Se vuelve al orden original y se quitan los encabezados de una agrupación anterior.
+  for (const encabezado of contenedor.querySelectorAll('.equipo-persona')) encabezado.remove();
   const vacio = contenedor.querySelector('.equipo-vacio');
-  if (vacio) vacio.hidden = visibles;
+  for (const t of equipoOrden) { t.hidden = !seVe(t); contenedor.insertBefore(t, vacio); }
+  const visibles = equipoOrden.filter((t) => !t.hidden);
+  if (filtro === 'persona' && !q) {
+    // Un encabezado por responsable con sus agentes debajo: sirve para ver la carga de cada quien.
+    const porPersona = new Map();
+    for (const t of visibles) porPersona.set(t.dataset.responsable, [...(porPersona.get(t.dataset.responsable) || []), t]);
+    for (const [persona, tarjetas] of [...porPersona.entries()].sort((a, b) => b[1].length - a[1].length)) {
+      contenedor.insertBefore(crearElemento('h4', { class: 'equipo-persona' }, `${persona === 'Tú' ? 'Tú (sin responsable asignado)' : persona} · ${tarjetas.length} ${tarjetas.length === 1 ? 'agente' : 'agentes'}`), vacio);
+      for (const t of tarjetas) contenedor.insertBefore(t, vacio);
+    }
+  }
+  if (vacio) vacio.hidden = visibles.length > 0;
+  $('#equipo-volver').hidden = !grupo || Boolean(q);
+  const ocultos = equipoOrden.filter((t) => t.dataset.tipo === 'especialista').length;
+  $('#equipo-nota').textContent = q ? `${visibles.length} ${visibles.length === 1 ? 'agente sabe' : 'agentes saben'} de "${$('#equipo-buscar').value.trim()}".`
+    : grupo === 'apoyo' ? 'Apoyo del Coordinador: no pertenecen a un área y ven todo el negocio.'
+      : grupo ? `${nombreArea(grupo)} y sus especialistas. Si le escribes al área, ella los consulta cuando hace falta.`
+        : filtro === 'recomendados' ? 'Los que más te sirven hoy: tus áreas más urgentes y los agentes que mejor las apoyan.'
+          : filtro === 'persona' ? 'Los agentes agrupados por la persona que responde por ellos.'
+            : filtro === 'atencion' ? 'Las áreas en atención según tu diagnóstico.'
+              : filtro === 'todos' ? 'Todos los agentes, uno por uno.'
+                : `Hablas con estas áreas; sus ${ocultos} especialistas trabajan detrás. Ábrelos con "+ especialistas" o búscalos por lo que saben hacer.`;
 }
 
 function renderRadar(distritos) {
@@ -2876,6 +2980,7 @@ function pintarDatosReales(a) {
   if (!a) return;
   if (a.carpeta && !$('#reales-carpeta').value) $('#reales-carpeta').value = a.carpeta;
   $('#reales-semaforo').checked = a.semaforo !== false;
+  $('#reales-compartir').checked = a.compartirIA === true;
   const arch = a.archivos || {};
   $('#reales-periodo').textContent = `Del ${a.periodo.desde} al ${a.periodo.hasta} · ${a.comprobantes} comprobantes (${arch.xml || 0} facturas, ${arch.csv || 0} archivos CSV${arch.ignorados ? `, ${arch.ignorados} archivos que no eran de este tipo` : ''})${arch.truncado ? ' · se leyó hasta el máximo de archivos' : ''} · RFC del negocio: ${a.rfc || 'no identificado'} · analizado el ${fechaCorta(a.momento)}`;
   const kpi = (etiqueta, valor) => {
@@ -3239,7 +3344,7 @@ async function renderSemana() {
       check.disabled = true;
       const res = await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: check.checked ? 'hecha' : 'pendiente' }) }).catch(() => null);
       if (!res?.ok) aviso('No se pudo guardar el cambio.', 'error');
-      else if (check.checked) aviso('Hecho. Queda registrado en la junta.', 'ok');
+      else if (check.checked) { aviso('Hecho. Queda registrado en la junta.', 'ok'); pedirResultado(c); }
       renderSemana();
     });
     const vencido = !c.hecho && c.vence < new Date().toLocaleDateString('sv-SE');
@@ -3261,6 +3366,478 @@ async function renderSemana() {
   mas.hidden = !(pendientes.length && (fuera > 0 || hechos > 0));
   mas.textContent = [fuera > 0 ? `Hay ${fuera} más en la junta.` : '', hechos > 0 ? `Ya ${hechos === 1 ? 'cumpliste una' : `cumpliste ${hechos}`}.` : ''].filter(Boolean).join(' ');
   tarjeta.hidden = false;
+}
+
+// ---------- Agenda de citas y clientes (módulo opcional) ----------
+
+let agendaDesde = ''; // lunes de la semana en pantalla (AAAA-MM-DD); vacío = la semana de hoy
+let agendaDatos = null;
+const lunesDeFecha = (fecha) => { const [a, m, d] = fecha.split('-').map(Number); const x = new Date(a, m - 1, d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toLocaleDateString('sv-SE'); };
+const masDias = (fecha, n) => { const [a, m, d] = fecha.split('-').map(Number); return new Date(a, m - 1, d + n).toLocaleDateString('sv-SE'); };
+const plural = () => (agendaDatos?.etiquetas?.[agendaDatos.etiqueta] || ['cliente', 'clientes']);
+const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+async function pedirAgenda(ruta, metodo = 'GET', cuerpo) {
+  const res = await fetch(ruta, metodo === 'GET' ? undefined : { method: metodo, headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo || {}) });
+  const datos = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(datos.errores?.[0] || 'No se pudo guardar.');
+  return datos;
+}
+
+// Configuración: muestra el interruptor y, según esté, enseña u oculta "Agenda" en el menú.
+async function pintarModulos() {
+  let d = null;
+  try { d = await pedirAgenda('/api/agenda'); } catch { d = null; }
+  $('#modulos-card').hidden = !d;
+  $('#menu-agenda').hidden = !d?.activa;
+  if (!d) return;
+  $('#agenda-activa').checked = d.activa;
+  $('#agenda-etiqueta').value = d.etiqueta;
+  if (!d.activa && estado.vista === 'agenda') mostrarVista('dashboard');
+}
+
+async function configurarAgenda(cambio) {
+  try {
+    const d = await pedirAgenda('/api/agenda/config', 'PUT', cambio);
+    mensaje($('#modulos-mensaje'), d.activa ? 'Agenda encendida: ya aparece en el menú.' : 'Agenda apagada. Tus citas siguen guardadas.', 'ok');
+  } catch (err) {
+    mensaje($('#modulos-mensaje'), err.message, 'error');
+  }
+  pintarModulos();
+}
+
+function moverAgenda(dias) {
+  agendaDesde = masDias(agendaDesde || lunesDeFecha(agendaDatos?.hoy || new Date().toLocaleDateString('sv-SE')), dias);
+  cargarAgenda();
+}
+
+async function cargarAgenda() {
+  const hoy = new Date().toLocaleDateString('sv-SE');
+  const desde = agendaDesde || lunesDeFecha(hoy);
+  try { agendaDatos = await pedirAgenda(`/api/agenda?desde=${desde}&dias=7`); } catch { agendaDatos = null; }
+  if (!agendaDatos?.activa) { $('#menu-agenda').hidden = true; mostrarVista('dashboard'); return; }
+  pintarAgenda();
+}
+
+function pintarAgenda() {
+  const a = agendaDatos;
+  const [singular, varios] = plural();
+  const desde = a.desde;
+  $('#agenda-titulo').textContent = `Semana del ${fechaCorta(`${desde}T12:00:00`)}`;
+  $('#agenda-personas-titulo').textContent = mayuscula(varios);
+  $('#agenda-nombre').previousElementSibling.textContent = `Nombre del ${singular}`;
+  if (!$('#agenda-fecha').value) $('#agenda-fecha').value = a.hoy;
+  $('#agenda-personas').replaceChildren(...a.clientes.map((c) => crearElemento('option', { value: c.nombre })));
+
+  const i = a.indicadores;
+  const cifra = (titulo, valor, detalle, tono) => {
+    const caja = crearElemento('div', { class: 'kpi', style: `--tono: ${tono}` });
+    const t = crearElemento('div', { class: 'kpi-texto' });
+    t.append(crearElemento('span', { class: 'kpi-etiqueta' }, titulo), crearElemento('span', { class: 'kpi-valor' }, valor), crearElemento('span', { class: 'junta-detalle' }, detalle));
+    caja.append(t);
+    return caja;
+  };
+  $('#agenda-cifras').replaceChildren(
+    cifra('Citas hoy', String(i.hoy), `${i.proximas7} en los próximos 7 días`, 'var(--cian)'),
+    cifra('Sin confirmar', String(i.sinConfirmar7), i.sinConfirmar7 ? 'Mándales el recordatorio' : 'Todo confirmado', i.sinConfirmar7 ? 'var(--amarillo)' : 'var(--verde)'),
+    cifra('No se presentaron', i.noAsistieronPct === null ? '—' : `${i.noAsistieronPct}%`, i.noAsistieronPct === null ? 'Aún sin citas pasadas' : `${i.noAsistieron} de ${i.asistieron + i.noAsistieron} en ${i.dias} días`, i.noAsistieronPct > 30 ? 'var(--rojo)' : i.noAsistieronPct > 15 ? 'var(--amarillo)' : 'var(--verde)'),
+    cifra('Por cobrar', pesosEnteros(i.porCobrar), `Cobrado en ${i.dias} días: ${pesosEnteros(i.cobrado)}`, i.porCobrar ? 'var(--amarillo)' : 'var(--verde)'),
+  );
+
+  const dias = [];
+  for (let n = 0; n < 7; n++) {
+    const fecha = masDias(desde, n);
+    const citas = a.citas.filter((c) => c.fecha === fecha);
+    const caja = crearElemento('div', { class: `agenda-dia${fecha === a.hoy ? ' hoy' : ''}` });
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const nombreDia = new Date(anio, mes - 1, dia).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    const titulo = crearElemento('h4', {}, mayuscula(nombreDia));
+    titulo.append(crearElemento('small', {}, fecha === a.hoy ? 'hoy' : citas.length ? `${citas.length} ${citas.length === 1 ? 'cita' : 'citas'}` : ''));
+    caja.append(titulo);
+    if (!citas.length) caja.append(crearElemento('p', { class: 'sin-citas' }, 'Sin citas.'));
+    else { const ul = crearElemento('ul', { class: 'bitacora-lista' }); ul.append(...citas.map(filaCita)); caja.append(ul); }
+    dias.push(caja);
+  }
+  $('#agenda-dias').replaceChildren(...dias);
+  pintarPersonasAgenda();
+}
+
+function filaCita(c) {
+  const li = crearElemento('li', { class: `cita ${c.estado}` });
+  const texto = crearElemento('div');
+  const detalle = [c.servicio, c.atiende ? `con ${c.atiende}` : '', `${c.duracion} min`, c.precio ? pesosEnteros(c.precio) : ''].filter(Boolean).join(' · ');
+  texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.nombre), crearElemento('small', {}, detalle));
+  const acciones = crearElemento('div', { class: 'cita-acciones' });
+  const cambiar = async (cambio, hecho) => {
+    try { agendaDatos = { ...agendaDatos, ...(await pedirAgenda(`/api/agenda/citas/${c.id}?desde=${agendaDatos.desde}&dias=7`, 'PUT', cambio)) }; if (hecho) aviso(hecho, 'ok'); pintarAgenda(); } catch (err) { aviso(err.message, 'error'); pintarAgenda(); }
+  };
+  const selector = crearElemento('select', { 'aria-label': `Estado de la cita de ${c.nombre}` });
+  for (const [id, nombre] of Object.entries(agendaDatos.estados)) selector.append(crearElemento('option', { value: id }, nombre));
+  selector.value = c.estado;
+  selector.addEventListener('change', () => cambiar({ estado: selector.value }));
+  acciones.append(selector);
+  if (c.precio > 0 && c.estado === 'asistio') {
+    const pagado = crearElemento('input', { type: 'checkbox' });
+    pagado.checked = c.pagado;
+    pagado.addEventListener('change', () => cambiar({ pagado: pagado.checked }, pagado.checked ? 'Cita cobrada.' : ''));
+    const etiqueta = crearElemento('label');
+    etiqueta.append(pagado, 'Pagó');
+    acciones.append(etiqueta);
+  }
+  if (c.estado === 'programada' || c.estado === 'confirmada') {
+    // WhatsApp se abre en el equipo del dueño con el mensaje escrito; la aplicación no envía nada.
+    const numero = c.telefono.replace(/[^0-9]/g, '');
+    const destino = numero.length === 10 ? `52${numero}` : numero;
+    acciones.append(crearElemento('a', { class: 'atajo', href: `https://wa.me/${destino}?text=${encodeURIComponent(c.recordatorio)}`, target: '_blank', rel: 'noopener', title: numero ? 'Abre WhatsApp con el recordatorio escrito' : 'Sin teléfono: WhatsApp te deja elegir el contacto' }, 'Recordar'));
+  }
+  const borrar = crearElemento('button', { type: 'button', class: 'atajo', title: 'Quita la cita de la agenda' }, 'Borrar');
+  borrar.addEventListener('click', async () => {
+    try { agendaDatos = { ...agendaDatos, ...(await pedirAgenda(`/api/agenda/citas/${c.id}?desde=${agendaDatos.desde}&dias=7`, 'DELETE')) }; aviso('Cita borrada.', 'ok'); pintarAgenda(); } catch (err) { aviso(err.message, 'error'); }
+  });
+  acciones.append(borrar);
+  li.append(crearElemento('span', { class: 'cita-hora' }, c.hora), texto, acciones);
+  return li;
+}
+
+function pintarPersonasAgenda() {
+  if (!agendaDatos?.activa) return;
+  const [singular, varios] = plural();
+  const q = $('#agenda-filtro').value.trim().toLowerCase();
+  const personas = agendaDatos.clientes.filter((c) => !q || c.nombre.toLowerCase().includes(q) || c.telefono.includes(q));
+  const lista = $('#agenda-lista-personas');
+  if (!personas.length) {
+    lista.replaceChildren(estadoVacio({ icono: 'layers', titulo: agendaDatos.clientes.length ? 'Nadie con ese nombre o teléfono' : `Aún no hay ${varios}`, texto: agendaDatos.clientes.length ? 'Prueba con otra búsqueda.' : `Se dan de alta solos al agendar la primera cita de cada ${singular}.` }));
+    return;
+  }
+  lista.replaceChildren(...personas.slice(0, 60).map((c) => {
+    const li = crearElemento('li', { class: 'archivo-item' });
+    const texto = crearElemento('div');
+    const cuentas = [c.telefono || 'sin teléfono', `${c.visitas} ${c.visitas === 1 ? 'visita' : 'visitas'}`, c.faltas ? `${c.faltas} ${c.faltas === 1 ? 'falta' : 'faltas'}` : '', c.debe ? `debe ${pesosEnteros(c.debe)}` : '', c.proxima ? `próxima: ${fechaCorta(`${c.proxima.slice(0, 10)}T12:00:00`)} ${c.proxima.slice(11)}` : ''].filter(Boolean).join(' · ');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.nombre), crearElemento('small', {}, `${cuentas}${c.nota ? ` · ${c.nota}` : ''}`));
+    const acciones = crearElemento('div', { class: 'junta-acciones' });
+    const agendar = crearElemento('button', { type: 'button', class: 'atajo' }, 'Agendar');
+    agendar.addEventListener('click', () => { $('#agenda-nombre').value = c.nombre; $('#agenda-telefono').value = c.telefono; $('#agenda-hora').focus(); $('#agenda-nueva').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+    const borrar = crearElemento('button', { type: 'button', class: 'atajo', title: 'Borra a la persona y todas sus citas' }, 'Borrar');
+    borrar.addEventListener('click', async () => {
+      try { agendaDatos = { ...agendaDatos, ...(await pedirAgenda(`/api/agenda/clientes/${c.id}?desde=${agendaDatos.desde}&dias=7`, 'DELETE')) }; aviso(`${c.nombre} y sus citas se borraron.`, 'ok'); pintarAgenda(); } catch (err) { aviso(err.message, 'error'); }
+    });
+    acciones.append(agendar, borrar);
+    li.append(texto, acciones);
+    return li;
+  }));
+  if (personas.length > 60) lista.append(crearElemento('li', { class: 'vacio' }, `Y ${personas.length - 60} más: usa el buscador.`));
+}
+
+async function agendarCita(evento) {
+  evento.preventDefault();
+  const cuerpo = {
+    nombre: $('#agenda-nombre').value, telefono: $('#agenda-telefono').value, fecha: $('#agenda-fecha').value, hora: $('#agenda-hora').value,
+    duracion: Number($('#agenda-duracion').value) || 30, servicio: $('#agenda-servicio').value, atiende: $('#agenda-atiende').value, precio: Number($('#agenda-precio').value) || 0,
+  };
+  // Si la persona ya existe, la cita se liga a ella en lugar de crear un duplicado.
+  const conocida = agendaDatos?.clientes.find((c) => c.nombre.toLowerCase() === cuerpo.nombre.trim().toLowerCase());
+  if (conocida) cuerpo.clienteId = conocida.id;
+  try {
+    // Se muestra la semana de la cita recién agendada.
+    agendaDesde = lunesDeFecha(cuerpo.fecha);
+    agendaDatos = { ...agendaDatos, ...(await pedirAgenda(`/api/agenda/citas?desde=${agendaDesde}&dias=7`, 'POST', cuerpo)) };
+    mensaje($('#agenda-mensaje'), `Cita agendada para ${cuerpo.nombre.trim()}.`, 'ok');
+    for (const id of ['agenda-nombre', 'agenda-telefono', 'agenda-hora', 'agenda-servicio', 'agenda-precio']) $(`#${id}`).value = '';
+    pintarAgenda();
+  } catch (err) {
+    mensaje($('#agenda-mensaje'), err.message, 'error');
+  }
+}
+
+// ---------- Avisos de la oficina (sin IA) ----------
+
+// Lo que conviene atender, detectado con reglas. Cada aviso abre el chat del agente con la orden ya escrita:
+// la IA solo se usa si el dueño la envía, y ahí mismo ve cuánto cuesta.
+async function pintarAvisos() {
+  const tarjeta = $('#avisos-card');
+  let avisos = [];
+  try { const res = await fetch('/api/alertas'); if (res.ok) avisos = (await res.json()).avisos || []; } catch { avisos = []; }
+  let ocultos = {};
+  try { ocultos = JSON.parse(localStorage.getItem('avisos-ocultos') || '{}') || {}; } catch { ocultos = {}; }
+  // El respaldo tiene su propio aviso; aquí van los que un agente puede ayudar a resolver.
+  const visibles = avisos.filter((a) => a.area && !(ocultos[a.id] > Date.now())).slice(0, 4);
+  tarjeta.hidden = !visibles.length || estado.ultimo === null;
+  $('#avisos-lista').replaceChildren(...visibles.map((a) => {
+    const li = crearElemento('li', { class: `aviso-item ${a.nivel}` });
+    const texto = crearElemento('div');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, a.texto), crearElemento('small', {}, `Te puede ayudar ${a.nombreAgente}.`));
+    const acciones = crearElemento('div', { class: 'junta-acciones' });
+    const pedir = crearElemento('button', { type: 'button', class: 'boton compacto', title: 'Abre su chat con la orden ya escrita; tú decides si la envías' }, `Pedir propuesta a ${a.nombreAgente}`);
+    pedir.addEventListener('click', async () => {
+      await abrirChatDe(a.area);
+      const caja = document.querySelector('#chat-agentes textarea');
+      if (caja) { caja.value = a.orden; caja.focus(); caja.dispatchEvent(new Event('input')); }
+    });
+    const ocultar = crearElemento('button', { type: 'button', class: 'atajo', title: 'No volver a mostrar este aviso durante una semana' }, 'Ocultar');
+    ocultar.addEventListener('click', () => {
+      ocultos[a.id] = Date.now() + 7 * 24 * 60 * 60 * 1000;
+      try { localStorage.setItem('avisos-ocultos', JSON.stringify(ocultos)); } catch { /* sin almacenamiento */ }
+      pintarAvisos();
+    });
+    acciones.append(pedir, ocultar);
+    li.append(texto, acciones);
+    return li;
+  }));
+}
+
+// ---------- Resultado de una acción cumplida ----------
+
+// Al marcar una acción como hecha se pregunta qué resultado tuvo: queda en el archivo de memoria y le llega al
+// agente del área, que así aprende qué funcionó. Es opcional.
+function pedirResultado(c) {
+  const caja = $('#semana-resultado');
+  const entrada = crearElemento('input', { type: 'text', maxlength: '300', placeholder: 'Ej. Cobramos $18,000 a tres clientes', 'aria-label': 'Resultado de la acción' });
+  const guardar = crearElemento('button', { type: 'button', class: 'boton compacto' }, 'Guardar resultado');
+  const omitir = crearElemento('button', { type: 'button', class: 'atajo' }, 'Omitir');
+  const cerrar = () => { caja.hidden = true; caja.replaceChildren(); };
+  const enviar = async () => {
+    const resultado = entrada.value.trim();
+    if (!resultado) return cerrar();
+    const res = await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: 'hecha', resultado }) }).catch(() => null);
+    aviso(res?.ok ? `Resultado guardado. ${c.nombreArea} lo tomará en cuenta.` : 'No se pudo guardar el resultado.', res?.ok ? 'ok' : 'error');
+    cerrar();
+  };
+  guardar.addEventListener('click', enviar);
+  entrada.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); enviar(); } });
+  omitir.addEventListener('click', cerrar);
+  caja.replaceChildren(crearElemento('p', {}, `Hecho: ${c.texto} ¿Qué resultado tuvo?`), entrada, guardar, omitir);
+  caja.hidden = false;
+  entrada.focus();
+}
+
+// ---------- Calidad de los agentes ----------
+
+let calidadDatos = null;
+let votosPorMensaje = {};
+
+// Botones "Sirvió / No sirvió" bajo cada respuesta de un agente. El voto queda guardado y se puede cambiar.
+function botonesDeVoto(area, m) {
+  const fila = crearElemento('span', { class: 'chat-voto' });
+  const pintar = (actual) => {
+    fila.replaceChildren();
+    for (const [voto, etiqueta] of [['si', 'Sirvió'], ['no', 'No sirvió']]) {
+      const b = crearElemento('button', { type: 'button', class: `atajo${actual === voto ? ' activo' : ''}`, 'aria-pressed': String(actual === voto) }, etiqueta);
+      b.addEventListener('click', async () => {
+        const res = await fetch(`/api/agentes/${encodeURIComponent(area)}/calificacion`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voto, momento: m.momento }) }).catch(() => null);
+        if (!res?.ok) return aviso('No se pudo guardar tu voto.', 'error');
+        votosPorMensaje[`${area}|${m.momento}`] = voto;
+        pintar(voto);
+      });
+      fila.append(b);
+    }
+  };
+  pintar(votosPorMensaje[`${area}|${m.momento}`] || '');
+  return fila;
+}
+
+async function cargarCalidad() {
+  try { const res = await fetch('/api/calidad'); calidadDatos = res.ok ? await res.json() : null; } catch { calidadDatos = null; }
+  if (calidadDatos) votosPorMensaje = calidadDatos.porMensaje || {};
+  pintarCalidad();
+}
+
+function pintarCalidad() {
+  const tarjeta = $('#calidad-card');
+  if (!tarjeta) return;
+  const c = calidadDatos;
+  if (!c) { $('#calidad-estado').textContent = 'No se pudo cargar la información de calidad.'; return; }
+  // Selector: hasta cuatro agentes; por omisión, los recomendados para el negocio.
+  const caja = $('#calidad-agentes');
+  if (!caja.children.length) {
+    const sugeridos = new Set(['orquestador', ...agentesRecomendados()].slice(0, c.maximoAgentes));
+    for (const id of ['orquestador', ...ORDEN_AREAS, ...apoyoActivos()]) {
+      const etiqueta = crearElemento('label');
+      const check = crearElemento('input', { type: 'checkbox', value: id });
+      check.checked = sugeridos.has(id);
+      check.addEventListener('change', () => {
+        if (caja.querySelectorAll('input:checked').length > c.maximoAgentes) { check.checked = false; aviso(`Máximo ${c.maximoAgentes} agentes por prueba.`, 'error'); }
+        pintarCostoCalidad();
+      });
+      etiqueta.append(check, id === 'orquestador' ? 'Coordinador' : nombreArea(id));
+      caja.append(etiqueta);
+    }
+  }
+  pintarCostoCalidad();
+
+  const votos = Object.values(c.votos || {}).filter((v) => v.si + v.no > 0).sort((a, b) => (b.si + b.no) - (a.si + a.no));
+  $('#calidad-votos').replaceChildren(...(votos.length
+    ? votos.map((v) => crearElemento('li', {}, `${v.nombre}: ${v.si} de ${v.si + v.no} respuestas te sirvieron${v.no > v.si ? ' — conviene revisar su habilidad en Ajustes' : ''}`))
+    : [crearElemento('li', {}, 'Aún no has calificado respuestas. Usa "Sirvió / No sirvió" debajo de cada respuesta en el chat.')]));
+
+  const resultado = $('#calidad-resultado');
+  const u = c.ultima;
+  if (!u) { resultado.replaceChildren(crearElemento('p', { class: 'ayuda' }, 'Todavía no has corrido ninguna prueba.')); return; }
+  const cabecera = crearElemento('p', { class: 'ayuda' }, `Última prueba: ${fechaCorta(u.momento)} con ${u.modelo}. Costó cerca de ${pesosEnteros(u.pesos || 0)}.${u.detenida ? ` Se detuvo antes de terminar: ${u.detenida}.` : ''}`);
+  const bloques = u.agentes.map((a) => {
+    const d = crearElemento('details', { class: 'plegable' });
+    d.append(crearElemento('summary', {}, `${a.nombre}: ${a.puntaje} de 100`));
+    const ul = crearElemento('ul', { class: 'lista-datos compacta' });
+    for (const r of a.respuestas) {
+      const li = crearElemento('li');
+      const fallas = (r.criterios || []).filter((x) => !x.ok).map((x) => x.nombre);
+      li.append(crearElemento('strong', {}, `${r.puntaje} de 100 · `), r.orden, crearElemento('small', { class: fallas.length || r.error ? 'error' : '' }, r.error ? ` No respondió: ${r.error}` : fallas.length ? ` Falló en: ${fallas.join('; ')}.` : ' Cumplió todos los criterios.'));
+      if (r.extracto) {
+        const ver = crearElemento('details');
+        ver.append(crearElemento('summary', {}, 'Ver respuesta'), crearElemento('p', { class: 'calidad-extracto' }, r.extracto));
+        li.append(ver);
+      }
+      ul.append(li);
+    }
+    d.append(ul);
+    return d;
+  });
+  resultado.replaceChildren(cabecera, ...bloques);
+}
+
+function pintarCostoCalidad() {
+  const c = calidadDatos;
+  if (!c) return;
+  const elegidos = $('#calidad-agentes').querySelectorAll('input:checked').length;
+  const ordenes = elegidos * c.ordenesPorAgente;
+  const boton = $('#calidad-probar');
+  boton.disabled = Boolean(c.bloqueo) || !elegidos;
+  const costo = c.costoPorOrden ? `Cuesta cerca de ${pesosCortosUI(c.costoPorOrden.aproximado * ordenes)}; a lo más, ${pesosCortosUI(c.costoPorOrden.hasta * ordenes)}.` : '';
+  $('#calidad-estado').textContent = c.bloqueo ? `No se puede probar ahora: ${c.bloqueo}.` : elegidos ? `${ordenes} órdenes a ${elegidos} ${elegidos === 1 ? 'agente' : 'agentes'} con tu clave de IA. ${costo} Tarda de uno a tres minutos.` : 'Elige de uno a cuatro agentes.';
+}
+const pesosCortosUI = (n) => (n < 0.01 ? 'menos de 1 centavo' : n < 10 ? `$${n.toFixed(2)}` : `$${Math.round(n).toLocaleString('es-MX')}`);
+
+async function ejecutarCalidad() {
+  const agentes = [...$('#calidad-agentes').querySelectorAll('input:checked')].map((x) => x.value);
+  const boton = $('#calidad-probar');
+  boton.disabled = true;
+  $('#calidad-estado').textContent = 'Probando… no cierres la aplicación.';
+  try {
+    const res = await fetch('/api/calidad/ejecutar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentes }) });
+    const j = await res.json();
+    if (!res.ok) aviso(j.errores?.[0] || 'No se pudo correr la prueba.', 'error');
+    else aviso('Prueba terminada. Revisa el resultado de cada agente.', 'ok');
+  } catch {
+    aviso('No hay conexión con el servidor local.', 'error');
+  }
+  await cargarCalidad();
+  refrescarEstadoIA();
+}
+
+// ---------- Habilidad completa de un agente ----------
+
+// En Ajustes: todo lo que sabe el agente. Los marcos y acciones se pueden apagar para este negocio; los límites no.
+async function pintarHabilidadCompleta() {
+  const caja = $('#ajuste-habilidad-cuerpo');
+  const id = $('#ajuste-agente').value;
+  let h = null;
+  try { const res = await fetch(`/api/habilidades/${encodeURIComponent(id)}`); h = res.ok ? await res.json() : null; } catch { h = null; }
+  if (!h) { caja.replaceChildren(crearElemento('p', { class: 'ayuda' }, 'No se pudo cargar la habilidad.')); return; }
+  const apagados = new Set(h.apagados || []);
+  const lista = (titulo, items, editable) => {
+    const bloque = crearElemento('div', { class: 'habilidad-bloque' });
+    bloque.append(crearElemento('h4', {}, titulo));
+    const ul = crearElemento('ul', { class: 'habilidad-lista' });
+    for (const t of items) {
+      const li = crearElemento('li');
+      if (editable && h.base) {
+        const check = crearElemento('input', { type: 'checkbox', 'data-habilidad': t.trim().slice(0, 80), 'aria-label': `Activo: ${t.slice(0, 80)}` });
+        check.checked = !apagados.has(t.trim().slice(0, 80));
+        const etiqueta = crearElemento('label');
+        etiqueta.append(check, crearElemento('span', {}, t));
+        li.append(etiqueta);
+      } else li.textContent = t;
+      ul.append(li);
+    }
+    if (!items.length) ul.append(crearElemento('li', {}, 'Ninguno.'));
+    bloque.append(ul);
+    return bloque;
+  };
+  caja.replaceChildren(
+    crearElemento('p', {}, `${h.rol}. ${h.especialidad}`),
+    ...(h.cuando ? [crearElemento('p', { class: 'ayuda' }, `Cuándo usarlo: ${h.cuando}`)] : []),
+    ...(h.entrega ? [crearElemento('p', { class: 'ayuda' }, `Qué entrega: ${h.entrega}`)] : []),
+    lista('Marcos que usa (desmarca los que no sirvan a tu negocio)', h.marcos, true),
+    lista('Lo que sabe hacer (desmarca lo que no aplique)', h.acciones, true),
+    lista('Pregunta primero', h.pregunta_primero, false),
+    lista('Indicadores que vigila', h.indicadores, false),
+    lista('Límites (protegidos: no se pueden quitar, solo agregar más abajo)', h.limites, false),
+    ...(h.apoyo.length ? [crearElemento('p', { class: 'ayuda' }, `Se apoya en: ${h.apoyo.join(', ')}.`)] : []),
+    ...(h.base ? [crearElemento('p', { class: 'ayuda' }, `Su habilidad pesa cerca de ${h.tokens.toLocaleString('es-MX')} tokens en cada orden. Apagar lo que no usas la aligera; "Guardar ajustes" aplica los cambios.`)] : [crearElemento('p', { class: 'ayuda' }, 'Es un agente tuyo: edítalo completo en "Mis agentes".')]),
+  );
+}
+
+// Marcos y acciones que el dueño dejó desmarcados. Si la habilidad no se ha abierto, se conserva lo guardado.
+function apagadosDelFormulario(id) {
+  const casillas = document.querySelectorAll('#ajuste-habilidad-cuerpo input[data-habilidad]');
+  if (!casillas.length) return ajustesCache[id]?.apagados || [];
+  return [...casillas].filter((c) => !c.checked).map((c) => c.dataset.habilidad);
+}
+
+// ---------- Entrada única ----------
+
+// El dueño escribe sin elegir agente. Mientras escribe, la oficina dice (con reglas, sin IA) quién lo atendería;
+// al enviar se abre el chat de ese agente con la orden. Siempre se puede elegir otro antes de enviar.
+let pedirDestino = null; // { agente, nombre }
+let esperaRuta = null;
+const NOMBRE_HERRAMIENTA = { buscar_en_memoria: 'buscó en la memoria', buscar_en_documentos: 'buscó en tus documentos', calcular_laboral: 'usó la calculadora laboral', leer_flujo_de_caja: 'leyó tu flujo de caja', leer_presupuesto: 'leyó tu presupuesto' };
+
+function pintarRuta(ruta) {
+  const boton = $('#pedir-enviar');
+  const otros = $('#pedir-otros');
+  if (!ruta) {
+    pedirDestino = null;
+    boton.disabled = true;
+    boton.textContent = 'Enviar';
+    $('#pedir-ruta').textContent = '';
+    otros.replaceChildren();
+    return;
+  }
+  pedirDestino = { agente: ruta.agente, nombre: ruta.nombre };
+  boton.disabled = false;
+  boton.textContent = `Enviar a ${ruta.nombre}`;
+  const costo = costoDe((estado.costos?.agentesExpertos || []).includes(ruta.agente) ? 'ordenExperto' : 'orden');
+  $('#pedir-ruta').textContent = `${ruta.motivo}${costo ? ` ${costo.texto}` : ''}`;
+  const opciones = [...(ruta.alternativas || []), ...(ruta.agente === 'orquestador' ? [] : [{ id: 'orquestador', nombre: 'Coordinador' }])];
+  otros.replaceChildren(...(opciones.length ? [crearElemento('span', { class: 'ayuda' }, 'O mándalo a:')] : []), ...opciones.map((o) => {
+    const b = crearElemento('button', { type: 'button', class: 'atajo' }, o.nombre);
+    b.addEventListener('click', () => pintarRuta({ agente: o.id, nombre: o.nombre, motivo: `Lo elegiste tú: ${o.nombre}.`, alternativas: [] }));
+    return b;
+  }));
+}
+
+function rutearEntrada() {
+  clearTimeout(esperaRuta);
+  const texto = $('#pedir-texto').value.trim();
+  if (texto.length < 4) return pintarRuta(null);
+  esperaRuta = setTimeout(async () => {
+    try {
+      const res = await fetch('/api/ruteo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ texto }) });
+      if (res.ok && $('#pedir-texto').value.trim() === texto) pintarRuta(await res.json());
+    } catch { /* sin conexión: el botón queda como estaba */ }
+  }, 350);
+}
+
+async function enviarEntrada(evento) {
+  evento.preventDefault();
+  const texto = $('#pedir-texto').value.trim();
+  if (!texto || !pedirDestino) return;
+  const destino = pedirDestino.agente;
+  $('#pedir-texto').value = '';
+  pintarRuta(null);
+  let contenedor;
+  if (destino === 'orquestador') {
+    await prepararAgentes();
+    mostrarPestana('hablar');
+    mostrarVista('agentes', { scroll: false });
+    contenedor = $('#chat-orquestador');
+  } else {
+    await abrirChatDe(destino);
+    contenedor = $('#chat-agentes');
+  }
+  const caja = contenedor.querySelector('textarea');
+  caja.value = texto;
+  contenedor.querySelector('form').requestSubmit();
+  contenedor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ---------- Archivo de memoria ----------
@@ -3710,6 +4287,9 @@ function prepararControlesCiudad() {
     const boton = e.target.closest('[data-escenario]');
     if (boton) aplicarEscenario(boton.dataset.escenario);
   });
+  let esperaEquipo = null;
+  $('#equipo-buscar').addEventListener('input', () => { clearTimeout(esperaEquipo); esperaEquipo = setTimeout(() => filtrarTarjetasEquipo($('#agentes').dataset.filtro || 'areas'), 200); });
+  $('#equipo-volver').addEventListener('click', () => filtrarTarjetasEquipo('areas'));
   $('#equipo-filtros').addEventListener('click', (e) => {
     const boton = e.target.closest('[data-filtro]');
     if (boton) filtrarTarjetasEquipo(boton.dataset.filtro);
@@ -3897,6 +4477,7 @@ function crearChat(seccion) {
     const texto = crearElemento('div');
     texto.append(crearElemento('strong', {}, h?.rol || (esOrquestador() ? 'Coordina a todos los agentes' : 'Agente')));
     if (h?.especialidad) texto.append(crearElemento('span', {}, h.especialidad));
+    if (h?.cuando) texto.append(crearElemento('small', { class: 'subtitulo' }, h.cuando));
     perfil.append(foto, texto);
     const sugerencias = esOrquestador()
       ? ['¿Qué está haciendo cada agente?', '¿Qué atiendo primero esta semana?', 'Reparte este objetivo entre los agentes: ', 'Resume cómo va el negocio']
@@ -3975,6 +4556,7 @@ function crearChat(seccion) {
       const cuerpo = crearElemento('p', { class: 'chat-cuerpo' });
       cuerpo.append(...conNegritas(m.texto));
       li.append(autorEl, cuerpo, crearElemento('span', { class: 'chat-hora' }, horaCorta(m.momento)));
+      if (m.rol === 'agente' && !m.reglas && m.momento) li.append(botonesDeVoto(area, m));
       lista.append(li);
     }
     lista.scrollTop = lista.scrollHeight;
@@ -4012,7 +4594,10 @@ function crearChat(seccion) {
       if (j.intercambios?.length) partes.push(`Se coordinó con ${j.intercambios.filter((i) => i.respuesta || i.nota).map((i) => i.nombreDestino || i.destinoTexto).join(', ')}.`);
       if (j.busquedas?.length) partes.push(`Buscó en internet: ${j.busquedas.map((b) => `"${b.consulta}"`).join(', ')}.`);
       if (j.pendiente && j.motivo) { partes.push(j.motivo); refrescarEstadoIA(); }
+      if (j.herramientas?.length) partes.push(`Para responder ${[...new Set(j.herramientas.map((u) => NOMBRE_HERRAMIENTA[u.nombre] || u.nombre))].join(' y ')}.`);
       if (j.consolidada) partes.push('Ajustó su propuesta con lo que le respondieron.');
+      if (j.revision?.corregida) partes.push(`Se revisó antes de entregártela y se corrigió: ${j.revision.motivos[0]}${j.revision.motivos.length > 1 ? ` (y ${j.revision.motivos.length - 1} más)` : ''}`);
+      else if (j.revision?.por === 'aprobada') partes.push('Un revisor la aprobó antes de entregártela.');
       if (j.gastos?.length) {
         const total = j.gastos.reduce((s, g) => s + g.monto, 0);
         partes.push(`Propuso ${j.gastos.length === 1 ? 'un gasto' : `${j.gastos.length} gastos`} por $${Math.round(total).toLocaleString('es-MX')}: no se hace nada hasta que lo apruebes en la portada.`);
@@ -4078,7 +4663,7 @@ async function mostrarDetalle(id) {
   estadoEl.className = `detalle-estado ${d.color}`;
   $('#detalle-agente').textContent = `Responsable: ${responsableDe(id)} · Agente: ${nombreAgente(id)} (${estadoOperativo(id)})`;
   const h = estado.habilidades?.[id];
-  $('#detalle-rol').textContent = h ? `${h.rol}. ${h.especialidad}` : '';
+  $('#detalle-rol').textContent = h ? [`${h.rol}. ${h.especialidad}`, h.cuando ? `Úsalo ${h.cuando.charAt(0).toLowerCase()}${h.cuando.slice(1)}` : '', h.entrega ? `Te entrega: ${h.entrega.charAt(0).toLowerCase()}${h.entrega.slice(1)}` : ''].filter(Boolean).join(' ') : '';
   $('#detalle-foto').src = AREAS_ASSETS[id]?.avatar || '';
   $('#detalle-h-hallazgos').textContent = 'Hallazgos';
   $('#detalle-h-acciones').textContent = 'Acciones del plan';
@@ -4109,7 +4694,7 @@ async function mostrarDetalleAgente(id) {
   estadoEl.textContent = jefe ? `Depende de ${jefe === 'orquestador' ? 'el Coordinador' : nombreArea(jefe)}` : 'Reporta al Coordinador';
   estadoEl.className = 'detalle-estado apoyo';
   $('#detalle-agente').textContent = `Responsable: ${responsableDe(id)} · Agente: ${nombreAgente(id)} (${estadoOperativo(id)})`;
-  $('#detalle-rol').textContent = h ? `${h.rol}. ${h.especialidad}` : '';
+  $('#detalle-rol').textContent = h ? [`${h.rol}. ${h.especialidad}`, h.cuando ? `Úsalo ${h.cuando.charAt(0).toLowerCase()}${h.cuando.slice(1)}` : '', h.entrega ? `Te entrega: ${h.entrega.charAt(0).toLowerCase()}${h.entrega.slice(1)}` : ''].filter(Boolean).join(' ') : '';
   const foto = $('#detalle-foto');
   foto.src = AREAS_ASSETS[id]?.avatar || estado.personalizados?.agentes?.[id]?.avatar || '';
   $('#detalle-h-hallazgos').textContent = 'Qué pregunta primero';
@@ -4409,6 +4994,10 @@ function datosFormularioIA() {
     anthropicModelo: $('#cfg-anthropic-modelo').value.trim(),
     anthropicModeloBusqueda: $('#cfg-anthropic-modelo-busqueda').value.trim(),
     anthropicModeloAutomatico: $('#cfg-anthropic-modelo-automatico').value.trim(),
+    anthropicModeloExperto: $('#cfg-anthropic-modelo-experto').value.trim(),
+    revisionIA: $('#cfg-revision').checked ? 'importante' : 'nunca',
+    herramientasIA: $('#cfg-herramientas').checked ? 'si' : 'no',
+    agentesExpertos: [...$('#cfg-agentes-expertos').selectedOptions].map((o) => o.value),
     openaiKey: $('#cfg-openai-key').value.trim(),
     openaiModelo: $('#cfg-openai-modelo').value.trim(),
     modoAhorro: $('#cfg-modo-ahorro').value,
@@ -4428,6 +5017,12 @@ function pintarConfiguracion(cfg) {
   $('#cfg-anthropic-modelo').value = cfg.anthropicModelo || '';
   $('#cfg-anthropic-modelo-busqueda').value = cfg.anthropicModeloBusqueda || '';
   $('#cfg-anthropic-modelo-automatico').value = cfg.anthropicModeloAutomatico || '';
+  $('#cfg-anthropic-modelo-experto').value = cfg.anthropicModeloExperto || '';
+  $('#cfg-revision').checked = cfg.revisionIA !== 'nunca';
+  $('#cfg-herramientas').checked = cfg.herramientasIA !== 'no';
+  const expertos = $('#cfg-agentes-expertos');
+  if (!expertos.options.length) for (const id of ['orquestador', ...ORDEN_AREAS, ...apoyoActivos()]) expertos.append(crearElemento('option', { value: id }, id === 'orquestador' ? 'Coordinador' : nombreArea(id)));
+  for (const o of expertos.options) o.selected = (cfg.agentesExpertos || []).includes(o.value);
   $('#cfg-modo-ahorro').value = cfg.modoAhorro || 'equilibrado';
   $('#cfg-lotes').checked = cfg.usarLotes !== false;
   $('#cfg-limite').value = cfg.limiteMensualTokens || 0;
@@ -4684,6 +5279,31 @@ async function iniciar() {
   $('#demo-quitar').addEventListener('click', quitarDemo);
   $('#semana-junta').addEventListener('click', () => mostrarVista('junta'));
   $('#presupuesto-guardar').addEventListener('click', guardarPresupuesto);
+  $('#calidad-probar').addEventListener('click', ejecutarCalidad);
+  $('#pedir-texto').addEventListener('input', rutearEntrada);
+  $('#pedir-texto').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('#pedir-form').requestSubmit(); } });
+  $('#pedir-form').addEventListener('submit', enviarEntrada);
+  $('#ajuste-habilidad').addEventListener('toggle', (e) => { if (e.target.open) pintarHabilidadCompleta(); });
+  $('#reales-compartir').addEventListener('change', async (e) => {
+    const encendido = e.target.checked;
+    try {
+      const res = await fetch('/api/flujo', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ compartirIA: encendido }) });
+      if (!res.ok) throw new Error();
+      mensaje($('#reales-mensaje'), encendido ? 'Tus agentes ya trabajan con las cifras de tus facturas.' : 'Tus agentes dejan de recibir las cifras de tus facturas.', 'ok');
+    } catch {
+      e.target.checked = !encendido;
+      mensaje($('#reales-mensaje'), 'No se pudo guardar el cambio.', 'error');
+    }
+  });
+  cargarCalidad();
+  $('#agenda-activa').addEventListener('change', (e) => configurarAgenda({ activa: e.target.checked }));
+  $('#agenda-etiqueta').addEventListener('change', (e) => configurarAgenda({ etiqueta: e.target.value }));
+  $('#agenda-nueva').addEventListener('submit', agendarCita);
+  $('#agenda-antes').addEventListener('click', () => moverAgenda(-7));
+  $('#agenda-despues').addEventListener('click', () => moverAgenda(7));
+  $('#agenda-hoy').addEventListener('click', () => { agendaDesde = ''; cargarAgenda(); });
+  $('#agenda-filtro').addEventListener('input', pintarPersonasAgenda);
+  pintarModulos();
   let esperaArchivo = null;
   $('#archivo-buscar').addEventListener('input', () => { clearTimeout(esperaArchivo); esperaArchivo = setTimeout(pintarArchivo, 250); });
   $('#archivo-tipo').addEventListener('change', pintarArchivo);
@@ -4769,7 +5389,7 @@ async function iniciar() {
       mensaje($('#equipo-mensaje'), 'No se pudo guardar.', 'error');
     }
   });
-  $('#chat-selector').addEventListener('change', (e) => chatAgentes?.cargar(e.target.value));
+  $('#chat-selector').addEventListener('change', (e) => { chatAgentes?.cargar(e.target.value); pintarCostos(); });
   $('#cfg-proveedor').addEventListener('change', mostrarGrupoProveedor);
   $('#config-ia').addEventListener('submit', guardarConfiguracionIA);
   $('#cfg-probar').addEventListener('click', probarConexionIA);

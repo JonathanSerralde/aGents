@@ -12,19 +12,26 @@ import { describirAjustes } from './ajustes.js';
 const ETIQUETA = { verde: 'Bien', amarillo: 'Revisar', rojo: 'Atención', sin_datos: 'Sin datos' };
 
 const REGLAS_COMUNES = [
-  'Responde en español de México, breve y concreto: párrafos cortos o una lista numerada cuando propongas pasos.',
-  'Estructura de cada respuesta: 1) qué entendiste, en una línea; 2) análisis con los datos que sí tienes (cita el dato); 3) propuesta; 4) sección ACCIONES si aplica. Si falta un dato clave para proponer bien, haz máximo dos preguntas y detente ahí en vez de suponer.',
-  'No inventes cifras ni hechos sobre la empresa. Si te falta un dato, pídelo con una pregunta directa.',
-  'Usa el contexto de sector, la investigación de mercado, el análisis del sitio y la memoria compartida cuando los tengas: cita de dónde sale cada dato. Si una acción ya está abierta en la memoria, da seguimiento en lugar de proponerla de nuevo.',
-  'Distingue siempre tres cosas y no las mezcles: HECHO = información de la empresa con fuente (diagnóstico, ficha, documento, hechos registrados, lo que dice el usuario); IDEA = propuesta o supuesto no confirmado (tuyo o del usuario); CONCEPTO = conocimiento general (referencias, contexto de sector, definiciones). Un concepto no describe a esta empresa; una idea no es un hecho hasta que el dueño la aprueba o un dato la confirma. Cuando descubras un dato nuevo de la empresa, ponlo en una sección "HECHOS:" ("- dato — fuente: X"); las propuestas que no se decidieron, en "IDEAS:" ("- idea — veredicto: probar | esperar | descartar"); si explicaste un término, en "CONCEPTOS:" ("- término: definición"). Omite las secciones vacías.',
-  'Tú propones y analizas; la persona responsable decide. Cuando propongas una acción, di quién la haría y en qué plazo.',
+  'Responde en español de México, breve y concreto: párrafos cortos o una lista numerada para los pasos.',
+  'Estructura de cada respuesta: 1) qué entendiste, en una línea; 2) análisis con los datos que sí tienes (cita el dato); 3) propuesta; 4) sección ACCIONES si aplica. No inventes cifras ni hechos de la empresa: si falta un dato clave, haz máximo dos preguntas y detente ahí en vez de suponer.',
+  'Usa el contexto de sector, la investigación de mercado, el análisis del sitio y la memoria compartida cuando los tengas, y cita de dónde sale cada dato. Si una acción ya está abierta en la memoria, da seguimiento en lugar de proponerla de nuevo.',
+  'No mezcles tres cosas: HECHO = información de la empresa con fuente; IDEA = propuesta o supuesto no confirmado; CONCEPTO = conocimiento general, que no describe a esta empresa. Una idea no es un hecho hasta que el dueño la aprueba o un dato la confirma. Un dato nuevo de la empresa va en una sección "HECHOS:" ("- dato — fuente: X"); las propuestas sin decidir, en "IDEAS:" ("- idea — veredicto: probar | esperar | descartar"); un término que explicaste, en "CONCEPTOS:" ("- término: definición"). Omite las secciones vacías.',
+  'Tú propones y analizas; la persona responsable decide. Cada acción dice quién la haría y en qué plazo.',
   'Si la orden toca un área que no es la tuya, dilo y sugiere hablar con el agente de esa área o con el Coordinador.',
   'No des asesoría legal, fiscal o laboral definitiva: señala cuándo conviene confirmar con un contador o abogado.',
-  'Cuando propongas acciones, termina con una sección "ACCIONES:" y una línea por acción con este formato exacto: "- [área] qué hacer — responsable — plazo". Si no propones acciones, omite la sección.',
-  'Si para responder bien necesitas algo que solo otro agente sabe, escribe una línea aparte con este formato exacto: "CONSULTAR: [nombre del área o agente] — pregunta concreta". El sistema le hará la pregunta y te devolverá su respuesta. Máximo dos consultas por orden; no consultes lo que ya tienes en el contexto.',
-  'Si descubres algo que otro agente debe saber pero no necesitas su respuesta, escribe una línea aparte: "INFORMAR: [nombre del área o agente] — dato concreto". Le quedará como nota en la memoria compartida y la verá en su siguiente orden. Máximo tres notas por orden.',
-  'Si tu propuesta implica gastar dinero de la empresa (publicidad, compras, contrataciones, herramientas, viajes), escribe una línea aparte por gasto con este formato exacto: "GASTO: [área que paga] — concepto — monto en pesos". Antes revisa el presupuesto del mes en tu contexto: si no alcanza o el área no tiene presupuesto asignado, dilo y propón una opción que sí quepa, o consulta a Finanzas. Ningún gasto está autorizado hasta que el dueño lo apruebe en la aplicación: nunca lo des por hecho ni digas que ya se hizo. Máximo cuatro gastos por orden.',
-  'Termina SIEMPRE con una última línea con este formato exacto: "ESTADO: en curso | entregado | bloqueado — una frase con qué estás haciendo, qué entregaste o qué te falta". Elige una sola de las tres palabras. Es lo que el Coordinador y Dirección usan para saber qué hace cada agente.',
+  'Cuando propongas acciones, termina con una sección "ACCIONES:" y una línea por acción con este formato exacto: "- [área] qué hacer — responsable — plazo". Sin acciones, omite la sección.',
+  'Si necesitas algo que solo otro agente sabe, escribe una línea aparte con este formato exacto: "CONSULTAR: [nombre del área o agente] — pregunta concreta". El sistema le preguntará y te devolverá su respuesta. Máximo dos consultas por orden; no consultes lo que ya tienes en el contexto.',
+  'Si otro agente debe saber algo y no necesitas su respuesta, escribe una línea aparte: "INFORMAR: [nombre del área o agente] — dato concreto". Le queda como nota para su siguiente orden. Máximo tres notas por orden.',
+  'Si tu propuesta implica gastar dinero de la empresa (publicidad, compras, contrataciones, herramientas, viajes), escribe una línea aparte por gasto con este formato exacto: "GASTO: [área que paga] — concepto — monto en pesos". Antes revisa el presupuesto del mes en tu contexto: si no alcanza o el área no tiene presupuesto asignado, dilo y propón una opción que sí quepa, o consulta a Finanzas. Ningún gasto está autorizado hasta que el dueño lo apruebe en la aplicación: nunca lo des por hecho. Máximo cuatro gastos por orden.',
+  'Termina SIEMPRE con una última línea con este formato exacto: "ESTADO: en curso | entregado | bloqueado — una frase con qué estás haciendo, qué entregaste o qué te falta". Elige una sola de las tres palabras.',
+];
+
+// Reglas para cuando quien pregunta es otro agente: la respuesta es corta y de un solo tema, así que no hacen falta
+// los formatos de secciones, gastos ni estado. Ahorra más de mil tokens en cada consulta entre agentes.
+const REGLAS_CONSULTA = [
+  'Responde en español de México en 150 palabras o menos: solo lo que te preguntan, con los datos de tu área y citando de dónde sale cada uno.',
+  'No inventes cifras ni hechos de la empresa: si no tienes el dato, dilo en una línea y di quién lo tendría.',
+  'No des asesoría legal, fiscal o laboral definitiva: señala cuándo conviene confirmar con un contador o abogado.',
 ];
 
 const REGLA_DELEGAR = 'Para repartir trabajo entre los agentes escribe una línea por encargo con este formato exacto: "DELEGAR: [nombre del área o agente] — orden concreta". El sistema la entregará y te devolverá lo que respondan. Máximo cuatro encargos por orden; después consolida sus respuestas en una propuesta única.';
@@ -96,7 +103,14 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
   const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio].filter(Boolean).join('\n\n');
   // situacion (estado de cada agente) va también en el prompt compacto: cuando Dirección consulta al Coordinador
   // "qué hacen los demás", la respuesta sale de ahí.
-  const momento = [extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda].filter(Boolean);
+  // Ahorro de tokens. En una consulta entre agentes (compacto) van reglas cortas, la habilidad resumida y ninguna
+  // referencia. En una orden con texto (extras.consulta), las referencias de México se eligen según el tema y viajan
+  // con lo que cambia en cada orden, para no romper la caché de la parte estable.
+  const reglas = extras.compacto ? REGLAS_CONSULTA : REGLAS_COMUNES;
+  const habilidadDe = (id) => describirHabilidad(id, { compacto: Boolean(extras.compacto), apagados: extras.ajuste?.apagados || [] });
+  const porTema = !extras.compacto && Boolean(extras.consulta);
+  const referenciasDelTema = porTema && !(personalizado && Array.isArray(personalizado.areas)) ? conocimientoPara(area, extras.consulta) : '';
+  const momento = [extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda, referenciasDelTema].filter(Boolean);
   const dinamico = momento.length ? `Contexto del momento (cambia con cada orden):\n\n${momento.join('\n\n')}` : '';
   // "personalizado" es un agente propio solo si trae sus áreas; para el Coordinador llega la lista de nombres propios.
   const nombresPropios = personalizado?.nombresPropios || [];
@@ -115,26 +129,26 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
     return conDinamico([
       `Eres ${nombre}, un agente creado por la empresa. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Coordinador.`,
       empresa,
-      describirHabilidadDe(personalizado) || 'Tu rol lo define la persona responsable en cada orden.',
+      describirHabilidadDe(personalizado, { compacto: Boolean(extras.compacto) }) || 'Tu rol lo define la persona responsable en cada orden.',
       ajustes,
       posicion,
-      ...REGLAS_COMUNES,
+      ...reglas,
       veTodas ? 'Estado de las áreas según el último diagnóstico:' : 'Solo conoces estas áreas. Contexto del último diagnóstico:',
       contexto,
     ], dinamico);
   }
 
   // compacto: para consultas y encargos entre agentes se omiten las referencias largas (ya las tiene quien pregunta).
-  const referencias = extras.compacto ? '' : conocimientoPara(area);
+  const referencias = extras.compacto || porTema ? '' : conocimientoPara(area);
 
   if (area === ORQUESTADOR) {
     return conDinamico([
       `Eres el Coordinador: coordinas a los agentes de todas las áreas de la empresa y ayudas a ${responsable('direccion', equipo)} a priorizar.`,
       empresa,
-      describirHabilidad(ORQUESTADOR),
+      habilidadDe(ORQUESTADOR),
       ajustes,
-      ...REGLAS_COMUNES,
-      REGLA_DELEGAR,
+      ...reglas,
+      extras.compacto ? '' : REGLA_DELEGAR,
       `Organigrama (quién reporta a quién):\n${organigrama(propios, inactivos)}`,
       `Agentes disponibles: ${[...Object.values(NOMBRES_DISTRITOS), ...AGENTES_APOYO.filter((id) => !inactivos.includes(id)).map((id) => NOMBRES_APOYO[id]), ...nombresPropios].join(', ')}.`,
       'Estado de las áreas según el último diagnóstico:',
@@ -148,10 +162,10 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
     return conDinamico([
       `Eres ${nombreAgente(area, equipo)}, agente de apoyo de ${NOMBRES_APOYO[area]}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Coordinador.`,
       empresa,
-      describirHabilidad(area),
+      habilidadDe(area),
       ajustes,
       posicion,
-      ...REGLAS_COMUNES,
+      ...reglas,
       'Estado de las áreas según el último diagnóstico (no eres responsable de ninguna; cuando una acción sea de un área, dilo):',
       resumenTodas(diagnostico, equipo),
       referencias,
@@ -162,11 +176,11 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
   return conDinamico([
     `Eres ${nombreAgente(area, equipo)}, el agente del área de ${nombre}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide.`,
     empresa,
-    describirHabilidad(area),
+    habilidadDe(area),
     ajustes,
     posicion,
     `Solo conoces tu área. Contexto del último diagnóstico:\n${resumenArea(area, diagnostico, equipo)}`,
-    ...REGLAS_COMUNES,
+    ...reglas,
     referencias,
   ], dinamico);
 }

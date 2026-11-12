@@ -50,6 +50,8 @@ export function rutasDe(dir) {
     archivoJuntas: join(dir, 'juntas.json'),
     archivoPresupuesto: join(dir, 'presupuesto.json'),
     archivoRecuerdos: join(dir, 'memoria-archivo.json'),
+    archivoAgenda: join(dir, 'agenda.json'),
+    archivoCalidad: join(dir, 'calidad.json'),
   };
 }
 
@@ -83,6 +85,8 @@ export const config = {
   archivoCampanas: join(RAIZ, 'data', 'campanas.json'), // última campaña propuesta por la IA
   archivoJuntas: join(RAIZ, 'data', 'juntas.json'), // compromisos de cada junta semanal
   archivoPresupuesto: join(RAIZ, 'data', 'presupuesto.json'), // presupuesto mensual por área y gastos por aprobar
+  archivoCalidad: join(RAIZ, 'data', 'calidad.json'), // pruebas de calidad de los agentes y votos del dueño
+  archivoAgenda: join(RAIZ, 'data', 'agenda.json'), // agenda de citas y clientes (módulo opcional)
   archivoRecuerdos: join(RAIZ, 'data', 'memoria-archivo.json'), // archivo de memoria: todo lo aprendido, tipado; no viaja completo a la IA
   dirRaizDatos: join(RAIZ, 'data'), // carpeta de la empresa principal; las demás viven en data/empresas/<id>/
   protegerClaves: false, // el arranque normal lo enciende: cifra la clave de API con DPAPI en Windows

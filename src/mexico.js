@@ -76,9 +76,24 @@ const POR_AGENTE = {
 };
 
 // Texto para el prompt con los bloques que corresponden al agente. Vacío si no le toca ninguno.
-export function conocimientoPara(area) {
-  const bloques = POR_AGENTE[area];
+// Con `consulta` (el texto de la orden), un agente con varios bloques recibe solo los que tocan el tema: el Coordinador
+// carga cinco y casi nunca hacen falta todos. Quien tiene un solo bloque lo recibe siempre, porque es su materia.
+const sinAcentos = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const TEMA = {
+  laboral: ['emplead', 'trabajador', 'nomina', 'imss', 'infonavit', 'despid', 'despedir', 'finiquit', 'liquidaci', 'aguinaldo', 'vacacion', 'contrat', 'salari', 'sueldo', 'ptu', 'laboral', 'personal', 'renunci', 'incapacidad', 'horas extra'],
+  fiscal: ['sat', 'impuesto', 'iva', 'isr', 'factur', 'cfdi', 'declaraci', 'fiscal', 'regimen', 'resico', 'deduc', 'contador', 'multa', 'requerimiento'],
+  financiamiento: ['credito', 'prestamo', 'financ', 'banco', 'tasa', 'interes', 'inversion', 'invertir', 'capital', 'deuda', 'apoyo', 'subsidio', 'fondo'],
+  mercado: ['cliente', 'venta', 'vender', 'mercado', 'competencia', 'competidor', 'precio', 'consumidor', 'profeco', 'publicidad', 'campana', 'marketing', 'promocion', 'anuncio'],
+  digital: ['sitio', 'web', 'internet', 'digital', 'software', 'sistema', 'datos personales', 'privacidad', 'ciber', 'contrasena', 'respaldo', 'whatsapp', 'redes', 'en linea', 'pagina'],
+};
+export function conocimientoPara(area, consulta = '') {
+  let bloques = POR_AGENTE[area];
   if (!bloques) return '';
+  if (consulta && bloques.length > 1) {
+    const texto = sinAcentos(consulta);
+    bloques = bloques.filter((b) => TEMA[b].some((palabra) => texto.includes(palabra)));
+    if (!bloques.length) return '';
+  }
   const lineas = bloques.flatMap((b) => CONOCIMIENTO_MX[b].map((l) => `- ${l}`));
   return `Referencias para pymes en México (vigentes a ${VIGENCIA}; cifras y plazos deben confirmarse con la fuente oficial o un profesional antes de actuar):\n${lineas.join('\n')}`;
 }

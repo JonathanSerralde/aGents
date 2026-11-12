@@ -49,10 +49,13 @@ export function limpiarPeticiones(respuesta) {
 
 // Resuelve las peticiones llamando al agente destino. responder(areaDestino, textoParaDestino) debe devolver el texto.
 // informar(areaDestino, textoNota) deja la nota en la memoria compartida. maximo: tope de consultas/encargos por orden.
-export async function colaborar({ areaOrigen, nombreOrigen, respuesta, propios, equipo, responder, informar = null, maximo = null }) {
+// simultaneas: cuántas llamadas se hacen a la vez (para no topar con el límite de peticiones del proveedor).
+export const MAX_SIMULTANEAS = 3;
+export async function colaborar({ areaOrigen, nombreOrigen, respuesta, propios, equipo, responder, informar = null, maximo = null, simultaneas = MAX_SIMULTANEAS }) {
   const peticiones = extraerPeticiones(respuesta);
   const permitidas = maximo || (areaOrigen === ORQUESTADOR ? MAX_DELEGACIONES : Math.max(MAX_CONSULTAS, MAX_DELEGACIONES - 1));
   const intercambios = [];
+  const pendientes = [];
   let llamadas = 0;
   let notas = 0;
   for (const p of peticiones) {
@@ -83,13 +86,24 @@ export async function colaborar({ areaOrigen, nombreOrigen, respuesta, propios, 
     const textoDestino = p.tipo === 'DELEGAR'
       ? `Encargo del Coordinador: ${p.texto}`
       : `Pregunta de ${nombreOrigen}: ${p.texto} (responde solo lo que te preguntan, breve y con datos de tu área).`;
-    try {
-      const r = await responder(destino, textoDestino);
-      intercambios.push({ tipo: p.tipo, destino, nombreDestino, texto: p.texto, respuesta: r });
-    } catch (err) {
-      intercambios.push({ tipo: p.tipo, destino, nombreDestino, texto: p.texto, respuesta: null, error: err.message });
-    }
+    // La llamada no se hace aquí: se anota su lugar en la lista y se lanza después, junto con las demás.
+    const intercambio = { tipo: p.tipo, destino, nombreDestino, texto: p.texto, respuesta: null };
+    intercambios.push(intercambio);
+    pendientes.push(async () => {
+      try {
+        intercambio.respuesta = await responder(destino, textoDestino);
+      } catch (err) {
+        intercambio.error = err.message;
+      }
+    });
   }
+  // Los encargos y consultas no dependen entre sí: se atienden a la vez (hasta `simultaneas`), así la espera es
+  // la del más lento y no la suma de todos. El orden de la lista es el de la respuesta original.
+  let siguiente = 0;
+  const trabajador = async () => {
+    while (siguiente < pendientes.length) await pendientes[siguiente++]();
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, simultaneas), pendientes.length) }, trabajador));
   return intercambios;
 }
 

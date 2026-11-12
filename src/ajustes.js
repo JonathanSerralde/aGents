@@ -8,6 +8,9 @@ const MAX_NOTAS = 800;
 const MAX_ITEM = 200;
 const MAX_LISTA = 6;
 const ID_VALIDO = /^[a-z][a-z0-9-]{1,40}$/;
+const MAX_APAGADOS = 60;
+// Un marco o acción se identifica por el inicio de su texto: basta para distinguirlos y no guarda párrafos enteros.
+export const claveDe = (t) => (typeof t === 'string' ? t.trim().slice(0, 80) : '');
 
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const lista = (v) => {
@@ -17,7 +20,9 @@ const lista = (v) => {
 
 export function sanitizarAjuste(entrada) {
   const e = entrada && typeof entrada === 'object' ? entrada : {};
-  return { notas: texto(e.notas, MAX_NOTAS), marcos: lista(e.marcos), acciones: lista(e.acciones), limites: lista(e.limites) };
+  // apagados: inicio del texto de cada marco o acción de la habilidad base que el dueño apagó para este negocio.
+  const apagados = (Array.isArray(e.apagados) ? e.apagados : []).map((x) => claveDe(x)).filter(Boolean).slice(0, MAX_APAGADOS);
+  return { notas: texto(e.notas, MAX_NOTAS), marcos: lista(e.marcos), acciones: lista(e.acciones), limites: lista(e.limites), apagados: [...new Set(apagados)] };
 }
 
 export function crearAjustes(archivo) {
@@ -75,6 +80,7 @@ export function crearAjustes(archivo) {
       datos[id] = {
         notas: texto([base.notas, p.notas].filter(Boolean).join(' '), MAX_NOTAS),
         marcos: unir(base.marcos, p.marcos), acciones: unir(base.acciones, p.acciones), limites: unir(base.limites, p.limites),
+        apagados: base.apagados,
         propuesta: null,
       };
       escribir(datos);

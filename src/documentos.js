@@ -5,6 +5,34 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { inflateRawSync, inflateSync } from 'node:zlib';
+import { palabrasDe } from './archivo.js';
+
+// Búsqueda en los documentos subidos: el texto de cada uno se parte en fragmentos y se devuelven los que más tienen
+// que ver con la consulta, con el nombre del documento como fuente. Es por palabras, sin IA ni índices aparte.
+const TAM_FRAGMENTO = 700;
+export function buscarEnDocumentos(documentos, consulta, { max = 3 } = {}) {
+  const terminos = palabrasDe(consulta);
+  if (!terminos.length) return [];
+  const candidatos = [];
+  for (const d of documentos) {
+    const texto = String(d?.texto || '');
+    if (!texto) continue;
+    // Fragmentos con traslape, para no partir una idea justo en el corte.
+    for (let i = 0; i < texto.length; i += TAM_FRAGMENTO - 100) {
+      const fragmento = texto.slice(i, i + TAM_FRAGMENTO);
+      const palabras = new Set(palabrasDe(fragmento));
+      const puntos = terminos.filter((t) => palabras.has(t)).length;
+      if (puntos) candidatos.push({ fuente: d.nombre || 'documento', fragmento: fragmento.replace(/\s+/g, ' ').trim(), puntos: puntos + (palabrasDe(d.nombre || '').some((p) => terminos.includes(p)) ? 1 : 0), id: d.id, inicio: i });
+    }
+  }
+  // Como mucho dos fragmentos por documento, para que uno largo no tape a los demás.
+  const porDocumento = new Map();
+  return candidatos.sort((a, b) => b.puntos - a.puntos || a.inicio - b.inicio).filter((c) => {
+    const n = porDocumento.get(c.id) || 0;
+    porDocumento.set(c.id, n + 1);
+    return n < 2;
+  }).slice(0, max).map(({ fuente, fragmento }) => ({ fuente, fragmento }));
+}
 
 export const LIMITE_DOCUMENTO = 15 * 1024 * 1024; // 15 MB
 export const MAX_DOCUMENTOS = 200;

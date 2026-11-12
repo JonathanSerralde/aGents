@@ -67,14 +67,22 @@ export function extraerAcciones(respuesta) {
   return acciones.filter((a) => a.texto.length >= 4);
 }
 
-// Primera frase útil de una respuesta: lo que el agente concluyó.
+// Lo que el agente concluyó, en una frase. Los agentes abren con "Entendí que…" (así se les pide), y eso no es una
+// conclusión: se prefiere la línea donde propone o recomienda; si no hay, la primera que no sea ese eco ni un
+// encabezado; y solo al final, la primera línea.
+const ECO = /^(entend[ií]|entiendo|entendido|qu[eé] entend[ií]|comprendo|claro|por supuesto|de acuerdo|hola|buen[oa]s|gracias|con gusto)\b/i;
+const ENCABEZADO = /^(an[aá]lisis|propuesta|recomendaci[oó]n|contexto|resumen|diagn[oó]stico|siguiente paso|pasos?)\s*:?\s*$/i;
+const PROPONE = /^(propuesta|recomendaci[oó]n|conclusi[oó]n|en resumen)\s*:\s*\S|^(propongo|recomiendo|conviene|sugiero|lo primero|la prioridad|debes|hay que)\b/i;
 export function extraerConclusion(respuesta) {
+  const lineas = [];
   for (const linea of String(respuesta || '').split('\n')) {
-    const l = linea.trim().replace(/^[#*\-•\d.)\s]+/, '');
-    if (!l || /^(ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS|ESTADO)\s*:/i.test(l)) continue;
-    return recortar(l);
+    const l = linea.trim().replace(/^[#*\-•\d.)\s]+/, '').replace(/\*\*/g, '');
+    if (!l || /^(ACCIONES|CONSULTAR|DELEGAR|INFORMAR|HECHOS|IDEAS|CONCEPTOS|ESTADO|GASTO)\s*:/i.test(l)) continue;
+    lineas.push(l);
   }
-  return '';
+  const sinEtiqueta = (l) => l.replace(/^(propuesta|recomendaci[oó]n|conclusi[oó]n|en resumen)\s*:\s*/i, '');
+  const elegida = lineas.find((l) => PROPONE.test(l)) || lineas.find((l) => !ECO.test(l) && !ENCABEZADO.test(l) && l.length >= 25) || lineas[0] || '';
+  return recortar(sinEtiqueta(elegida));
 }
 
 // Línea final "ESTADO: en curso | entregado | bloqueado — por qué": el estado estructurado que cada agente reporta.

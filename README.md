@@ -66,6 +66,37 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Buscador para el dueño** (Agentes › Bitácora › Archivo de memoria, `/api/archivo`): buscar, fijar, soltar y borrar. En Configuración › Consumo de IA se ve cuánto contexto carga cada agente (`/api/contexto`).
 - La búsqueda es por palabras, no por significado: buscar por significado pediría un modelo local o enviar todo al proveedor.
 
+### Agenda de citas y clientes (módulo opcional)
+- **Para cualquier negocio que atiende con cita** (`src/agenda.js`, `data/agenda.json`): se enciende en Configuración › Módulos opcionales y entonces aparece "Agenda" en el menú. Apagada no ocupa nada y no borra datos. El dueño elige cómo llama a quienes atiende: clientes, pacientes, alumnos o huéspedes.
+- **Qué lleva:** citas por semana con duración, servicio, quién atiende, precio y estado (programada, confirmada, asistió, no asistió, cancelada); aviso de horarios encimados; personas con visitas, faltas y adeudo; recordatorio por WhatsApp que envía el dueño.
+- **Privacidad:** nombres, teléfonos y notas se quedan en el equipo. A los agentes solo les llegan cifras agregadas. No es un expediente clínico ni una agenda en línea.
+
+### Habilidades parejas y contexto a la medida
+- **Las 47 habilidades tienen la misma forma** (`src/habilidades.js` + `src/habilidades-extra.js`): cuándo usar al agente, qué entrega, en quién se apoya (dos o tres agentes siempre activos) y qué indicadores vigila. Las más cortas se reforzaron con marcos y acciones.
+- **Consulta entre agentes en modo compacto:** reglas cortas (150 palabras, sin formatos de secciones, gastos ni estado) y habilidad resumida. El contexto de una consulta baja cerca de la mitad.
+- **Referencias de México por tema:** un agente con varios bloques (laboral, fiscal, financiamiento, mercado, digital) recibe solo los que tocan la orden, y viajan en la parte que cambia para no romper la caché del proveedor.
+- **Medido con el negocio de ejemplo:** la cadena Coordinador → Marketing → Finanzas → cierre pasó de 17,678 a 12,957 tokens de contexto; una orden al Coordinador, de 6,462 a 5,106.
+
+### Calidad de los agentes, medida
+- **Prueba con IA real** (`src/calidad.js`, Agentes › Ajustes › Calidad): el dueño elige hasta cuatro agentes; cada uno recibe seis órdenes típicas y sus respuestas se revisan con reglas (usa su habilidad, respeta sus límites, da acciones con responsable y plazo, propone el gasto en formato). Muestra el costo antes, gasta de la clave del dueño y no toca conversaciones ni memoria.
+- **Voto del dueño:** "Sirvió / No sirvió" bajo cada respuesta; el resumen por agente indica cuál conviene revisar.
+- **Cifras reales para los agentes** (interruptor en Configuración › Datos reales, apagado de fábrica): totales y porcentajes de las facturas y del flujo de caja, nunca nombres de clientes ni proveedores.
+- **Avisos sin IA** (`src/alertas.js`): caja en rojo, cobranza vencida, presupuesto agotado, gastos sin decidir, acciones vencidas y citas. Cada aviso abre el chat del agente con la orden escrita; la IA solo se usa si el dueño la envía.
+- **Resultado de las acciones:** al marcar una acción como hecha se pregunta qué resultado tuvo; queda en el archivo de memoria y le llega al agente del área.
+- **Conclusiones útiles:** lo que se guarda de cada respuesta es la propuesta, no el eco de "Entendí que…".
+- **Habilidad visible y editable** (Agentes › Ajustes): se ve completa y se pueden apagar marcos y acciones por negocio; los límites están protegidos.
+- **Modelo según la tarea:** un modelo mayor opcional para los agentes que el dueño elija, solo en sus órdenes directas y con su costo a la vista.
+
+### Flujo de trabajo entre agentes
+- **Encadenado:** orden → respuesta del agente → consultas y encargos → versión final ajustada → revisión → entrega.
+- **En paralelo** (`colaborar` en `src/colaboracion.js`): los encargos y consultas de una orden se atienden hasta tres a la vez; la espera es la del más lento. El consumo se anota al agente que respondió en la propia llamada, no en una variable compartida.
+- **Revisión antes de entregar** (evaluador y corrector, `revisarAntesDeEntregar`): las reglas revisan sin costo si un gasto no cabe en el presupuesto, si una acción no trae responsable y plazo o si hay demasiadas preguntas; los agentes con modelo mayor pasan además por un revisor con el modelo económico. Solo si hay algo que corregir se pide una versión nueva. Se apaga en Configuración › IA.
+
+### Entrada única, documentos del negocio y herramientas
+- **Entrada única** (`src/ruteo.js`, portada › "Pide lo que necesites"): el dueño escribe sin elegir agente y la oficina decide con reglas, sin IA, quién lo atiende comparando la orden con el vocabulario de cada habilidad. Las prioridades y lo que cruza áreas van al Coordinador. Antes de enviar se ve a quién le llega y cuánto cuesta, y se puede elegir otro.
+- **Documentos del negocio (RAG):** los documentos subidos se buscan por fragmentos (`buscarEnDocumentos`) y los que tocan la orden entran al contexto con su fuente, igual que las carpetas de notas. Es independiente de la memoria: la memoria guarda lo que la oficina aprendió; esto, lo que el negocio ya tenía escrito.
+- **Herramientas locales** (`src/herramientas.js`, uso de herramientas de la API de Anthropic): en las órdenes del dueño el agente puede pedir la calculadora laboral, el presupuesto, el flujo de caja (solo si el dueño compartió sus cifras) y búsquedas en la memoria y en los documentos. Corren en este equipo, hasta tres por orden, y se apagan en Configuración › IA. Con OpenAI no se usan.
+
 ### Tareas automáticas que sí arrancan, y solo las que el usuario enciende
 - Un agente del piloto o una tarea semanal sin configuración propia cuenta desde que se encendió (`_encendido` en `data/piloto.json`, `_inicio` en `data/programacion.json`), no desde "ahora" en cada lectura. Antes su próxima corrida siempre quedaba en el futuro y no corría nunca.
 - El piloto sigue apagado de fábrica. Al encenderlo, cada agente hace su primera revisión en su próximo día y hora, no de inmediato.
@@ -89,7 +120,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Esta semana** (portada): lo primero que se ve en la Ciudad son hasta tres compromisos de la junta de la semana, con responsable y fecha, para palomearlos al cumplirlos. Son los mismos de la Junta semanal; "Atender primero" ahora nombra solo tres áreas.
 - **Negocio de ejemplo** (`src/demo.js`): con la instalación vacía, "Ver un negocio de ejemplo" abre una ferretería inventada ya con dos diagnósticos, facturas, flujo de caja y junta. Vive en su propia carpeta (`data/empresas/<id>/`), no usa IA y no toca tus datos; un aviso fijo permite volver a tu negocio o quitar el ejemplo. Es la única empresa que la aplicación puede eliminar.
 
-- **Pocos agentes a la vista:** el equipo de la portada y el selector del chat abren con hasta seis agentes "Para tu negocio": las tres áreas más urgentes, los del sector, los propios y el apoyo de esas áreas. Los demás siguen en "Todos".
+- **Pocos agentes a la vista, sin perder ninguno:** el equipo de la portada muestra al Coordinador, las once áreas y los agentes propios. Los especialistas viven dentro de su área ("+3 especialistas") y los que no son de ninguna, en "Apoyo general". Se puede buscar por lo que saben hacer, agrupar por persona responsable o ver a todos. Cada área tiene la instrucción de usar a sus especialistas sin que el dueño lo pida.
 
 - **Respaldo con un clic** (`src/respaldo.js`, `GET /api/respaldo`): Configuración › Respaldo descarga un .zip con los datos de todas las empresas y un LEEME con los pasos para restaurar. Excluye `config.json` (la clave de IA), se arma en el equipo y no se envía a ningún lado. La portada lo recuerda si nunca se ha hecho o si pasó un mes.
 

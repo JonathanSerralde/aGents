@@ -48,6 +48,10 @@ export function sanitizarConfiguracion(entrada) {
     anthropicModelo: limpiar(e.anthropicModelo, MAX_MODELO),
     anthropicModeloBusqueda: limpiar(e.anthropicModeloBusqueda, MAX_MODELO), // vacío = el económico
     anthropicModeloAutomatico: limpiar(e.anthropicModeloAutomatico, MAX_MODELO), // vacío = claude-haiku-5-5
+    revisionIA: e.revisionIA === 'nunca' ? 'nunca' : 'importante', // revisar la respuesta antes de entregarla
+    herramientasIA: e.herramientasIA === 'no' ? 'no' : 'si', // los agentes pueden pedir cálculos y búsquedas locales
+    anthropicModeloExperto: limpiar(e.anthropicModeloExperto, MAX_MODELO), // vacío = sin modelo mayor: todos usan el principal
+    agentesExpertos: (Array.isArray(e.agentesExpertos) ? e.agentesExpertos : []).map((x) => String(x)).filter((x) => /^[a-z][a-z0-9-]{1,40}$/.test(x)).slice(0, 12), // quiénes lo usan
     openaiKey: limpiar(e.openaiKey, MAX_CLAVE),
     openaiModelo: limpiar(e.openaiModelo, MAX_MODELO),
     openaiModeloAutomatico: limpiar(e.openaiModeloAutomatico, MAX_MODELO), // vacío = el mismo del chat
@@ -72,6 +76,10 @@ export function enmascarar(cfg) {
     anthropicModelo: cfg.anthropicModelo,
     anthropicModeloBusqueda: cfg.anthropicModeloBusqueda || '',
     anthropicModeloAutomatico: cfg.anthropicModeloAutomatico || '',
+    anthropicModeloExperto: cfg.anthropicModeloExperto || '',
+    revisionIA: cfg.revisionIA === 'nunca' ? 'nunca' : 'importante',
+    herramientasIA: cfg.herramientasIA === 'no' ? 'no' : 'si',
+    agentesExpertos: cfg.agentesExpertos || [],
     openaiKey: ocultar(cfg.openaiKey),
     openaiModelo: cfg.openaiModelo,
     openaiModeloAutomatico: cfg.openaiModeloAutomatico || '',
@@ -181,6 +189,10 @@ export function configuracionEfectiva(base, guardada) {
     anthropicModelo: g.anthropicModelo || base.anthropicModelo,
     anthropicModeloBusqueda: g.anthropicModeloBusqueda || base.anthropicModeloBusqueda || '',
     anthropicModeloAutomatico: g.anthropicModeloAutomatico || base.anthropicModeloAutomatico || '',
+    anthropicModeloExperto: g.anthropicModeloExperto || '',
+    revisionIA: g.revisionIA === 'nunca' ? 'nunca' : 'importante',
+    herramientasIA: g.herramientasIA === 'no' ? 'no' : 'si',
+    agentesExpertos: g.agentesExpertos || [],
     openaiKey: g.openaiKey || base.openaiKey,
     openaiModelo: g.openaiModelo || base.openaiModelo,
     openaiModeloAutomatico: g.openaiModeloAutomatico || base.openaiModeloAutomatico || '',
@@ -213,6 +225,8 @@ export function modeloPara(cfg, nivel = 'principal') {
   const modo = cfg.modoAhorro || 'equilibrado';
   if (modo === 'calidad') return nivel === 'busqueda' && cfg.anthropicModeloBusqueda && proveedor !== 'openai' ? cfg.anthropicModeloBusqueda : principal;
   if (modo === 'maximo') return nivel === 'busqueda' ? busqueda : economico;
+  // 'experto': el modelo mayor que el dueño reservó para ciertos agentes; sin él, el principal.
+  if (nivel === 'experto') return proveedor !== 'openai' && cfg.anthropicModeloExperto ? cfg.anthropicModeloExperto : principal;
   if (nivel === 'automatico') return economico;
   if (nivel === 'busqueda') return busqueda;
   return principal;
