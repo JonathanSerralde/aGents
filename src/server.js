@@ -7,7 +7,8 @@ import { dirname, extname, join, normalize, sep } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { config as configBase } from './config.js';
 import { CAMPOS, SECCIONES, ETIQUETAS_NO_SE, validar } from './formulario.js';
-import { evaluar, NOMBRES_DISTRITOS } from './diagnostico.js';
+import { evaluar, aplicarEvidencia, NOMBRES_DISTRITOS } from './diagnostico.js';
+import { evidenciaDe } from './semaforo.js';
 import { crearStore } from './store.js';
 import { resumirConIA, proveedorActivo } from './agentes.js';
 import { crearMarca, LIMITE_LOGO } from './marca.js';
@@ -133,7 +134,28 @@ export function origenPermitido(req) {
 
 export function crearServidor(opciones = {}) {
   const config = { ...configBase, ...opciones };
-  const store = crearStore(config.dirDatos);
+  const almacen = crearStore(config.dirDatos);
+  const datosReales = crearDatosReales(config.archivoDatosReales);
+  // El diagnóstico más reciente se entrega con el semáforo movido por las facturas (src/semaforo.js); el archivo
+  // guardado conserva lo que el dueño respondió. Los anteriores del historial se entregan tal cual.
+  let idUltimo; // undefined = hay que volver a buscarlo
+  const conFacturas = (d) => {
+    const a = d?.resultado ? datosReales.leer() : null;
+    if (!a) return d;
+    return { ...d, resultado: aplicarEvidencia(d.resultado, evidenciaDe({ datosReales: a, flujo: flujoActual(), datos: d.datos })) };
+  };
+  const store = {
+    guardar(registro) { idUltimo = undefined; return almacen.guardar(registro); },
+    borrar(id) { idUltimo = undefined; return almacen.borrar(id); },
+    listar: () => almacen.listar(),
+    ultimo() { const d = almacen.ultimo(); idUltimo = d?.id || null; return conFacturas(d); },
+    obtener(id) {
+      const d = almacen.obtener(id);
+      if (!d) return d;
+      if (idUltimo === undefined) idUltimo = almacen.listar()[0]?.id || null;
+      return d.id === idUltimo ? conFacturas(d) : d;
+    },
+  };
   const marca = crearMarca(config.dirMarca);
   const borrador = crearBorrador(config.archivoBorrador);
   const personalizados = crearPersonalizados(config.archivoAgentes);
@@ -154,7 +176,7 @@ export function crearServidor(opciones = {}) {
     const propios = personalizados.leer().agentes;
     const personalizado = esIdPersonalizado(area) ? propios[area] : (area === ORQUESTADOR ? { nombresPropios: Object.values(propios).map((a) => a.nombre) } : null);
     const ap = apoyo(); // una sola lectura de disco por prompt
-    return sistemaPara(area, store.ultimo(), equipo.leer(), marca.leer(), personalizado, empresa.leer(), {
+    return sistemaPara(area, almacen.ultimo(), equipo.leer(), marca.leer(), personalizado, empresa.leer(), {
       propios,
       compacto,
       inactivos: Object.keys(ap.inactivos),
@@ -439,7 +461,7 @@ export function crearServidor(opciones = {}) {
     const previo = datosReales.leer();
     return datosReales.guardar({
       ...analizarComprobantes(comprobantes, rfc), carpeta, archivos, firma: firmaCarpeta(carpeta), momento: relojActual().toISOString(),
-      saldoInicial: previo?.saldoInicial ?? null, saldoFecha: previo?.saldoFecha ?? null, vigilar: previo?.vigilar !== false,
+      saldoInicial: previo?.saldoInicial ?? null, saldoFecha: previo?.saldoFecha ?? null, vigilar: previo?.vigilar !== false, semaforo: previo?.semaforo !== false,
     });
   }
 
@@ -558,7 +580,6 @@ export function crearServidor(opciones = {}) {
   const equipo = crearEquipo(config.archivoEquipo, idsPropios);
   const conversaciones = crearConversaciones(config.dirConversaciones, idsPropios);
   const configuracion = crearConfiguracion(config.archivoConfig, { proteger: config.protegerClaves === true });
-  const datosReales = crearDatosReales(config.archivoDatosReales);
   const campanas = crearCampanas(config.archivoCampanas);
   const juntas = crearJuntas(config.archivoJuntas);
   const HISTORIAL_PARA_IA = 12;
@@ -950,7 +971,7 @@ export function crearServidor(opciones = {}) {
     });
 
     // `datos` y `creado` permiten actualizar el diagnóstico después sin volver a pedirlo al servidor.
-    enviarJSON(res, 201, { ok: true, id: registro.id, creado: registro.creado, datos, resultado, resumenIA: ia });
+    enviarJSON(res, 201, { ok: true, id: registro.id, creado: registro.creado, datos, resultado: store.obtener(registro.id)?.resultado || resultado, resumenIA: ia });
   }
 
   function flujoEventos(req, res) {
@@ -1095,6 +1116,7 @@ export function crearServidor(opciones = {}) {
         a.saldoFecha = n === null ? null : relojActual().toISOString();
       }
       if ('vigilar' in cuerpo) a.vigilar = cuerpo.vigilar !== false;
+      if ('semaforo' in cuerpo) a.semaforo = cuerpo.semaforo !== false;
       datosReales.guardar(a);
       return enviarJSON(res, 200, { ok: true, flujo: flujoActual() });
     }

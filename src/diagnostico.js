@@ -395,6 +395,62 @@ export function hallazgosCruzados(d) {
   return lista.map((c) => ({ ...c, nombre: `Entre áreas: ${c.areas.map((a) => NOMBRES_DISTRITOS[a]).join(' y ')}` }));
 }
 
+// Mueve el semáforo de un resultado ya calculado con evidencia externa (facturas y flujo de caja; src/semaforo.js).
+// La evidencia solo empeora un color o le da color a un área sin datos: nunca mejora lo que el dueño respondió,
+// porque las facturas no ven todo el negocio. El resultado guardado no se toca; se devuelve una copia.
+// Cada área movida conserva su color declarado en `declarado` y la lista queda en `evidencia.movidas`.
+export function aplicarEvidencia(resultado, evidencia = []) {
+  if (!resultado?.distritos || !evidencia.length) return resultado;
+  const distritos = {};
+  let plan = (resultado.plan || []).map((p) => ({ ...p }));
+  const movidas = [];
+  const peor = (a, b) => (ORDEN[b] > ORDEN[a] ? b : a);
+
+  for (const [id, d] of Object.entries(resultado.distritos)) {
+    const propia = id === 'crecimiento' ? [] : evidencia.filter((e) => e.area === id);
+    if (!propia.length) { distritos[id] = { ...d }; continue; }
+    const conColor = propia.filter((e) => e.color);
+    const deFacturas = conColor.reduce((p, e) => peor(p, e.color), 'verde');
+    const color = !conColor.length ? d.color : d.color === 'sin_datos' ? deFacturas : peor(d.color, deFacturas);
+    distritos[id] = {
+      ...d, color, declarado: d.color,
+      hallazgos: [...d.hallazgos, ...propia.filter((e) => e.color !== 'verde').map((e) => (e.color ? `Según tus facturas: ${e.texto}` : e.texto))],
+      evidencia: propia.map((e) => ({ color: e.color || null, texto: e.texto })),
+    };
+    if (color !== d.color) movidas.push({ id, nombre: d.nombre, de: d.color, a: color });
+    for (const e of conColor) {
+      if (e.accion && e.color !== 'verde' && !plan.some((p) => p.distrito === id && p.accion === e.accion)) {
+        plan.push({ distrito: id, nombre: d.nombre, color: e.color, accion: e.accion, plazo: PLAZO[e.color], origen: 'facturas' });
+      }
+    }
+  }
+
+  // Si la evidencia puso en rojo un área base, crecer queda bloqueado igual que en `evaluar`.
+  let crecimiento = resultado.crecimiento;
+  const bloqueos = BASE_PARA_CRECER.filter((id) => distritos[id]?.color === 'rojo').map((id) => NOMBRES_DISTRITOS[id]);
+  if (distritos.crecimiento && bloqueos.length > (resultado.crecimiento?.bloqueos?.length || 0)) {
+    const c = distritos.crecimiento;
+    distritos.crecimiento = {
+      ...c, color: 'rojo', declarado: c.color,
+      hallazgos: [`Crecer ahora sería arriesgado: ${bloqueos.join(', ')} en atención.`, ...c.hallazgos.filter((h) => !h.startsWith('Crecer ahora sería arriesgado'))],
+    };
+    if (c.color !== 'rojo') movidas.push({ id: 'crecimiento', nombre: c.nombre, de: c.color, a: 'rojo' });
+    plan = plan.filter((p) => !(p.distrito === 'crecimiento' && p.accion.startsWith('Resolver primero las acciones a 30 días de')));
+    plan.push({ distrito: 'crecimiento', nombre: c.nombre, color: 'rojo', accion: `Resolver primero las acciones a 30 días de ${bloqueos.join(', ')} antes de invertir en crecimiento.`, plazo: PLAZO.rojo, origen: 'facturas' });
+    crecimiento = { ...resultado.crecimiento, preparado: false, bloqueos };
+  }
+
+  const cruzados = resultado.cruzados || [];
+  const puntaje = (id, d) => PESO_COLOR[d.color] * (PESO_AREA[id] || 1) + d.hallazgos.length + cruzados.filter((c) => c.areas.includes(id)).length * 2;
+  const prioridad = Object.entries(distritos)
+    .filter(([, d]) => d.color === 'rojo' || d.color === 'amarillo')
+    .sort(([ida, a], [idb, b]) => puntaje(idb, b) - puntaje(ida, a))
+    .map(([id]) => id);
+  plan.sort((a, b) => ORDEN[b.color] - ORDEN[a.color]);
+
+  return { ...resultado, distritos, prioridad, plan, crecimiento, evidencia: { movidas, piezas: evidencia.length } };
+}
+
 // Un campo alimenta un distrito según su propiedad "distrito" o, si no la tiene, su sección.
 const camposDeDistrito = (id) => CAMPOS.filter((c) => (c.distrito ?? c.seccion) === id).map((c) => c.id);
 

@@ -252,25 +252,25 @@ export function analizarComprobantes(comprobantes, rfcPropio = '') {
 const dinero = (n) => `$${Math.round(n).toLocaleString('es-MX')}`;
 
 // Reglas sobre los datos reales. Cada hallazgo apunta al área que debe atenderlo.
-function hallazgosDe(r) {
+export function hallazgosDe(r) {
   const h = [];
   const v = r.ventas;
-  const push = (area, color, texto) => h.push({ area, color, texto });
+  const push = (area, color, texto, accion = '') => h.push({ area, color, texto, accion });
   if (v.total > 0) {
-    if (v.top1Pct >= 50) push('ventas', 'rojo', `Un solo cliente concentra ${v.top1Pct}% de lo facturado (${v.topClientes[0].nombre}). Si se va, se va la mitad del negocio.`);
-    else if (v.top3Pct >= 60) push('ventas', 'amarillo', `Los tres clientes principales concentran ${v.top3Pct}% de lo facturado.`);
+    if (v.top1Pct >= 50) push('ventas', 'rojo', `Un solo cliente concentra ${v.top1Pct}% de lo facturado (${v.topClientes[0].nombre}). Si se va, se va la mitad del negocio.`, 'Abrir al menos dos clientes nuevos este trimestre y firmar contrato con el cliente principal.');
+    else if (v.top3Pct >= 60) push('ventas', 'amarillo', `Los tres clientes principales concentran ${v.top3Pct}% de lo facturado.`, 'Fijar una meta mensual de clientes nuevos para bajar la concentración.');
     else if (v.clientes >= 3) push('ventas', 'verde', `La venta está repartida: el cliente más grande pesa ${v.top1Pct}% y los tres principales ${v.top3Pct}%.`);
     if (r.periodo.meses >= 3 && v.clientes >= 5) {
-      if (v.recurrenciaPct < 30) push('ventas', 'amarillo', `Solo ${v.recurrenciaPct}% de los clientes identificados volvió a comprar en otro mes del periodo.`);
+      if (v.recurrenciaPct < 30) push('ventas', 'amarillo', `Solo ${v.recurrenciaPct}% de los clientes identificados volvió a comprar en otro mes del periodo.`, 'Contactar a los clientes que no han vuelto a comprar con una oferta de recompra.');
       else push('ventas', 'verde', `${v.recurrenciaPct}% de los clientes identificados compró en más de un mes.`);
     }
-    if (v.creditoPct >= 50) push('finanzas', 'amarillo', `${v.creditoPct}% de la venta se factura a crédito o en parcialidades (PPD): la cobranza decide tu caja.`);
+    if (v.creditoPct >= 50) push('finanzas', 'amarillo', `${v.creditoPct}% de la venta se factura a crédito o en parcialidades (PPD): la cobranza decide tu caja.`, 'Nombrar a un responsable de cobranza y revisar cada semana lo que está por vencer.');
   }
   if (v.total > 0 && r.gastos.total > 0) {
-    if (r.diferencia < 0) push('finanzas', 'rojo', `En el periodo se facturaron ${dinero(r.gastos.total + r.nomina)} de gastos y nómina contra ${dinero(v.total)} de ventas.`);
+    if (r.diferencia < 0) push('finanzas', 'rojo', `En el periodo se facturaron ${dinero(r.gastos.total + r.nomina)} de gastos y nómina contra ${dinero(v.total)} de ventas.`, 'Revisar gasto por gasto qué se puede recortar o renegociar este mes y qué precios se pueden subir.');
     else push('finanzas', 'verde', `Lo facturado cubre los gastos y la nómina con comprobante: quedan ${dinero(r.diferencia)} en el periodo.`);
   }
-  if (r.gastos.total > 0 && r.gastos.proveedores >= 2 && r.gastos.top1Pct >= 50) push('compras', 'amarillo', `Un solo proveedor concentra ${r.gastos.top1Pct}% de lo comprado (${r.gastos.topProveedores[0].nombre}).`);
+  if (r.gastos.total > 0 && r.gastos.proveedores >= 2 && r.gastos.top1Pct >= 50) push('compras', 'amarillo', `Un solo proveedor concentra ${r.gastos.top1Pct}% de lo comprado (${r.gastos.topProveedores[0].nombre}).`, 'Cotizar con un segundo proveedor lo que más se compra.');
   return h;
 }
 

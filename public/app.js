@@ -2811,6 +2811,7 @@ function pintarDatosReales(a) {
   $('#reales-olvidar').hidden = !a;
   if (!a) return;
   if (a.carpeta && !$('#reales-carpeta').value) $('#reales-carpeta').value = a.carpeta;
+  $('#reales-semaforo').checked = a.semaforo !== false;
   const arch = a.archivos || {};
   $('#reales-periodo').textContent = `Del ${a.periodo.desde} al ${a.periodo.hasta} · ${a.comprobantes} comprobantes (${arch.xml || 0} facturas, ${arch.csv || 0} archivos CSV${arch.ignorados ? `, ${arch.ignorados} archivos que no eran de este tipo` : ''})${arch.truncado ? ' · se leyó hasta el máximo de archivos' : ''} · RFC del negocio: ${a.rfc || 'no identificado'} · analizado el ${fechaCorta(a.momento)}`;
   const kpi = (etiqueta, valor) => {
@@ -2860,6 +2861,7 @@ async function analizarDatosReales() {
     pintarDatosReales(cuerpo.analisis);
     mensaje($('#reales-mensaje'), `Listo: ${cuerpo.analisis.comprobantes} comprobantes analizados.`, 'ok');
     renderInforme();
+    refrescarSemaforo();
   } catch {
     mensaje($('#reales-mensaje'), 'No hay conexión con el servidor local.', 'error');
   }
@@ -3137,6 +3139,7 @@ async function guardarSaldoFlujo() {
     aviso(valor === '' ? 'Saldo borrado.' : 'Saldo guardado.', 'ok');
     renderFlujo();
     renderInforme();
+    refrescarSemaforo();
   } catch {
     aviso('No hay conexión con el servidor local.', 'error');
   }
@@ -3231,6 +3234,30 @@ function renderBandeja(resp) {
   }
 }
 
+// Aviso de qué áreas movieron las facturas (src/semaforo.js). Sin facturas analizadas no aparece.
+function pintarAvisoFacturas(evidencia) {
+  const p = $('#semaforo-facturas');
+  p.hidden = !evidencia;
+  if (!evidencia) return;
+  const movidas = evidencia.movidas || [];
+  if (!movidas.length) { p.replaceChildren('Tus facturas no cambian el color de ninguna área; lo que encontraron está en los hallazgos de cada una.'); return; }
+  const partes = movidas.map((m) => `${m.nombre} (de ${ETIQUETA_COLOR[m.de]} a ${ETIQUETA_COLOR[m.a]})`);
+  const lista = partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}` : partes[0];
+  p.replaceChildren(crearElemento('strong', {}, movidas.length === 1 ? 'Tus facturas movieron un área: ' : `Tus facturas movieron ${movidas.length} áreas: `), `${lista}. Abre el área para ver por qué.`);
+}
+
+// Vuelve a pedir el diagnóstico en pantalla y lo repinta solo si las facturas cambiaron algún color o el plan.
+async function refrescarSemaforo() {
+  const actual = estado.ultimo;
+  if (!actual?.id) return;
+  try {
+    const nuevo = await obtenerDiagnostico(actual.id);
+    const firma = (r) => JSON.stringify([Object.values(r.distritos).map((d) => [d.color, d.hallazgos.length]), r.plan.length, r.evidencia?.movidas || null, Boolean(r.evidencia)]);
+    if (estado.ultimo?.id !== actual.id || firma(nuevo.resultado) === firma(actual.resultado)) return;
+    renderResultados(nuevo, { scroll: false });
+  } catch { /* se queda lo que ya estaba en pantalla */ }
+}
+
 // Pinta un diagnóstico (recién generado o cargado del historial) en el dashboard.
 function renderResultados(resp, { scroll = true } = {}) {
   const { resultado, resumenIA } = resp;
@@ -3240,6 +3267,8 @@ function renderResultados(resp, { scroll = true } = {}) {
   $('#resultado-fecha').textContent = `Generado el ${fechaLarga(resp.creado)}`;
   const prio = resultado.prioridad.map((id) => resultado.distritos[id].nombre);
   $('#prioridades').textContent = prio.length ? `Atender primero: ${prio.join(', ')}.` : 'Sin prioridades críticas con las respuestas actuales.';
+
+  pintarAvisoFacturas(resultado.evidencia);
 
   cerrarSimulador({ repintar: false });
   renderKpis(resultado, cuenta);
@@ -3657,7 +3686,7 @@ async function mostrarDetalle(id) {
   $('#detalle-etiqueta').textContent = 'Área seleccionada';
   $('#detalle-titulo').textContent = d.nombre;
   const estadoEl = $('#detalle-estado');
-  estadoEl.textContent = `Estado del área: ${ETIQUETA_COLOR[d.color]}`;
+  estadoEl.textContent = `Estado del área: ${ETIQUETA_COLOR[d.color]}${d.declarado && d.declarado !== d.color ? ` (respondiste ${ETIQUETA_COLOR[d.declarado]}; lo movieron tus facturas)` : ''}`;
   estadoEl.className = `detalle-estado ${d.color}`;
   $('#detalle-agente').textContent = `Responsable: ${responsableDe(id)} · Agente: ${nombreAgente(id)} (${estadoOperativo(id)})`;
   const h = estado.habilidades?.[id];
@@ -4144,7 +4173,7 @@ function conectarFeed() {
     if (evento.tipo === 'trabajo_inicio' || evento.tipo === 'trabajo_fin') pintarTrabajando();
     const listaAct = $('#act-lista');
     if (listaAct && estado.vista === 'actividad' && evento.tipo !== 'permisos_cambiados') { listaAct.querySelector('.act-item:only-child:not(.trabajo_inicio)')?.remove(); listaAct.prepend(filaActividad(evento)); }
-    if (evento.tipo === 'datos_reales_actualizados') { renderFlujo(); renderInforme(); cargarDatosReales(); }
+    if (evento.tipo === 'datos_reales_actualizados') { renderFlujo(); renderInforme(); cargarDatosReales(); refrescarSemaforo(); }
     if (evento.tipo === 'trabajo_inicio') return; // el feed del dashboard solo muestra lo terminado
     if (feed.querySelector('.vacio')) feed.replaceChildren();
     const nombreDe = (area) => (area === 'orquestador' ? 'Orquestador' : nombreArea(area));
@@ -4211,7 +4240,20 @@ async function iniciar() {
   $('#avance-actualizar').addEventListener('click', () => reiniciar());
   $('#reales-analizar').addEventListener('click', analizarDatosReales);
   $('#reales-hechos').addEventListener('click', registrarHechosReales);
-  $('#reales-olvidar').addEventListener('click', async () => { await fetch('/api/datos-reales', { method: 'DELETE' }); pintarDatosReales(null); mensaje($('#reales-mensaje'), 'Análisis olvidado. Los hechos ya registrados siguen en la bitácora.', 'ok'); renderInforme(); });
+  $('#reales-olvidar').addEventListener('click', async () => { await fetch('/api/datos-reales', { method: 'DELETE' }); pintarDatosReales(null); mensaje($('#reales-mensaje'), 'Análisis olvidado. Los hechos ya registrados siguen en la bitácora.', 'ok'); renderInforme(); refrescarSemaforo(); });
+  $('#reales-semaforo').addEventListener('change', async (e) => {
+    const encendido = e.target.checked;
+    try {
+      const res = await fetch('/api/flujo', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ semaforo: encendido }) });
+      if (!res.ok) throw new Error();
+      mensaje($('#reales-mensaje'), encendido ? 'El semáforo se mueve con tus facturas.' : 'El semáforo muestra solo tus respuestas.', 'ok');
+      renderInforme();
+      refrescarSemaforo();
+    } catch {
+      e.target.checked = !encendido;
+      mensaje($('#reales-mensaje'), 'No se pudo guardar el cambio.', 'error');
+    }
+  });
   $('#empresa-crear').addEventListener('click', crearEmpresaNueva);
   $('#flujo-guardar').addEventListener('click', guardarSaldoFlujo);
   $('#junta-agregar').addEventListener('submit', agregarCompromisoJunta);

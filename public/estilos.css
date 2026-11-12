@@ -412,6 +412,9 @@ input[type="color"] { padding: 2px; }
 .punto.cian { background: var(--cian); box-shadow: 0 0 9px var(--cian); }
 .punto.gris { background: var(--gris); }
 
+.semaforo-facturas { margin: 0; padding: 11px 24px; font-size: 0.9rem; color: var(--texto-suave, #b9c2d6); border-top: 1px solid rgba(37, 226, 255, 0.22); background: linear-gradient(90deg, rgba(37, 226, 255, 0.09), transparent 70%); }
+.semaforo-facturas strong { color: #fff; font-weight: 600; }
+.reales-semaforo { margin: 4px 0 6px; }
 .prioridades { margin: 0; padding: 13px 24px; font-size: 0.94rem; border-top: 1px solid rgba(255, 178, 62, 0.28); background: linear-gradient(90deg, rgba(255, 178, 62, 0.12), transparent 70%); }
 
 /* Simulador de escenarios */
