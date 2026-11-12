@@ -72,6 +72,10 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Actualizar diagnóstico**: el asistente parte de las respuestas del diagnóstico anterior; el dueño solo corrige lo que cambió (o elige "Empezar en blanco").
 - **Borrar diagnósticos** de prueba desde Reportes (`DELETE /api/diagnosticos/:id`), con confirmación en el mismo botón.
 
+### Junta semanal
+- **Junta del lunes** (`src/junta.js`, `GET /api/junta`, vista "Junta semanal"): una hoja por semana con tres cifras (dinero y cobranza si hay facturas; madurez y áreas en atención si no), hasta tres decisiones en orden de urgencia con su motivo, y hasta tres compromisos con responsable, repartidos entre áreas. Sin IA. Los compromisos se fijan al abrir la semana y viven en la bitácora; el lunes siguiente la hoja empieza por decir cuáles se cumplieron. Se exporta a Word y PDF.
+- **Avisar al equipo sin servidores de terceros:** por cada responsable hay un mensaje ya escrito con "Enviar por WhatsApp" (abre el WhatsApp del propio usuario con `wa.me`; él elige el contacto) y "Copiar". La aplicación no envía nada por su cuenta.
+
 ### Flujo de caja a 13 semanas
 - **Flujo de caja** (`src/flujo.js`, `GET/PUT /api/flujo`, tarjeta en el dashboard): proyecta semana por semana lo que entra (venta de contado promedio y cobranza de lo facturado a crédito que sigue abierto) y lo que sale (gastos de contado, nómina timbrada y pagos a proveedores), y avisa en qué semana faltaría dinero. Usa los complementos de pago para saber qué facturas siguen abiertas y cuánto tardan en pagar los clientes. El dueño captura su saldo de hoy; hay un escenario conservador. Sin IA. Los supuestos se muestran en pantalla: solo ve lo que tiene factura.
 - **Carpeta vigilada:** mientras la aplicación esté abierta revisa cada diez minutos la carpeta de facturas; si hay archivos nuevos vuelve a analizarla sola y actualiza el flujo y el informe. Se puede apagar.

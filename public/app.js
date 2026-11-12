@@ -16,11 +16,12 @@ const TEXTO_META = { vertical: 'Meta: vertical', horizontal: 'Meta: horizontal',
 const NOMBRE_PROVEEDOR = { anthropic: 'Anthropic', openai: 'OpenAI', prueba: 'el proveedor de prueba' };
 const LIMITE_LOGO = 2 * 1024 * 1024;
 const TIPOS_LOGO = ['image/png', 'image/jpeg', 'image/webp'];
-const VISTAS = ['dashboard', 'asistente', 'red', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
+const VISTAS = ['dashboard', 'junta', 'asistente', 'red', 'agentes', 'campanas', 'actividad', 'reportes', 'configuracion'];
 // Título y bajada de la barra superior en cada vista.
 const TITULO_VISTA = {
   dashboard: ['Ciudad de agentes', 'El estado de tu negocio, área por área.'],
-  asistente: ['Diagnóstico', 'Unos 15 minutos de preguntas; tus respuestas se guardan solas.'],
+  junta: ['Junta semanal', 'Diez minutos cada lunes: tres cifras, tres decisiones y los compromisos de la semana.'],
+  asistente: ['Diagnóstico', 'Exprés en cinco minutos o completo en quince; tus respuestas se guardan solas.'],
   red: ['Red de agentes', 'Quién reporta a quién y qué está haciendo cada agente.'],
   agentes: ['Agentes', 'Habla con tu equipo, reparte trabajo y revisa lo que acordaron.'],
   campanas: ['Campañas', 'La IA arma la campaña; tú eliges y descargas las piezas.'],
@@ -344,6 +345,7 @@ function manejarMenu(evento) {
   if (vista === 'campanas') prepararCampanas();
   if (vista === 'actividad') cargarActividad();
   if (vista === 'red') cargarRed();
+  if (vista === 'junta') cargarJunta();
   mostrarVista(vista);
 }
 
@@ -2870,6 +2872,84 @@ async function registrarHechosReales() {
   } catch {
     mensaje($('#reales-mensaje'), 'No hay conexión con el servidor local.', 'error');
   }
+}
+
+// ---------- Junta semanal ----------
+
+async function cargarJunta() {
+  let r;
+  try { r = await fetch('/api/junta').then((x) => (x.ok ? x.json() : null)); } catch { r = null; }
+  const vacia = $('#junta-vacia');
+  const cuerpo = $('#junta-cuerpo');
+  if (!r) {
+    cuerpo.hidden = true;
+    vacia.replaceChildren(estadoVacio({ etiqueta: 'div', icono: 'calendar', titulo: 'La junta aún no está disponible', texto: 'Cierra y vuelve a abrir la aplicación para activar esta función.' }));
+    return;
+  }
+  const j = r.junta;
+  $('#junta-titulo').textContent = `Junta de la semana del ${fechaCorta(`${j.semana}T12:00:00`)}`;
+  if (!j.compromisos.length && !j.hayDiagnostico) {
+    cuerpo.hidden = true;
+    vacia.replaceChildren(estadoVacio({ etiqueta: 'div', icono: 'calendar', titulo: 'Tu primera junta sale del diagnóstico', texto: 'Con el diagnóstico exprés (cinco minutos) la oficina arma cada lunes una hoja con tres cifras, las decisiones que te tocan y los compromisos de la semana con su responsable.', accion: { texto: 'Empezar diagnóstico', alHacer: () => reiniciar() } }));
+    return;
+  }
+  vacia.replaceChildren();
+  cuerpo.hidden = false;
+
+  // De la semana pasada: qué se cumplió.
+  const anterior = $('#junta-anterior');
+  anterior.hidden = !j.anterior;
+  if (j.anterior) {
+    const a = j.anterior;
+    const lista = crearElemento('ul');
+    for (const c of a.compromisos) lista.append(crearElemento('li', { class: c.hecho ? 'cumplido' : 'pendiente' }, `${c.hecho ? 'Cumplido' : 'Pendiente'}: ${c.texto}${c.responsable ? ` (${c.responsable})` : ''}`));
+    anterior.className = `junta-anterior ${a.hechos === a.total ? 'bien' : a.hechos ? 'medio' : 'mal'}`;
+    anterior.replaceChildren(crearElemento('strong', {}, `La semana pasada se ${a.hechos === 1 ? 'cumplió' : 'cumplieron'} ${a.hechos} de ${a.total}`), lista);
+  }
+
+  const TONO = { rojo: 'var(--rojo)', amarillo: 'var(--amarillo)', verde: 'var(--verde)' };
+  $('#junta-cifras').replaceChildren(...j.cifras.map((c) => {
+    const caja = crearElemento('div', { class: 'kpi', style: `--tono: ${TONO[c.nivel] || 'var(--cian)'}` });
+    const t = crearElemento('div', { class: 'kpi-texto' });
+    t.append(crearElemento('span', { class: 'kpi-etiqueta' }, c.titulo), crearElemento('span', { class: 'kpi-valor' }, c.valor), crearElemento('span', { class: 'junta-detalle' }, c.detalle));
+    caja.append(t);
+    return caja;
+  }));
+
+  $('#junta-decisiones').replaceChildren(...(j.decisiones.length ? j.decisiones.map((d) => {
+    const li = crearElemento('li');
+    li.append(crearElemento('strong', {}, d.texto), crearElemento('span', {}, d.motivo));
+    return li;
+  }) : [crearElemento('li', { class: 'sin-numero' }, 'Sin decisiones urgentes con la información actual.')]));
+
+  $('#junta-compromisos').replaceChildren(...(j.compromisos.length ? j.compromisos.map((c) => {
+    const li = crearElemento('li', { class: c.hecho ? 'hecha' : '' });
+    const check = crearElemento('input', { type: 'checkbox', 'aria-label': `Marcar como cumplido: ${c.texto}` });
+    check.checked = c.hecho;
+    check.addEventListener('change', async () => {
+      await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: check.checked ? 'hecha' : 'pendiente' }) }).catch(() => {});
+      cargarJunta();
+    });
+    const texto = crearElemento('div');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.texto), crearElemento('small', {}, `${c.nombreArea} · ${c.responsable || 'sin responsable: asígnalo en Agentes › Equipo'} · para el ${fechaCorta(`${c.vence}T12:00:00`)}`));
+    li.append(check, texto);
+    return li;
+  }) : [crearElemento('li', {}, 'Sin compromisos esta semana: no hay acciones abiertas ni pendientes en el plan.')]));
+
+  // Un mensaje por responsable. WhatsApp se abre en el equipo de la persona; la aplicación no envía nada.
+  $('#junta-mensajes').replaceChildren(...r.mensajes.map((m) => {
+    const caja = crearElemento('div', { class: 'junta-mensaje' });
+    const acciones = crearElemento('div', { class: 'acciones-inline' });
+    const wa = crearElemento('a', { class: 'boton compacto', href: `https://wa.me/?text=${encodeURIComponent(m.texto)}`, target: '_blank', rel: 'noopener' }, 'Enviar por WhatsApp');
+    const copiar = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, 'Copiar');
+    copiar.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(m.texto); aviso('Mensaje copiado.', 'ok'); } catch { aviso('No se pudo copiar; selecciónalo a mano.', 'error'); }
+    });
+    acciones.append(wa, copiar);
+    caja.append(crearElemento('strong', {}, m.responsable), crearElemento('p', {}, m.texto), acciones);
+    return caja;
+  }));
+  $('#junta-avisos').hidden = !r.mensajes.length;
 }
 
 // ---------- Flujo de caja a 13 semanas ----------

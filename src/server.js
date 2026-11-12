@@ -45,6 +45,7 @@ import { informeOficina } from './informe.js';
 import { compararDiagnosticos, serieDeMadurez, elegirAnterior } from './progreso.js';
 import { crearDatosReales, leerCarpeta, analizarComprobantes, firmaCarpeta } from './datos-reales.js';
 import { proyectarFlujo } from './flujo.js';
+import { crearJuntas, armarJunta, mensajesDe, bloquesJunta } from './junta.js';
 import { bloquesEntregable, instruccionEntregable, tipoDeEntregable } from './entregable.js';
 import { crearEmpresas } from './empresas.js';
 import { armarPasaporte, bloquesPasaporte } from './pasaporte.js';
@@ -462,6 +463,37 @@ export function crearServidor(opciones = {}) {
     return a?.flujoBase ? proyectarFlujo(a.flujoBase, { hoy: relojActual(), saldoInicial: a.saldoInicial ?? null, escenario }) : null;
   }
 
+  // Junta de la semana. Las cifras y decisiones se calculan al momento; los compromisos se fijan la primera vez
+  // que se abre la semana (los que salen del plan entran a la bitácora) y luego solo cambia si ya se cumplieron.
+  function juntaActual() {
+    const ahora = relojActual();
+    const eq = equipo.leer();
+    const propios = personalizados.leer().agentes;
+    const propuesta = armarJunta({
+      ahora, diagnostico: store.ultimo(), flujo: flujoActual(), datosReales: datosReales.leer(),
+      abiertas: memoria.acciones({ estado: 'pendiente' }), vencidas: memoria.vencidas(ahora), porVencer: memoria.porVencer(7, ahora),
+      responsableDe: (id) => eq.areas?.[id]?.responsable || '', nombreDe: (id) => nombreDe(id, propios),
+    });
+    let guardada = juntas.de(propuesta.semana);
+    if (!guardada && propuesta.compromisos.length) {
+      const compromisos = propuesta.compromisos.map((c) => {
+        const id = c.accionId || memoria.agregarAccion(c.area, { texto: c.texto, responsable: c.responsable, vence: propuesta.hasta, origen: 'junta' }).id;
+        return { id, area: c.area, nombreArea: c.nombreArea, texto: c.texto, responsable: c.responsable, vence: c.vence || propuesta.hasta };
+      });
+      guardada = juntas.guardar(propuesta.semana, { creada: ahora.toISOString(), compromisos });
+    }
+    const estados = new Map(memoria.acciones().map((a) => [a.id, a.estado]));
+    const conEstado = (lista) => lista.map((c) => ({ ...c, hecho: estados.get(c.id) === 'hecha' }));
+    const previa = juntas.anteriorA(propuesta.semana);
+    let anterior = null;
+    if (previa) {
+      const lista = conEstado(previa.compromisos);
+      anterior = { semana: previa.semana, compromisos: lista, hechos: lista.filter((c) => c.hecho).length, total: lista.length };
+    }
+    const junta = { ...propuesta, compromisos: guardada ? conEstado(guardada.compromisos) : [], anterior, hayDiagnostico: Boolean(store.ultimo()) };
+    return { junta, mensajes: mensajesDe(junta, marca.leer().nombre || '') };
+  }
+
   // Avance entre diagnósticos. Sin `id` usa el más reciente; sin `contra` elige el anterior del mismo giro.
   // Devuelve null si se pidió un diagnóstico que no existe.
   function progresoDe(id = '', contra = '') {
@@ -525,6 +557,7 @@ export function crearServidor(opciones = {}) {
   const configuracion = crearConfiguracion(config.archivoConfig, { proteger: config.protegerClaves === true });
   const datosReales = crearDatosReales(config.archivoDatosReales);
   const campanas = crearCampanas(config.archivoCampanas);
+  const juntas = crearJuntas(config.archivoJuntas);
   const HISTORIAL_PARA_IA = 12;
   const HISTORIAL_AUTOMATICO = 6; // piloto y rutinas: menos historial, menos tokens
 
@@ -986,6 +1019,14 @@ export function crearServidor(opciones = {}) {
         return enviarJSON(res, 422, { ok: false, errores: [err.message] });
       }
     }
+    // Junta de la semana: hoja con cifras, decisiones y compromisos, y su versión en Word o PDF.
+    if (ruta === '/api/junta' && metodo === 'GET') return enviarJSON(res, 200, juntaActual());
+    const hojaJunta = ruta.match(/^\/api\/junta\/reporte\.(docx|html)$/);
+    if (hojaJunta && metodo === 'GET') {
+      const { junta } = juntaActual();
+      return entregarReporte(res, bloquesJunta(junta, marca.leer().nombre || 'Tu negocio'), hojaJunta[1], `junta-${junta.semana}`);
+    }
+
     // Flujo de caja a 13 semanas. `escenario=conservador` supone menos venta y cobranza más lenta.
     if (ruta === '/api/flujo' && metodo === 'GET') {
       const a = datosReales.leer();

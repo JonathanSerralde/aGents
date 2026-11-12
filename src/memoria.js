@@ -244,6 +244,18 @@ export function crearMemoria(archivo) {
       return nota;
     },
 
+    // Agrega una acción a mano (por ejemplo, un compromiso de la junta semanal). Si ya hay una igual abierta, devuelve esa.
+    agregarAccion(area, { texto, responsable = '', vence = null, origen = 'usuario' } = {}) {
+      const datos = leerTodo();
+      const limpio = recortar(String(texto || '').trim(), 300);
+      const repetida = datos.acciones.find((x) => x.estado === 'pendiente' && x.area === area && x.texto.toLowerCase() === limpio.toLowerCase());
+      if (repetida) return repetida;
+      const accion = { id: nuevoId(), area, texto: limpio, responsable, plazo: '', vence, origen, estado: 'pendiente', momento: new Date().toISOString() };
+      datos.acciones.push(accion);
+      escribir(datos);
+      return accion;
+    },
+
     acciones({ area = null, estado = null } = {}) {
       return leerTodo().acciones.filter((a) => (!area || a.area === area) && (!estado || a.estado === estado)).sort((a, b) => b.momento.localeCompare(a.momento));
     },

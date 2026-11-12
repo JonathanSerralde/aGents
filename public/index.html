@@ -32,6 +32,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l4-2v13M10 20V4l4 2v14M16 20v-9l4-2v11M2 20h20"/></svg>
           <span>Ciudad</span>
         </button>
+        <button class="menu-item" type="button" data-vista="junta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8.5 15.5l2.2 2.2 4.3-4.4"/></svg>
+          <span>Junta semanal</span>
+        </button>
         <button class="menu-item" type="button" data-vista="asistente">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M9 11h6M9 15h6"/></svg>
           <span>Diagnóstico</span>
@@ -444,6 +448,38 @@
           </div>
 
           <div id="resumen-ia" class="tarjeta" hidden></div>
+          </section>
+        </section>
+
+        <!-- ===================== JUNTA SEMANAL ===================== -->
+        <section id="vista-junta" data-vista-panel hidden>
+          <section class="tarjeta junta">
+            <div class="panel-encabezado">
+              <h3 id="junta-titulo">Junta de la semana</h3>
+              <div class="acciones-inline">
+                <a class="boton secundario compacto" href="/api/junta/reporte.docx">Word</a>
+                <a class="boton secundario compacto" href="/api/junta/reporte.html" target="_blank" rel="noopener">PDF</a>
+              </div>
+              <p class="subtitulo">Una hoja para revisar el negocio en diez minutos. Se arma con reglas, sin IA, con tu diagnóstico, tus facturas y la bitácora. Los compromisos se fijan al abrir la semana; el lunes siguiente la hoja empieza por decir cuáles se cumplieron.</p>
+            </div>
+            <div id="junta-vacia"></div>
+            <div id="junta-cuerpo" class="junta-cuerpo" hidden>
+              <div id="junta-anterior" class="junta-anterior" hidden></div>
+              <div id="junta-cifras" class="kpis kpis-uso"></div>
+              <div>
+                <h4>Decisiones de esta semana</h4>
+                <ol id="junta-decisiones" class="junta-decisiones"></ol>
+              </div>
+              <div>
+                <h4>Compromisos</h4>
+                <ul id="junta-compromisos" class="bitacora-lista"></ul>
+              </div>
+              <div id="junta-avisos">
+                <h4>Avisa a cada responsable</h4>
+                <div id="junta-mensajes" class="junta-mensajes"></div>
+                <p class="ayuda">"Enviar por WhatsApp" abre tu propio WhatsApp con el mensaje ya escrito y tú eliges a quién mandarlo. La aplicación no envía nada por su cuenta.</p>
+              </div>
+            </div>
           </section>
         </section>
 
