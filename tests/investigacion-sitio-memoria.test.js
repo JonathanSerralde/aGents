@@ -220,15 +220,15 @@ async function conServidor(extra, fn) {
   }
 }
 
-// IA simulada: con búsqueda devuelve la investigación; como Orquestador reparte; los demás responden con acciones.
+// IA simulada: con búsqueda devuelve la investigación; como Coordinador reparte; los demás responden con acciones.
 function iaSimulada(recibido) {
   return async ({ sistema, mensajes, busqueda }) => {
     recibido.push({ sistema, texto: mensajes.at(-1).texto, busqueda: Boolean(busqueda) });
     if (busqueda) return { texto: textoInvestigacion(), busquedas: [{ consulta: 'ferreterías en Guadalajara', fuentes: [{ titulo: 'Directorio', url: 'https://ejemplo.mx/dir' }] }, { consulta: 'reseñas ferreterías Guadalajara', fuentes: [] }] };
-    if (/Eres el Orquestador/.test(sistema) && /investigación semanal/i.test(mensajes.at(-1).texto)) {
+    if (/Eres el Coordinador/.test(sistema) && /investigación semanal/i.test(mensajes.at(-1).texto)) {
       return 'Los clientes quieren surtido y rapidez.\nDELEGAR: [Ventas] — Arma el argumentario con surtido y entrega\nDELEGAR: [Operaciones] — Revisa los tiempos de entrega';
     }
-    if (/Eres el Orquestador/.test(sistema) && /análisis automático del sitio/i.test(mensajes.at(-1).texto)) {
+    if (/Eres el Coordinador/.test(sistema) && /análisis automático del sitio/i.test(mensajes.at(-1).texto)) {
       return 'El sitio está flojo en seguridad.\nDELEGAR: [Ciberseguridad] — Pide HTTPS al hospedaje';
     }
     if (/Esta petición viene de otro agente/.test(sistema)) return 'Hecho.\nACCIONES:\n- [ventas] Redactar el argumentario — Rosa — esta semana';
@@ -236,11 +236,11 @@ function iaSimulada(recibido) {
   };
 }
 
-test('la investigación semanal busca, informa al Orquestador y reparte a Ventas, Marketing y a quien haga falta', async () => {
+test('la investigación semanal busca, informa al Coordinador y reparte a Ventas, Marketing y a quien haga falta', async () => {
   const recibido = [];
   await conServidor({ llamarIA: iaSimulada(recibido) }, async (base) => {
     await fetch(`${base}/api/empresa`, json('PUT', { municipio: 'Guadalajara', estado: 'Jalisco', productos: 'tornillos\npintura', sitioWeb: 'https://ejemplo.mx' }));
-    // "Optimizar agentes" también puede proponer subagentes nuevos; el mock del Orquestador no propone ninguno aquí.
+    // "Optimizar agentes" también puede proponer subagentes nuevos; el mock del Coordinador no propone ninguno aquí.
     const estado0 = await (await fetch(`${base}/api/investigacion`)).json();
     assert.equal(estado0.programacion.activa, false); // gasta IA: empieza en pausa hasta que el usuario la active
     assert.equal(estado0.programacion.proxima, null);
@@ -257,7 +257,7 @@ test('la investigación semanal busca, informa al Orquestador y reparte a Ventas
     assert.match(busquedas[0].sistema, /búsqueda web activa/);
     assert.match(busquedas[0].texto, /Guadalajara, Jalisco/);
     assert.match(busquedas[0].texto, /tornillos; pintura/);
-    // Ventas y Operaciones los pidió el Orquestador; Marketing se agregó por ser obligatorio.
+    // Ventas y Operaciones los pidió el Coordinador; Marketing se agregó por ser obligatorio.
     const destinos = investigacion.encargos.map((e) => e.destino).sort();
     assert.deepEqual(destinos, ['marketing', 'operaciones', 'ventas']);
     // Los encargados ya tenían la investigación en su contexto (se guarda antes de repartir) y el informe completo adjunto.
@@ -273,9 +273,9 @@ test('la investigación semanal busca, informa al Orquestador y reparte a Ventas
 
     // Las conversaciones de los agentes destino traen el encargo, y la memoria compartida las acciones.
     const ventas = await (await fetch(`${base}/api/agentes/ventas/mensajes`)).json();
-    assert.match(ventas.mensajes[0].texto, /Encargo del Orquestador/);
+    assert.match(ventas.mensajes[0].texto, /Encargo del Coordinador/);
     assert.equal(ventas.mensajes[0].origen, 'agente');
-    // El consumo se atribuye a cada agente que respondió, no todo al Orquestador.
+    // El consumo se atribuye a cada agente que respondió, no todo al Coordinador.
     const uso = await (await fetch(`${base}/api/uso`)).json();
     assert.ok(uso.actual.porAgente.ventas > 0 && uso.actual.porAgente.mercado > 0 && uso.actual.porAgente.orquestador > 0);
     const memoria = await (await fetch(`${base}/api/memoria`)).json();
@@ -367,7 +367,7 @@ test('el análisis del sitio descarga la página, califica y reparte a Cibersegu
     assert.ok(destinos.includes('tecnologia'));
     assert.ok(destinos.includes('ventas')); // el contacto directo en rojo es de Ventas
     const ciber = await (await fetch(`${base}/api/agentes/ciberseguridad/mensajes`)).json();
-    assert.match(ciber.mensajes[0].texto, /Encargo del Orquestador/);
+    assert.match(ciber.mensajes[0].texto, /Encargo del Coordinador/);
 
     recibido.length = 0;
     await fetch(`${base}/api/agentes/tecnologia/mensajes`, json('POST', { texto: '¿Qué arreglo primero?' }));

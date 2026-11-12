@@ -55,7 +55,7 @@ test('la situación sabe qué corre ahora, qué hizo cada agente y quién no ha 
     assert.match(texto, /- Compras: .*1 orden\(es\) pendiente\(s\) sin responder/);
     assert.match(texto, /- Fiscal y legal: .*piloto encendido, última revisión 04\/11/);
     assert.match(texto, /Sin actividad registrada todavía, 1 agente .*Riesgos/);
-    assert.doesNotMatch(texto, /- Orquestador:/); // no se describe a sí mismo
+    assert.doesNotMatch(texto, /- Coordinador:/); // no se describe a sí mismo
     assert.match(texto, /nunca digas que no tienes registro/);
 
     const bloques = bloquesSituacion(sit);
@@ -69,12 +69,12 @@ test('la situación sabe qué corre ahora, qué hizo cada agente y quién no ha 
   }
 });
 
-test('el Orquestador y Dirección reciben la situación de los demás agentes en su contexto; un agente de área no', async () => {
+test('el Coordinador y Dirección reciben la situación de los demás agentes en su contexto; un agente de área no', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'situacion-srv-'));
   const sistemas = {};
   const servidor = crearServidor(opcionesTemporales(dir, {
     llamarIA: async ({ sistema, mensajes }) => {
-      const area = /Eres el Orquestador/.test(sistema) ? 'orquestador' : (sistema.match(/^Eres ([^,:]+)/)?.[1] || 'otro');
+      const area = /Eres el Coordinador/.test(sistema) ? 'orquestador' : (sistema.match(/^Eres ([^,:]+)/)?.[1] || 'otro');
       sistemas[area] = sistema;
       return `**Qué entendí:** ${mensajes.at(-1).texto}\n\n**Análisis:** Finanzas revisó la caja y falta el saldo de hoy.`;
     },
@@ -99,7 +99,7 @@ test('el Orquestador y Dirección reciben la situación de los demás agentes en
     assert.equal(r.ok, true);
     const dir_ = Object.entries(sistemas).find(([k]) => /Direcci/.test(k))?.[1] || '';
     assert.match(dir_, /Estado actual de la oficina/);
-    assert.match(dir_, /- Orquestador: última actividad/);
+    assert.match(dir_, /- Coordinador: última actividad/);
 
     const s = await fetch(`${base}/api/situacion`).then((x) => x.json());
     assert.ok(s.agentes.length > 20);

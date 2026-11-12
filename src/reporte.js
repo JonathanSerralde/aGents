@@ -101,8 +101,8 @@ const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
 
-// Escritor ZIP mínimo (método deflate), suficiente para un .docx.
-function zip(entradas) {
+// Escritor ZIP mínimo (método deflate), suficiente para un .docx y para el respaldo (src/respaldo.js).
+export function zip(entradas) {
   const locales = [];
   const centrales = [];
   let offset = 0;

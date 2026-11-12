@@ -178,22 +178,33 @@ function mensaje(el, texto, tipo = '') {
 
 // Convierte **texto** en negritas con nodos del DOM (nunca innerHTML): los agentes responden con ese formato.
 function conNegritas(texto) {
-  return String(texto ?? '').split(/**([^*
-]+)**/g).map((parte, i) => (i % 2 ? crearElemento('strong', {}, parte) : document.createTextNode(parte)));
+  return String(texto ?? '').split(/\*\*([^*\n]+)\*\*/g).map((parte, i) => (i % 2 ? crearElemento('strong', {}, parte) : document.createTextNode(parte)));
 }
 
 // Estado vacío: dice qué va aquí y qué hacer para llenarlo. `accion` es opcional: { texto, alHacer }.
-function estadoVacio({ icono: nombreIcono = 'layers', titulo, texto, accion = null, etiqueta = 'li' }) {
+function estadoVacio({ icono: nombreIcono = 'layers', titulo, texto, accion = null, otra = null, etiqueta = 'li' }) {
   const caja = crearElemento(etiqueta, { class: 'vacio-estado' });
   const marco = crearElemento('span', { class: 'vacio-icono', 'aria-hidden': 'true' });
   marco.append(icono(nombreIcono));
   caja.append(marco, crearElemento('strong', {}, titulo), crearElemento('p', {}, texto));
-  if (accion) {
-    const boton = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, accion.texto);
-    boton.addEventListener('click', accion.alHacer);
-    caja.append(boton);
-  }
+  const botones = [accion, otra].filter(Boolean).map((a) => {
+    const boton = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, a.texto);
+    boton.addEventListener('click', a.alHacer);
+    return boton;
+  });
+  if (botones.length === 1) caja.append(botones[0]);
+  else if (botones.length) { const fila = crearElemento('div', { class: 'acciones-inline' }); fila.append(...botones); caja.append(fila); }
   return caja;
+}
+
+// Botón pequeño que lleva a donde se activa la IA: acompaña a los avisos de "Sin IA configurada".
+function botonActivarIA() {
+  const boton = crearElemento('button', { type: 'button', class: 'atajo en-linea' }, 'Activar la IA');
+  boton.addEventListener('click', () => {
+    mostrarVista('configuracion', { scroll: false });
+    setTimeout(() => $('#config-ia').scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+  });
+  return boton;
 }
 
 // Lleva un número hasta su valor nuevo contando (0.6 s). Con movimiento reducido lo pone de una vez.
@@ -295,6 +306,9 @@ function mostrarVista(vista, { scroll = true } = {}) {
     const hay = estado.ultimo !== null;
     $('#dashboard-vacio').hidden = hay;
     $('#vista-resultados').hidden = !hay;
+    renderSemana();
+    pintarGastos();
+    pintarRespaldo();
     renderPrimerosPasos();
     renderFlujo();
     renderInforme();
@@ -341,7 +355,7 @@ function manejarMenu(evento) {
   if (vista === 'asistente') renderPaso();
   if (vista === 'agentes') prepararAgentes();
   if (vista === 'reportes') cargarReportes();
-  if (vista === 'configuracion') cargarConfiguracion();
+  if (vista === 'configuracion') { cargarConfiguracion(); pintarRespaldo(); pintarGastos(); if ($('#contexto-detalle').open) pintarContexto(); }
   if (vista === 'campanas') prepararCampanas();
   if (vista === 'actividad') cargarActividad();
   if (vista === 'red') cargarRed();
@@ -352,12 +366,12 @@ function manejarMenu(evento) {
 // ---------- Actividad de los agentes (en vivo y guardada) ----------
 
 const NOMBRE_TIPO_ACTIVIDAD = {
-  orden: 'Orden', busqueda: 'Búsqueda en internet', consulta: 'Consulta de otro agente', encargo: 'Encargo del Orquestador', reparto: 'Reparto del Orquestador', investigacion: 'Investigación de mercado',
+  orden: 'Orden', busqueda: 'Búsqueda en internet', consulta: 'Consulta de otro agente', encargo: 'Encargo del Coordinador', reparto: 'Reparto del Coordinador', investigacion: 'Investigación de mercado',
 };
 const trabajosEnCurso = new Map();
 
 function nombreDeAgente(id) {
-  return id === 'orquestador' ? 'Orquestador' : nombreArea(id);
+  return id === 'orquestador' ? 'Coordinador' : nombreArea(id);
 }
 
 // Texto legible de un evento del registro.
@@ -369,7 +383,9 @@ function describirEvento(e) {
     case 'busquedas_web': return `${nombreDeAgente(d.area)} buscó en internet: ${(d.consultas || []).map((c) => `"${c}"`).join(', ')}`;
     case 'orden_enviada': return `${d.origen === 'rutina' ? 'Rutina' : 'Tú'} → ${nombreDeAgente(d.area)}: ${d.tipo === 'idea' ? 'idea' : d.tipo === 'hecho' ? 'dato de la empresa' : d.tipo === 'concepto' ? 'pregunta' : 'orden'}${d.pendiente ? ' (pendiente, sin IA)' : ''}`;
     case 'respuesta_agente': return `${nombreDeAgente(d.area)} respondió${d.destinos?.length ? ` tras coordinarse con ${d.destinos.map(nombreDeAgente).join(', ')}` : ''}${d.acciones ? ` · ${d.acciones} acciones a la bitácora` : ''}${d.hechos ? ` · ${d.hechos} hechos` : ''}${d.ideas ? ` · ${d.ideas} ideas` : ''}`;
-    case 'respuesta_reglas': return `${nombreDeAgente(d.area)} respondió con reglas (estado de los agentes, sin tokens)`;
+    case 'gasto_propuesto': return `${nombreDeAgente(d.area)} propuso ${d.gastos === 1 ? 'un gasto' : `${d.gastos} gastos`} por $${Math.round(d.total || 0).toLocaleString('es-MX')}: espera tu aprobación`;
+    case 'gasto_decidido': return `${d.estado === 'aprobado' ? 'Aprobaste' : d.estado === 'rechazado' ? 'Rechazaste' : 'Regresaste a pendiente'} un gasto de ${nombreDeAgente(d.area)} por $${Math.round(d.monto || 0).toLocaleString('es-MX')}`;
+    case 'respuesta_reglas': return `${nombreDeAgente(d.area)} respondió con reglas (estado de los agentes, sin gastar IA)`;
     case 'intercambio_agentes': return `${nombreDeAgente(d.area)} atendió una petición de otro agente${d.profundidad ? ' (segunda vuelta)' : ''}`;
     case 'nota_agente': return `${nombreDeAgente(d.origen)} dejó una nota a ${nombreDeAgente(d.destino)}`;
     case 'investigacion_terminada': return `Investigación de mercado: ${d.competidores} competidores, ${d.busquedas || 0} búsquedas, repartida a ${(d.encargados || []).map(nombreDeAgente).join(', ') || 'nadie'}${d.pendiente ? ' (pendiente, sin IA)' : ''}`;
@@ -426,7 +442,7 @@ async function cargarActividad() {
   cargarSituacion();
 }
 
-// Situación por agente: lo mismo que recibe el Orquestador en su contexto, para que el usuario vea que sí lo sabe.
+// Situación por agente: lo mismo que recibe el Coordinador en su contexto, para que el usuario vea que sí lo sabe.
 const ESTADO_SITUACION = { trabajando: 'Trabajando ahora', bloqueado: 'Bloqueado', activo: 'Activo', inactivo: 'Sin actividad reciente', sin_actividad: 'Sin actividad' };
 async function cargarSituacion() {
   let s;
@@ -480,7 +496,7 @@ async function renderPrimerosPasos() {
     { texto: 'Completa la ficha de la empresa (datos fiscales, productos, clientes)', hecho: fichaLlena, vista: 'configuracion', boton: 'Ficha' },
     { texto: 'Pon nombre a tus agentes y asigna responsables', hecho: equipoLleno, vista: 'agentes', boton: 'Equipo' },
     { texto: 'Activa la IA con tu clave (opcional) para que los agentes respondan', hecho: estado.proveedorIA !== 'ninguno', vista: 'configuracion', boton: 'Configurar' },
-    { texto: 'Conecta una bóveda de notas o sube un documento (opcional)', hecho: fuentes.length > 0, vista: 'configuracion', boton: 'Conectar' },
+    { texto: 'Conecta una carpeta de notas o sube un documento (opcional)', hecho: fuentes.length > 0, vista: 'configuracion', boton: 'Conectar' },
     { texto: 'Analiza tu sitio web (sin IA) para que los agentes sepan cómo está', hecho: sitios.length > 0, vista: 'agentes', boton: 'Analizar', ancla: 'sitio' },
   ];
   lista.replaceChildren();
@@ -505,7 +521,7 @@ async function renderPrimerosPasos() {
   tarjeta.hidden = pasos.every((p) => p.hecho);
 }
 
-// ---------- Informe del Orquestador (reglas, sin IA) ----------
+// ---------- Informe del Coordinador (reglas, sin IA) ----------
 
 async function renderInforme() {
   const tarjeta = $('#informe-card');
@@ -533,7 +549,7 @@ async function renderInforme() {
   if (r.cruzados) filas.push(fila('Contradicciones entre áreas', `${r.cruzados} detectadas por el motor; están en el plan como "Entre áreas".`, 'rojo'));
   if (r.vencidas) filas.push(fila('Acciones vencidas', `${r.vencidas} en la bitácora; revísalas en Agentes › Bitácora.`, 'rojo'));
   if (r.porVencer) filas.push(fila('Vencen esta semana', `${r.porVencer} acciones.`, 'amarillo'));
-  filas.push(fila('Acciones abiertas', r.abiertas ? Object.entries(r.porArea).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([id, n]) => `${id === 'orquestador' ? 'Orquestador' : nombreArea(id)} ${n}`).join(' · ') : 'ninguna todavía'));
+  filas.push(fila('Acciones abiertas', r.abiertas ? Object.entries(r.porArea).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([id, n]) => `${id === 'orquestador' ? 'Coordinador' : nombreArea(id)} ${n}`).join(' · ') : 'ninguna todavía'));
   if (r.sector.length) filas.push(fila('Sector', r.sector.join(', ')));
   filas.push(fila('Siguiente paso', r.siguientePaso, 'siguiente'));
   lista.replaceChildren(...filas);
@@ -678,7 +694,10 @@ async function cargarCampanaIA() {
   llenar('#ia-tono', r.tonos);
   campanaIA = r.campana || null;
   $('#ia-generar').disabled = Boolean(r.bloqueo);
-  if (r.bloqueo) mensaje($('#ia-mensaje'), `${r.bloqueo}. Mientras tanto puedes llenar las piezas a mano, aquí abajo.`);
+  if (r.bloqueo) {
+    mensaje($('#ia-mensaje'), `${r.bloqueo}. Mientras tanto puedes llenar las piezas a mano, aquí abajo.`);
+    if (estado.proveedorIA === 'ninguno') $('#ia-mensaje').append(botonActivarIA());
+  }
   else if (!$('#ia-mensaje').classList.contains('ok')) mensaje($('#ia-mensaje'), '');
   pintarCampanaIA();
 }
@@ -971,7 +990,7 @@ function filaEquipo(contenedor, id, { sub = false } = {}) {
   return fila;
 }
 
-// Editor del equipo agrupado: cada área con sus subagentes plegados, luego el staff del Orquestador y tus agentes.
+// Editor del equipo agrupado: cada área con sus subagentes plegados, luego el staff del Coordinador y tus agentes.
 function renderEquipoEditor(contenedor) {
   contenedor.replaceChildren();
   const propios = idsPropios();
@@ -988,10 +1007,10 @@ function renderEquipoEditor(contenedor) {
     for (const h of hijos) { grupo.append(filaEquipo(contenedor, h, { sub: true })); colocados.add(h); }
     contenedor.append(grupo);
   }
-  // Staff del Orquestador; si alguno tiene subagentes (Auditoría → Prevención de pérdidas), van plegados debajo.
+  // Staff del Coordinador; si alguno tiene subagentes (Auditoría → Prevención de pérdidas), van plegados debajo.
   const staff = apoyoActivos().filter((id) => !colocados.has(id) && (sub[id]?.length || !Object.values(sub).some((l) => l.includes(id))));
   if (staff.length) {
-    contenedor.append(crearElemento('p', { class: 'equipo-separador' }, 'Staff del Orquestador: ven todas las áreas y no son responsables de ninguna.'));
+    contenedor.append(crearElemento('p', { class: 'equipo-separador' }, 'Staff del Coordinador: ven todas las áreas y no son responsables de ninguna.'));
     for (const id of staff) {
       contenedor.append(filaEquipo(contenedor, id));
       colocados.add(id);
@@ -1049,7 +1068,7 @@ function controlOpcionales() {
   return caja;
 }
 
-// Subagentes que el Orquestador propone crear ("Optimizar agentes"): el usuario acepta o rechaza cada uno.
+// Subagentes que el Coordinador propone crear ("Optimizar agentes"): el usuario acepta o rechaza cada uno.
 async function cargarPropuestasAgentes() {
   const caja = $('#propuestas-agentes');
   let propuestas = [];
@@ -1058,7 +1077,7 @@ async function cargarPropuestasAgentes() {
   } catch { /* sin servidor */ }
   const tarjetas = propuestas.map((p, i) => {
     const t = crearElemento('div', { class: 'propuesta' });
-    t.append(crearElemento('strong', {}, `El Orquestador propone crear: ${p.nombre}`));
+    t.append(crearElemento('strong', {}, `El Coordinador propone crear: ${p.nombre}`));
     if (p.motivo) t.append(crearElemento('span', { class: 'subtitulo' }, `Motivo: ${p.motivo}`));
     t.append(crearElemento('span', {}, `${p.rol || 'Sin rol'}. ${p.especialidad || ''} Ve: ${p.areas.map((a) => (a === 'todas' ? 'todas las áreas' : nombreArea(a))).join(', ')}.`));
     const acciones = crearElemento('div', { class: 'acciones-inline' });
@@ -1102,19 +1121,22 @@ async function prepararAgentes() {
   const selector = $('#chat-selector');
   const actual = selector.value;
   selector.replaceChildren();
-  const grupoAreas = crearElemento('optgroup', { label: 'Áreas del negocio' });
-  for (const id of ORDEN_AREAS) grupoAreas.append(crearElemento('option', { value: id }, nombreArea(id)));
-  const grupoApoyo = crearElemento('optgroup', { label: 'Agentes de apoyo' });
-  for (const id of apoyoActivos()) grupoApoyo.append(crearElemento('option', { value: id }, nombreArea(id)));
-  selector.append(grupoAreas, grupoApoyo);
+  // Primero los recomendados para el negocio; los demás, agrupados debajo y sin repetir.
   const propios = idsPropios();
-  if (propios.length) {
-    const grupoPropios = crearElemento('optgroup', { label: 'Mis agentes' });
-    for (const id of propios) grupoPropios.append(crearElemento('option', { value: id }, nombreArea(id)));
-    selector.append(grupoPropios);
-  }
+  const recomendados = agentesRecomendados();
+  const grupo = (label, ids) => {
+    if (!ids.length) return;
+    const g = crearElemento('optgroup', { label });
+    for (const id of ids) g.append(crearElemento('option', { value: id }, nombreArea(id)));
+    selector.append(g);
+  };
+  const resto = (ids) => ids.filter((id) => !recomendados.includes(id));
+  grupo('Para tu negocio hoy', recomendados);
+  grupo(recomendados.length ? 'Otras áreas del negocio' : 'Áreas del negocio', resto(ORDEN_AREAS));
+  grupo(recomendados.length ? 'Otros agentes de apoyo' : 'Agentes de apoyo', resto(apoyoActivos()));
+  grupo(recomendados.length ? 'Otros agentes míos' : 'Mis agentes', resto(propios));
   const validos = [...ORDEN_AREAS, ...apoyoActivos(), ...propios];
-  selector.value = validos.includes(actual) ? actual : ORDEN_AREAS[0];
+  selector.value = validos.includes(actual) ? actual : (recomendados[0] || ORDEN_AREAS[0]);
   chatAgentes?.cargar(selector.value);
   chatOrquestador?.cargar('orquestador');
   renderPropios();
@@ -1137,7 +1159,7 @@ const ETIQUETA_IDEA = { por_validar: 'Por validar', aprobada: 'Aprobada', descar
 
 // Hechos, ideas y conceptos: lo que la empresa ES, lo que alguien PROPUSO y lo que se EXPLICÓ.
 function pintarMemoriaTipos(datos) {
-  const nombreDe = (id) => (id === 'orquestador' ? 'Orquestador' : nombreArea(id));
+  const nombreDe = (id) => (id === 'orquestador' ? 'Coordinador' : nombreArea(id));
   const hechos = $('#bitacora-hechos');
   const ideas = $('#bitacora-ideas');
   const conceptos = $('#bitacora-conceptos');
@@ -1229,7 +1251,7 @@ async function cargarPiloto() {
   global.checked = d.activo;
   $('#piloto-global-texto').textContent = d.activo ? `Encendido · ${d.encendidos} agentes en piloto` : `Apagado · ${d.encendidos} agentes listos para cuando lo enciendas`;
   $('#piloto-estado').textContent = d.activo && !d.puedeIA ? `Encendido, pero no puede correr: ${d.motivoIA}.` : '';
-  const tipoTexto = { orquestador: 'Orquestador', area: 'Área', staff: 'Staff', subagente: 'Subagente', propio: 'Agente propio' };
+  const tipoTexto = { orquestador: 'Coordinador', area: 'Área', staff: 'Staff', subagente: 'Subagente', propio: 'Agente propio' };
   const filas = d.agentes.map((a) => {
     const li = crearElemento('li', { class: a.activo ? '' : 'hecha' });
     const check = crearElemento('input', { type: 'checkbox', 'aria-label': `Piloto de ${a.nombre}` });
@@ -1294,7 +1316,7 @@ async function cargarRutinas() {
   } catch {
     return;
   }
-  const nombreDe = (id) => (id === 'orquestador' ? 'Orquestador' : nombreArea(id));
+  const nombreDe = (id) => (id === 'orquestador' ? 'Coordinador' : nombreArea(id));
   const selArea = $('#rut-area');
   if (!selArea.children.length) for (const id of idsDeTodosLosAgentes()) selArea.append(crearElemento('option', { value: id }, nombreDe(id)));
   const sugerencias = d.sugerencias.map((s) => {
@@ -1484,6 +1506,7 @@ async function agregarHecho() {
 }
 
 async function cargarBitacora() {
+  pintarArchivo();
   // Se arma todo aparte y se reemplaza al final: dos cargas simultáneas (feed + vista) no duplican filas.
   const lista = $('#bitacora-acciones');
   const resumen = $('#bitacora-resumen');
@@ -1495,7 +1518,7 @@ async function cargarBitacora() {
     lista.replaceChildren(crearElemento('li', {}, 'No se pudo cargar la bitácora.'));
     return;
   }
-  const nombreDe = (id) => (id === 'orquestador' ? 'Orquestador' : nombreArea(id));
+  const nombreDe = (id) => (id === 'orquestador' ? 'Coordinador' : nombreArea(id));
   const abiertas = datos.acciones.filter((a) => a.estado === 'pendiente');
   const porArea = {};
   for (const a of abiertas) porArea[a.area] = (porArea[a.area] || 0) + 1;
@@ -1503,7 +1526,13 @@ async function cargarBitacora() {
   for (const [id, n] of Object.entries(porArea).sort((x, y) => y[1] - x[1]).slice(0, 8)) chips.push(crearElemento('span', {}, `${nombreDe(id)}: ${n}`));
   resumen.replaceChildren(...chips);
   const filas = [];
-  if (!datos.acciones.length) filas.push(crearElemento('li', {}, 'Todavía no hay acciones. Aparecen cuando un agente responde con una sección ACCIONES.'));
+  if (!datos.acciones.length) {
+    const li = crearElemento('li', {}, 'Todavía no hay acciones. Se anotan solas cuando un agente te propone algo, y también salen de los compromisos de la junta.');
+    const b = crearElemento('button', { type: 'button', class: 'atajo en-linea' }, 'Abrir la junta');
+    b.addEventListener('click', () => mostrarVista('junta'));
+    li.append(b);
+    filas.push(li);
+  }
   for (const a of datos.acciones.slice(0, 40)) {
     const hoy = new Date();
     const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
@@ -1573,6 +1602,7 @@ async function cargarInvestigacion() {
   llenarProgramacion('inv', datos.programacion, datos.dias);
   const p = datos.programacion;
   $('#inv-estado').textContent = `${p.puedeIA ? (p.activa ? 'IA activa: la investigación corre sola.' : 'IA activa. La investigación está en pausa: elige "Activa" y guarda la programación para que corra sola.') : `${p.motivoIA}: la investigación automática no puede correr; puedes capturar reseñas a mano.`} ${textoProgramacion(p)}`;
+  if (!p.puedeIA && estado.proveedorIA === 'ninguno') $('#inv-estado').append(botonActivarIA());
   $('#inv-ejecutar').disabled = !p.puedeIA;
   const lista = $('#inv-lista');
   $('#inv-detalle').replaceChildren();
@@ -1620,7 +1650,7 @@ async function verInvestigacion(id) {
   seccion('Lo que buscan los clientes', inv.buscan);
   seccion('Lo que rechazan', inv.rechazan);
   seccion('Oportunidades', inv.oportunidades);
-  if (inv.encargos?.length) seccion('Trabajo repartido por el Orquestador', inv.encargos.map((e) => `${e.nombreDestino || e.destinoTexto}: ${e.texto}${e.respuesta ? ' → respondido' : e.pendiente ? ' → pendiente para la persona responsable' : e.error ? ` → ${e.error}` : ''}`));
+  if (inv.encargos?.length) seccion('Trabajo repartido por el Coordinador', inv.encargos.map((e) => `${e.nombreDestino || e.destinoTexto}: ${e.texto}${e.respuesta ? ' → respondido' : e.pendiente ? ' → pendiente para la persona responsable' : e.error ? ` → ${e.error}` : ''}`));
   d.append(crearElemento('h4', {}, `Competidores (${inv.competidores.length})`));
   for (const c of inv.competidores) {
     const caja2 = crearElemento('div', { class: 'competidor' });
@@ -1665,7 +1695,7 @@ async function importarInvestigacion() {
     const j = await res.json();
     if (!res.ok) return mensaje($('#inv-mensaje'), j.errores?.[0] || 'No se pudo guardar.', 'error');
     $('#inv-importar').value = '';
-    mensaje($('#inv-mensaje'), j.investigacion.pendienteReparto ? 'Guardada. El informe quedó pendiente para Ventas y Marketing.' : 'Guardada y repartida por el Orquestador.', 'ok');
+    mensaje($('#inv-mensaje'), j.investigacion.pendienteReparto ? 'Guardada. El informe quedó pendiente para Ventas y Marketing.' : 'Guardada y repartida por el Coordinador.', 'ok');
     cargarInvestigacion();
     cargarBitacora();
   } catch {
@@ -1740,7 +1770,7 @@ async function verSitio(id) {
     }
   }
   if (a.encargos?.length) {
-    d.append(crearElemento('h4', {}, 'Trabajo repartido por el Orquestador'));
+    d.append(crearElemento('h4', {}, 'Trabajo repartido por el Coordinador'));
     const ul = crearElemento('ul');
     for (const e of a.encargos) ul.append(crearElemento('li', {}, `${e.nombreDestino || e.destinoTexto}: ${e.texto}${e.respuesta ? ' → respondido' : e.pendiente ? ' → pendiente para la persona responsable' : e.error ? ` → ${e.error}` : ''}`));
     d.append(ul);
@@ -1804,7 +1834,7 @@ async function cargarJerarquia() {
     const resumen = crearElemento('div', { class: 'subagentes-resumen' });
     resumen.append(crearElemento('strong', {}, 'Subagentes por área'));
     const ul = crearElemento('ul');
-    for (const [jefe, lista] of Object.entries(subagentes || {})) ul.append(crearElemento('li', {}, `${jefe === 'orquestador' ? 'Orquestador' : nombreArea(jefe)}: ${lista.map(nombreArea).join(', ')}`));
+    for (const [jefe, lista] of Object.entries(subagentes || {})) ul.append(crearElemento('li', {}, `${jefe === 'orquestador' ? 'Coordinador' : nombreArea(jefe)}: ${lista.map(nombreArea).join(', ')}`));
     resumen.append(ul);
     contenedor.append(resumen, raiz);
   } catch {
@@ -1829,7 +1859,7 @@ async function cargarAjustes() {
   const selector = $('#ajuste-agente');
   const actual = selector.value;
   selector.replaceChildren();
-  for (const id of idsDeTodosLosAgentes()) selector.append(crearElemento('option', { value: id }, id === 'orquestador' ? 'Orquestador' : nombreArea(id)));
+  for (const id of idsDeTodosLosAgentes()) selector.append(crearElemento('option', { value: id }, id === 'orquestador' ? 'Coordinador' : nombreArea(id)));
   selector.value = idsDeTodosLosAgentes().includes(actual) ? actual : 'orquestador';
   pintarAjuste();
   renderPropuestas();
@@ -1850,7 +1880,7 @@ async function guardarAjuste() {
     const j = await res.json();
     if (!res.ok) return mensaje($('#ajuste-mensaje'), j.errores?.[0] || 'No se pudo guardar.', 'error');
     ajustesCache[id] = j;
-    mensaje($('#ajuste-mensaje'), `Ajustes guardados para ${id === 'orquestador' ? 'el Orquestador' : nombreArea(id)}.`, 'ok');
+    mensaje($('#ajuste-mensaje'), `Ajustes guardados para ${id === 'orquestador' ? 'el Coordinador' : nombreArea(id)}.`, 'ok');
   } catch {
     mensaje($('#ajuste-mensaje'), 'No hay conexión con el servidor local.', 'error');
   }
@@ -1864,7 +1894,7 @@ function renderPropuestas() {
   for (const [id, a] of pendientes) {
     const p = a.propuesta;
     const caja = crearElemento('div', { class: 'propuesta' });
-    caja.append(crearElemento('strong', {}, `Propuesta para ${id === 'orquestador' ? 'el Orquestador' : nombreArea(id)}`));
+    caja.append(crearElemento('strong', {}, `Propuesta para ${id === 'orquestador' ? 'el Coordinador' : nombreArea(id)}`));
     if (p.motivo) caja.append(crearElemento('span', { class: 'subtitulo' }, `Motivo: ${p.motivo}`));
     if (p.notas) caja.append(crearElemento('span', {}, p.notas));
     const ul = crearElemento('ul');
@@ -1892,7 +1922,7 @@ async function optimizarAgentes() {
     const res = await fetch('/api/ajustes/optimizar', { method: 'POST' });
     const j = await res.json();
     if (!res.ok) aviso(j.errores?.[0] || 'No se pudieron generar propuestas.', 'error');
-    else aviso(j.propuestas.length || j.nuevos?.length ? `${j.propuestas.length} ajustes y ${j.nuevos?.length || 0} subagentes nuevos propuestos; revísalos en Ajustes y en Mis agentes.` : 'El Orquestador no propuso cambios.', 'ok');
+    else aviso(j.propuestas.length || j.nuevos?.length ? `${j.propuestas.length} ajustes y ${j.nuevos?.length || 0} subagentes nuevos propuestos; revísalos en Ajustes y en Mis agentes.` : 'El Coordinador no propuso cambios.', 'ok');
     await cargarAjustes();
     cargarPropuestasAgentes();
   } catch {
@@ -1922,12 +1952,14 @@ function pintarUso(u) {
   $('#uso-llamadas').textContent = String(u.llamadas || 0);
   $('#uso-pesos').textContent = u.pesos ? (u.pesos < 10 ? `$${u.pesos.toFixed(2)}` : `$${Math.round(u.pesos).toLocaleString('es-MX')}`) : '$0';
   $('#uso-costo-nota').textContent = u.proveedor !== 'ninguno' ? `Gasto aproximado en pesos, a $${(u.tipoCambio || 0).toFixed(2)} por dólar y con precios de lista del proveedor; tu factura es la que manda.${u.sinPrecio ? ` ${u.sinPrecio.toLocaleString('es-MX')} tokens se gastaron en un modelo sin precio conocido y no están contados: escribe su precio abajo.` : ''}` : '';
-  $('#uso-limite').textContent = u.limite ? u.limite.toLocaleString('es-MX') : 'Sin límite';
+  // El tope en pesos manda en pantalla; si solo hay límite en tokens, se muestra ese.
+  const pct = u.limitePesos ? u.porcentajePesos : (u.limite ? u.porcentaje : 0);
+  $('#uso-limite').textContent = u.limitePesos ? `$${Math.round(u.limitePesos).toLocaleString('es-MX')}` : u.limite ? `${u.limite.toLocaleString('es-MX')} tokens` : 'Sin tope';
   const relleno = $('#uso-relleno');
-  relleno.style.width = `${u.limite ? u.porcentaje : 0}%`;
-  relleno.classList.toggle('alerta', Boolean(u.limite) && u.porcentaje >= 80);
+  relleno.style.width = `${pct}%`;
+  relleno.classList.toggle('alerta', pct >= 80);
   const extra = [u.cacheLeido ? `${u.cacheLeido.toLocaleString('es-MX')} de entrada vinieron de la caché del proveedor (más baratos)` : '', u.busquedas ? `${u.busquedas} búsquedas web cobradas aparte` : ''].filter(Boolean).join(' · ');
-  $('#uso-aviso').textContent = [u.alcanzado ? 'Límite alcanzado: las órdenes quedan pendientes hasta que subas el límite, mañana o el próximo mes.' : (u.limite ? `${u.porcentaje}% del límite mensual usado.` : ''), u.limiteDiario ? `Hoy: ${u.porcentajeHoy}% del límite diario.` : '', extra].filter(Boolean).join(' ');
+  $('#uso-aviso').textContent = [u.alcanzado ? 'Tope alcanzado: la IA está detenida y las órdenes quedan pendientes hasta que lo subas o empiece el mes.' : (u.limitePesos ? `Llevas ${u.porcentajePesos}% de tu tope del mes.` : u.limite ? `${u.porcentaje}% del límite mensual de tokens usado.` : u.proveedor !== 'ninguno' ? 'Sin tope: la IA no se detiene sola. Conviene poner uno.' : ''), u.limiteDiario ? `Hoy: ${u.porcentajeHoy}% del límite diario.` : '', extra].filter(Boolean).join(' ');
   const hoyEl = $('#uso-hoy');
   if (hoyEl) hoyEl.textContent = (u.hoy || 0).toLocaleString('es-MX');
   const ahorro = $('#uso-ahorro');
@@ -1936,9 +1968,9 @@ function pintarUso(u) {
   lista.replaceChildren();
   const porAgente = Object.entries(u.porAgente || {}).sort(([, a], [, b]) => b - a).slice(0, 8);
   if (!porAgente.length) lista.append(crearElemento('li', {}, 'Sin consumo este mes.'));
-  for (const [id, t] of porAgente) lista.append(crearElemento('li', {}, `${id === 'orquestador' ? 'Orquestador' : nombreArea(id)}: ${t.toLocaleString('es-MX')}`));
+  for (const [id, t] of porAgente) lista.append(crearElemento('li', {}, `${id === 'orquestador' ? 'Coordinador' : nombreArea(id)}: ${t.toLocaleString('es-MX')}`));
   const chip = $('#estado');
-  if (u.proveedor !== 'ninguno') chip.title = `IA: ${u.modelo || u.proveedor} · ${(u.total || 0).toLocaleString('es-MX')} tokens este mes${u.limite ? ` de ${u.limite.toLocaleString('es-MX')}` : ''}`;
+  if (u.proveedor !== 'ninguno') chip.title = `IA: ${u.modelo || u.proveedor} · cerca de $${Math.round(u.pesos || 0).toLocaleString('es-MX')} este mes${u.limitePesos ? ` de $${Math.round(u.limitePesos).toLocaleString('es-MX')}` : ''}`;
 }
 
 async function cargarUso() {
@@ -1989,7 +2021,7 @@ async function cargarDocumentos() {
     const metodo = { docx: 'Word, texto leído', texto: 'texto leído', pdf: 'PDF, texto leído', 'pdf-sin-texto': 'PDF sin texto (escaneado): no se puede leer', imagen: 'imagen: se analiza con IA' }[d.metodo] || d.metodo;
     info.append(crearElemento('strong', {}, d.nombre), crearElemento('small', {}, `${fechaCorta(d.creado)} · ${(d.tam / 1024).toFixed(0)} KB · ${metodo}${d.caracteres ? ` · ${d.caracteres} caracteres` : ''}`));
     const acciones = crearElemento('div', { class: 'doc-acciones' });
-    const analizar = crearElemento('button', { class: 'boton compacto', type: 'button', title: costoDe('documento')?.texto || '' }, d.analisis ? 'Volver a analizar' : 'Analizar con el Orquestador');
+    const analizar = crearElemento('button', { class: 'boton compacto', type: 'button', title: costoDe('documento')?.texto || '' }, d.analisis ? 'Volver a analizar' : 'Analizar con el Coordinador');
     analizar.addEventListener('click', async () => {
       analizar.disabled = true;
       analizar.textContent = 'Analizando…';
@@ -2039,7 +2071,7 @@ async function subirDocumento(archivo) {
     const res = await fetch('/api/documentos', { method: 'POST', headers: { 'content-type': tipo, 'x-nombre': encodeURIComponent(archivo.name) }, body: archivo });
     const j = await res.json();
     if (!res.ok) return mensaje($('#doc-mensaje'), j.errores?.[0] || 'No se pudo subir.', 'error');
-    mensaje($('#doc-mensaje'), j.metodo === 'pdf-sin-texto' ? 'Guardado, pero el PDF no tiene texto legible.' : 'Documento guardado. Pulsa "Analizar con el Orquestador".', 'ok');
+    mensaje($('#doc-mensaje'), j.metodo === 'pdf-sin-texto' ? 'Guardado, pero el PDF no tiene texto legible.' : 'Documento guardado. Pulsa "Analizar con el Coordinador".', 'ok');
     cargarDocumentos();
   } catch {
     mensaje($('#doc-mensaje'), 'No hay conexión con el servidor local.', 'error');
@@ -2230,7 +2262,7 @@ async function cargarFuentes() {
   }
   const lista = $('#fuentes-lista');
   lista.replaceChildren();
-  if (!estado.fuentes.length) lista.append(crearElemento('li', { class: 'subtitulo' }, 'Sin bóvedas conectadas.'));
+  if (!estado.fuentes.length) lista.append(crearElemento('li', { class: 'subtitulo' }, 'Sin carpetas de notas conectadas.'));
   for (const f of estado.fuentes) {
     const li = crearElemento('li', { class: 'fuente' });
     const info = crearElemento('div', { class: 'fuente-info' });
@@ -2461,8 +2493,10 @@ function renderKpis(resultado, cuenta) {
   nota('#kpi-evaluadas-nota', cuenta.rojo ? `${cuenta.rojo} en atención` : cuenta.amarillo ? `${cuenta.amarillo} por revisar` : evaluadas ? 'Todas bien' : '');
   const inmediatas = resultado.plan.filter((p) => p.color === 'rojo').length;
   nota('#kpi-acciones-nota', inmediatas ? `${inmediatas} urgentes` : '');
-  nota('#kpi-madurez-nota', !evaluadas ? '' : nivel >= 4 ? 'Sólida' : nivel >= 2.5 ? 'En desarrollo' : 'Frágil');
+  const palabra = !evaluadas ? '' : nivel >= 4 ? 'Sólida' : nivel >= 2.5 ? 'En desarrollo' : 'Frágil';
+  nota('#kpi-madurez-nota', palabra);
   pintarDial(nivel);
+  $('#dial-nivel').textContent = palabra ? `Madurez: ${palabra.toLowerCase()}` : 'Madurez';
 }
 
 // Dial de madurez sobre la ciudad (0 a 5).
@@ -2511,6 +2545,20 @@ function renderMotor(crecimiento) {
   renderEje('horizontal', c.horizontal);
 }
 
+// Los pocos agentes que conviene ver primero: las áreas que más urgen, el apoyo que las acompaña, los del sector
+// del negocio y los que creó el dueño. Los demás siguen a un clic, en "Todos".
+const MAX_RECOMENDADOS = 6;
+const APOYO_DE_AREA = { finanzas: 'credito', ventas: 'atencion', marketing: 'trafico', compras: 'inventarios', operaciones: 'mejora', rh: 'reclutamiento', tecnologia: 'ciberseguridad', fiscal: 'contabilidad', direccion: 'planificador', riesgos: 'auditoria', crecimiento: 'expansion' };
+function agentesRecomendados() {
+  const resultado = estado.ultimo?.resultado;
+  if (!resultado) return [];
+  const activos = new Set(apoyoActivos());
+  const urgentes = [...resultado.prioridad, ...ORDEN_AREAS].filter((id, i, l) => resultado.distritos[id] && l.indexOf(id) === i).slice(0, 3);
+  const delSector = Object.entries(estado.apoyo?.opcionales || {}).filter(([id, o]) => o.activo && activos.has(id)).map(([id]) => id);
+  const apoyo = urgentes.map((id) => APOYO_DE_AREA[id]).filter((id) => id && activos.has(id));
+  return [...new Set([...urgentes, ...delSector, ...idsPropios(), ...apoyo])].slice(0, MAX_RECOMENDADOS);
+}
+
 function tarjetaAgente(id, color, etiqueta, alAbrir) {
   const tarjeta = crearElemento('article', { class: `agente-card ${color}`, role: 'button', tabindex: '0', 'aria-label': `Agente de ${etiqueta}` });
   const foto = avatarDe(id);
@@ -2534,6 +2582,7 @@ function renderEquipo(distritos) {
     if (!d) continue;
     contenedor.append(tarjetaAgente(id, d.color, d.nombre, () => mostrarDetalle(id)));
   }
+  const recomendados = agentesRecomendados();
   for (const id of apoyoActivos()) {
     contenedor.append(tarjetaAgente(id, 'apoyo', NOMBRES_APOYO[id], () => mostrarDetalle(id)));
   }
@@ -2541,12 +2590,13 @@ function renderEquipo(distritos) {
     contenedor.append(tarjetaAgente(id, 'propio', estado.personalizados.agentes[id].nombre, () => mostrarDetalle(id)));
   }
   const total = ORDEN_AREAS.length + apoyoActivos().length + idsPropios().length;
-  $('#equipo-contador').textContent = `${total} agentes`;
-  const cuentaMenu = $('#menu-agentes-cuenta');
-  cuentaMenu.textContent = String(total);
-  cuentaMenu.hidden = false;
+  // Las tarjetas van en el mismo orden en que se agregaron: áreas, apoyo y propios.
+  const orden = [...ORDEN_AREAS.filter((id) => distritos[id]), ...apoyoActivos(), ...idsPropios()];
+  [...contenedor.querySelectorAll('.agente-card')].forEach((t, i) => t.classList.toggle('recomendado', recomendados.includes(orden[i])));
+  $('#equipo-contador').textContent = `${recomendados.length} de ${total} agentes`;
+  $('#equipo-nota').textContent = `Estos ${recomendados.length} son los que más te sirven hoy: tus áreas más urgentes y los agentes que mejor las apoyan. Los otros ${total - recomendados.length} están en “Todos”.`;
   contenedor.append(crearElemento('p', { class: 'equipo-vacio', hidden: '' }, 'Ningún agente en este grupo.'));
-  filtrarTarjetasEquipo(contenedor.dataset.filtro || 'todos');
+  filtrarTarjetasEquipo(contenedor.dataset.filtro || 'recomendados');
 }
 
 // Filtro del equipo en el dashboard: todos, áreas, en atención, apoyo o propios.
@@ -2558,6 +2608,7 @@ function filtrarTarjetasEquipo(filtro) {
     b.classList.toggle('activo', activo);
     b.setAttribute('aria-pressed', String(activo));
   }
+  $('#equipo-nota').hidden = filtro !== 'recomendados';
   const visibles = [...contenedor.querySelectorAll('.agente-card')].some((t) => getComputedStyle(t).display !== 'none');
   const vacio = contenedor.querySelector('.equipo-vacio');
   if (vacio) vacio.hidden = visibles;
@@ -2737,7 +2788,7 @@ function renderPlan(plan) {
       formato.addEventListener('click', () => descargarEntregable(p, false, formato));
       entregables.append(formato);
       if (estado.proveedorIA !== 'ninguno') {
-        const redactar = crearElemento('button', { type: 'button', class: 'atajo', title: `El agente del área lo redacta con los datos de tu empresa. ${costoDe('entregable')?.texto || 'Gasta tokens de tu clave.'}` }, costoDe('entregable') ? `Redactar con IA (≈ $${costoDe('entregable').aproximado.toFixed(2)})` : 'Redactar con IA');
+        const redactar = crearElemento('button', { type: 'button', class: 'atajo', title: `El agente del área lo redacta con los datos de tu empresa. ${costoDe('entregable')?.texto || 'Usa la IA de tu clave y tiene costo.'}` }, costoDe('entregable') ? `Redactar con IA (≈ $${costoDe('entregable').aproximado.toFixed(2)})` : 'Redactar con IA');
         redactar.addEventListener('click', () => descargarEntregable(p, true, redactar));
         entregables.append(redactar);
       }
@@ -2903,9 +2954,10 @@ async function cargarJunta() {
   }
   const j = r.junta;
   $('#junta-titulo').textContent = `Junta de la semana del ${fechaCorta(`${j.semana}T12:00:00`)}`;
+  $('#junta-descargas').hidden = !j.compromisos.length && !j.hayDiagnostico;
   if (!j.compromisos.length && !j.hayDiagnostico) {
     cuerpo.hidden = true;
-    vacia.replaceChildren(estadoVacio({ etiqueta: 'div', icono: 'calendar', titulo: 'Tu primera junta sale del diagnóstico', texto: 'Con el diagnóstico exprés (cinco minutos) la oficina arma cada lunes una hoja con tres cifras, las decisiones que te tocan y los compromisos de la semana con su responsable.', accion: { texto: 'Empezar diagnóstico', alHacer: () => reiniciar() } }));
+    vacia.replaceChildren(estadoVacio({ etiqueta: 'div', icono: 'calendar', titulo: 'Tu primera junta sale del diagnóstico', texto: 'Con el diagnóstico exprés (cinco minutos) la oficina arma cada lunes una hoja con tres cifras, las decisiones que te tocan y los compromisos de la semana con su responsable.', accion: { texto: 'Empezar diagnóstico', alHacer: () => reiniciar() }, otra: estado.puedeDemo ? { texto: 'Ver un negocio de ejemplo', alHacer: abrirDemo } : null }));
     return;
   }
   vacia.replaceChildren();
@@ -3021,7 +3073,7 @@ function pintarCompromisosJunta(r) {
   $('#junta-lleno').hidden = !lleno;
   const area = $('#junta-area');
   if (!area.options.length) {
-    area.append(crearElemento('option', { value: 'orquestador' }, 'General (Orquestador)'));
+    area.append(crearElemento('option', { value: 'orquestador' }, 'General (Coordinador)'));
     for (const id of ORDEN_AREAS) area.append(crearElemento('option', { value: id }, nombreArea(id)));
     area.value = 'direccion';
   }
@@ -3158,6 +3210,307 @@ async function guardarSaldoFlujo() {
   }
 }
 
+// ---------- Pendientes de la semana (portada) ----------
+
+let textoSemana = ''; // la lista de pendientes en texto, para WhatsApp o copiar
+
+// Lo primero que se ve en la portada: hasta tres compromisos de la junta de esta semana, para marcarlos al cumplirlos.
+// Son los mismos de la Junta semanal; aquí solo se ven y se palomean.
+async function renderSemana() {
+  const tarjeta = $('#semana-card');
+  if (!estado.ultimo) { tarjeta.hidden = true; return; }
+  let r;
+  try { r = await fetch('/api/junta').then((x) => (x.ok ? x.json() : null)); } catch { r = null; }
+  const todos = r?.junta?.compromisos || [];
+  if (!todos.length || estado.vista !== 'dashboard' || !estado.ultimo) { tarjeta.hidden = true; return; }
+  const hechos = todos.filter((c) => c.hecho).length;
+  const pendientes = todos.filter((c) => !c.hecho);
+  const visibles = (pendientes.length ? pendientes : todos).slice(0, 3);
+  const cuantos = pendientes.length === 1 ? 'Te falta una cosa' : `Te faltan ${pendientes.length} cosas`;
+  $('#semana-titulo').textContent = pendientes.length ? (visibles.length === 1 ? 'Esta semana, una cosa' : `Esta semana, ${visibles.length} cosas`) : 'Semana cumplida';
+  $('#semana-resumen').textContent = pendientes.length
+    ? (hechos ? `${cuantos} de ${todos.length}. Marca cada una cuando quede hecha.` : 'Lo más importante para tu negocio en estos días. Marca cada una cuando quede hecha.')
+    : `Cumpliste ${todos.length === 1 ? 'tu compromiso' : `tus ${todos.length} compromisos`} de la semana. El lunes la oficina propone los siguientes.`;
+  $('#semana-lista').replaceChildren(...visibles.map((c) => {
+    const li = crearElemento('li', { class: `junta-compromiso${c.hecho ? ' hecha' : ''}` });
+    const check = crearElemento('input', { type: 'checkbox', 'aria-label': `Marcar como hecho: ${c.texto}` });
+    check.checked = c.hecho;
+    check.addEventListener('change', async () => {
+      check.disabled = true;
+      const res = await fetch(`/api/memoria/acciones/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: check.checked ? 'hecha' : 'pendiente' }) }).catch(() => null);
+      if (!res?.ok) aviso('No se pudo guardar el cambio.', 'error');
+      else if (check.checked) aviso('Hecho. Queda registrado en la junta.', 'ok');
+      renderSemana();
+    });
+    const vencido = !c.hecho && c.vence < new Date().toLocaleDateString('sv-SE');
+    const texto = crearElemento('div');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, c.texto), crearElemento('small', {}, `${c.nombreArea} · ${c.responsable || 'sin responsable'} · ${vencido ? 'venció el' : 'para el'} ${fechaCorta(`${c.vence}T12:00:00`)}`));
+    li.append(check, texto);
+    return li;
+  }));
+  // La oficina solo se abre en esta computadora: para llevarse los pendientes al celular se mandan por WhatsApp
+  // (lo abre el propio usuario; la aplicación no envía nada) o se copian.
+  textoSemana = pendientes.length ? [
+    `Pendientes de la semana del ${fechaCorta(`${r.junta.semana}T12:00:00`)}${estado.marca?.nombre ? ` · ${estado.marca.nombre}` : ''}:`,
+    ...pendientes.map((c, i) => `${i + 1}. ${c.texto.replace(/[.\s]+$/, '')} (${c.nombreArea}${c.responsable ? `, ${c.responsable}` : ''}, para el ${fechaCorta(`${c.vence}T12:00:00`)}).`),
+  ].join('\n') : '';
+  $('#semana-llevar').hidden = !textoSemana;
+  $('#semana-whatsapp').href = textoSemana ? `https://wa.me/?text=${encodeURIComponent(textoSemana)}` : '#';
+  const fuera = pendientes.length - visibles.length;
+  const mas = $('#semana-mas');
+  mas.hidden = !(pendientes.length && (fuera > 0 || hechos > 0));
+  mas.textContent = [fuera > 0 ? `Hay ${fuera} más en la junta.` : '', hechos > 0 ? `Ya ${hechos === 1 ? 'cumpliste una' : `cumpliste ${hechos}`}.` : ''].filter(Boolean).join(' ');
+  tarjeta.hidden = false;
+}
+
+// ---------- Archivo de memoria ----------
+
+// Buscador del archivo: sin texto muestra lo fijado y lo más reciente; con texto, lo más relacionado.
+async function pintarArchivo() {
+  const q = $('#archivo-buscar').value.trim();
+  const tipo = $('#archivo-tipo').value;
+  let r = null;
+  try { const res = await fetch(`/api/archivo?q=${encodeURIComponent(q)}&tipo=${encodeURIComponent(tipo)}&limite=30`); if (res.ok) r = await res.json(); } catch { r = null; }
+  $('#archivo-card').hidden = !r;
+  if (!r) return;
+  const selector = $('#archivo-tipo');
+  if (selector.options.length <= 1) for (const [id, nombre] of Object.entries(r.tipos)) selector.append(crearElemento('option', { value: id }, nombre));
+  for (const o of selector.options) if (o.value) o.textContent = `${r.tipos[o.value]} (${r.porTipo[o.value] || 0})`;
+  $('#archivo-contador').textContent = `${r.total.toLocaleString('es-MX')} guardadas · ${r.fijas} fijas`;
+  $('#archivo-estado').textContent = !r.total ? '' : q ? (r.encontradas ? `${r.encontradas} ${r.encontradas === 1 ? 'entrada relacionada' : 'entradas relacionadas'} con "${q}". La búsqueda es por palabras y sinónimos de negocio.` : `Nada relacionado con "${q}". Prueba con otra palabra: la búsqueda es por palabras, no por significado.`) : 'Lo fijado va primero y viaja siempre a los agentes. Lo demás solo viaja cuando tiene que ver con la orden.';
+  const lista = $('#archivo-lista');
+  if (!r.entradas.length) {
+    lista.replaceChildren(estadoVacio({ icono: 'layers', titulo: r.total ? 'Sin resultados' : 'El archivo está vacío', texto: r.total ? 'Cambia la búsqueda o el tipo.' : 'Se llena solo: cuando le cuentas algo de tu negocio a un agente, cuando apruebas o rechazas algo y cuando se cumple una acción.' }));
+    return;
+  }
+  lista.replaceChildren(...r.entradas.map((e) => {
+    const li = crearElemento('li', { class: `archivo-item${e.fijo ? ' fijo' : ''}` });
+    const texto = crearElemento('div');
+    const detalle = [e.nombreArea, e.fuente, e.momento ? fechaCorta(e.momento) : ''].filter(Boolean).join(' · ');
+    const pie = crearElemento('small');
+    pie.append(crearElemento('span', { class: `chip-tipo ${e.tipo}` }, r.tipos[e.tipo]), ` ${detalle}${e.fijo ? ' · siempre presente' : ''}`);
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, e.texto), pie);
+    const acciones = crearElemento('div', { class: 'junta-acciones' });
+    const fijar = crearElemento('button', { type: 'button', class: 'atajo', title: e.fijo ? 'Deja de viajar siempre; sigue guardada' : 'Los agentes la verán en todas las órdenes' }, e.fijo ? 'Soltar' : 'Fijar');
+    fijar.addEventListener('click', async () => {
+      const res = await fetch(`/api/archivo/${e.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fijo: !e.fijo }) }).catch(() => null);
+      const cuerpo = res ? await res.json().catch(() => ({})) : {};
+      if (!res?.ok) aviso(cuerpo.errores?.[0] || 'No se pudo cambiar.', 'error');
+      else aviso(e.fijo ? 'Ya no viaja siempre. Sigue en el archivo.' : 'Fijada: los agentes la verán en todas las órdenes.', 'ok');
+      pintarArchivo();
+    });
+    const borrar = crearElemento('button', { type: 'button', class: 'atajo', title: 'La quita del archivo para siempre' }, 'Borrar');
+    borrar.addEventListener('click', async () => {
+      const res = await fetch(`/api/archivo/${e.id}`, { method: 'DELETE' }).catch(() => null);
+      aviso(res?.ok ? 'Entrada borrada del archivo.' : 'No se pudo borrar.', res?.ok ? 'ok' : 'error');
+      pintarArchivo();
+    });
+    acciones.append(fijar, borrar);
+    li.append(texto, acciones);
+    return li;
+  }));
+}
+
+// Cuánto pesa el contexto de cada agente y cuánto cuesta enviarlo en una orden.
+async function pintarContexto() {
+  const lista = $('#contexto-lista');
+  let r = null;
+  try { const res = await fetch('/api/contexto'); if (res.ok) r = await res.json(); } catch { r = null; }
+  if (!r) { lista.replaceChildren(crearElemento('li', {}, 'No se pudo calcular.')); return; }
+  lista.replaceChildren(...r.agentes.slice(0, 15).map((a) => crearElemento('li', {}, `${a.nombre}: ${a.tokens.toLocaleString('es-MX')} tokens${a.pesos === null ? '' : ` · cerca de ${a.pesos < 0.01 ? 'menos de 1 centavo' : `$${a.pesos.toFixed(2)}`} por orden, antes de la respuesta`}`)));
+  if (r.agentes.length > 15) lista.append(crearElemento('li', {}, `Y ${r.agentes.length - 15} agentes más, todos más ligeros.`));
+}
+
+// ---------- Presupuesto por área y gastos por aprobar ----------
+
+const pesosEnteros = (n) => `$${Math.round(n).toLocaleString('es-MX')}`;
+
+// Qué significa aprobar un gasto frente al presupuesto de su área.
+function contextoGasto(g) {
+  if (!g.asignado) return { texto: `${g.nombreArea} no tiene presupuesto asignado este mes.`, alerta: true };
+  if (g.excede > 0) return { texto: `Se pasa por ${pesosEnteros(g.excede)}: a ${g.nombreArea} le quedan ${pesosEnteros(Math.max(0, g.disponible))} de ${pesosEnteros(g.asignado)}.`, alerta: true };
+  return { texto: `Cabe en el presupuesto de ${g.nombreArea}: quedarían ${pesosEnteros(g.disponible - g.monto)} de ${pesosEnteros(g.asignado)}.`, alerta: false };
+}
+
+async function decidirGasto(id, estadoNuevo) {
+  try {
+    const res = await fetch(`/api/presupuesto/gastos/${id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ estado: estadoNuevo }) });
+    if (!res.ok) throw new Error();
+    aviso(estadoNuevo === 'aprobado' ? 'Gasto aprobado. Tus agentes ya lo saben.' : estadoNuevo === 'rechazado' ? 'Gasto rechazado. Tus agentes ya lo saben.' : 'El gasto volvió a pendiente.', 'ok');
+  } catch {
+    aviso('No se pudo guardar tu decisión.', 'error');
+  }
+  pintarGastos();
+}
+
+// Portada: gastos que esperan decisión. Configuración: el presupuesto por área y el historial de decisiones.
+async function pintarGastos() {
+  let p = null;
+  try { const res = await fetch('/api/presupuesto'); if (res.ok) p = await res.json(); } catch { p = null; }
+  $('#presupuesto-card').hidden = !p;
+  if (!p) { $('#gastos-card').hidden = true; return; }
+  const pendientes = p.gastos.filter((g) => g.estado === 'pendiente');
+  $('#gastos-card').hidden = !pendientes.length;
+  $('#gastos-titulo').textContent = pendientes.length === 1 ? 'Un gasto por aprobar' : `${pendientes.length} gastos por aprobar`;
+  $('#gastos-lista').replaceChildren(...pendientes.map((g) => {
+    const li = crearElemento('li', { class: 'gasto' });
+    const c = contextoGasto(g);
+    const texto = crearElemento('div');
+    texto.append(crearElemento('span', { class: 'bitacora-texto' }, g.concepto), crearElemento('small', {}, `${g.nombreArea}${g.origen ? ` · lo propuso ${g.origen}` : ''} · ${fechaCorta(g.momento)}`), crearElemento('span', { class: `gasto-contexto${c.alerta ? ' alerta' : ''}` }, c.texto));
+    const acciones = crearElemento('div', { class: 'acciones-inline' });
+    const aprobar = crearElemento('button', { type: 'button', class: 'boton compacto' }, 'Aprobar');
+    const rechazar = crearElemento('button', { type: 'button', class: 'boton secundario compacto' }, 'Rechazar');
+    aprobar.addEventListener('click', () => { aprobar.disabled = rechazar.disabled = true; decidirGasto(g.id, 'aprobado'); });
+    rechazar.addEventListener('click', () => { aprobar.disabled = rechazar.disabled = true; decidirGasto(g.id, 'rechazado'); });
+    acciones.append(aprobar, rechazar);
+    li.append(texto, crearElemento('strong', {}, pesosEnteros(g.monto)), acciones);
+    return li;
+  }));
+
+  // Formulario de Configuración: no se repinta mientras el dueño escribe en él.
+  const caja = $('#presupuesto-areas');
+  if (!caja.contains(document.activeElement)) {
+    caja.replaceChildren(...p.resumen.map((r) => {
+      const campo = crearElemento('div', { class: 'campo' });
+      const entrada = crearElemento('input', { id: `presupuesto-${r.area}`, type: 'number', min: '0', step: '100', 'data-area': r.area, placeholder: '0' });
+      entrada.value = r.asignado || '';
+      campo.append(crearElemento('label', { for: `presupuesto-${r.area}` }, r.nombre), entrada);
+      if (r.asignado || r.aprobado || r.pendiente) campo.append(crearElemento('small', { class: 'ayuda' }, `Aprobado este mes: ${pesosEnteros(r.aprobado)}${r.asignado ? ` · queda ${pesosEnteros(r.disponible)}` : ''}${r.pendiente ? ` · por aprobar ${pesosEnteros(r.pendiente)}` : ''}`));
+      return campo;
+    }));
+    $('#presupuesto-nota').value = p.nota || '';
+  }
+  const ETIQUETA = { pendiente: 'Por aprobar', aprobado: 'Aprobado', rechazado: 'Rechazado' };
+  $('#presupuesto-gastos').replaceChildren(...(p.gastos.length ? p.gastos.slice(0, 30).map((g) => {
+    const li = crearElemento('li', {}, `${ETIQUETA[g.estado]}: ${g.concepto} (${g.nombreArea}, ${pesosEnteros(g.monto)}) · ${fechaCorta(g.decidido || g.momento)}`);
+    if (g.estado !== 'pendiente') {
+      const deshacer = crearElemento('button', { type: 'button', class: 'atajo en-linea', title: 'Regresa el gasto a "por aprobar"' }, 'Deshacer');
+      deshacer.addEventListener('click', () => decidirGasto(g.id, 'pendiente'));
+      li.append(deshacer);
+    }
+    return li;
+  }) : [crearElemento('li', {}, 'Todavía no hay gastos. Aparecen cuando un agente propone algo que cuesta dinero.')]));
+}
+
+async function guardarPresupuesto() {
+  const areas = {};
+  for (const entrada of document.querySelectorAll('#presupuesto-areas input[data-area]')) areas[entrada.dataset.area] = Number(entrada.value) || 0;
+  try {
+    const res = await fetch('/api/presupuesto', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ areas, nota: $('#presupuesto-nota').value }) });
+    if (!res.ok) throw new Error();
+    mensaje($('#presupuesto-mensaje'), 'Presupuesto guardado. Tus agentes lo usan desde la siguiente orden.', 'ok');
+    document.activeElement?.blur();
+    pintarGastos();
+  } catch {
+    mensaje($('#presupuesto-mensaje'), 'No se pudo guardar el presupuesto.', 'error');
+  }
+}
+
+// ---------- IA detenida por un límite ----------
+
+// Cuando un límite frena a la IA, un aviso fijo dice cuál fue, cuánto se lleva gastado y cuánto cuesta seguir,
+// y trae los botones para subirlo ahí mismo. Solo cambia ese límite; lo demás de la configuración no se toca.
+function pintarIaDetenida() {
+  const caja = $('#ia-detenida');
+  const u = estado.uso;
+  if (!u?.detenidaPor || estado.proveedorIA === 'ninguno') { caja.hidden = true; return; }
+  const dinero = (n) => `$${Math.round(n).toLocaleString('es-MX')}`;
+  const miles = (n) => n.toLocaleString('es-MX');
+  const redondo = (n, paso) => Math.ceil(n / paso) * paso;
+  const orden = costoDe('orden');
+  const seguir = orden ? ` Seguir cuesta poco: una orden a un agente sale en ${orden.aproximado < 0.01 ? 'menos de 1 centavo' : `cerca de $${orden.aproximado.toFixed(2)}`}.` : '';
+  let texto;
+  let opciones;
+  if (u.detenidaPor === 'pesos') {
+    const base = Math.max(u.pesos, u.limitePesos);
+    const paso = base < 200 ? 50 : base < 1000 ? 100 : 500;
+    const a = redondo(base * 1.25 + 1, paso);
+    texto = `Llegaste a tu tope de ${dinero(u.limitePesos)} al mes: llevas cerca de ${dinero(u.pesos)}. Las órdenes quedan pendientes hasta que lo subas o empiece el mes.${seguir}`;
+    opciones = [[`Subir a ${dinero(a)}`, { limiteMensualPesos: a }], [`Subir a ${dinero(a * 2)}`, { limiteMensualPesos: a * 2 }]];
+  } else if (u.detenidaPor === 'tokens_mes') {
+    const a = redondo(Math.max(u.total, u.limite) * 1.5, 100000);
+    texto = `Se alcanzó el límite mensual de uso (${miles(u.limite)} tokens; llevas ${miles(u.total)}${u.pesos ? `, cerca de ${dinero(u.pesos)}` : ''}). Las órdenes quedan pendientes hasta que lo subas o empiece el mes.${seguir}`;
+    opciones = [[`Subir a ${miles(a)} tokens`, { limiteMensualTokens: a }], ['Quitar este límite', { limiteMensualTokens: 0 }]];
+  } else {
+    const a = redondo(Math.max(u.hoy, u.limiteDiario) * 2, 50000);
+    texto = `Se alcanzó el límite de uso de hoy (${miles(u.limiteDiario)} tokens). Mañana se reanuda sola, o puedes subirlo ahora.${seguir}`;
+    opciones = [[`Subir a ${miles(a)} tokens al día`, { limiteDiarioTokens: a }], ['Quitar este límite', { limiteDiarioTokens: 0 }]];
+  }
+  $('#ia-detenida-texto').textContent = texto;
+  const botones = opciones.map(([etiqueta, cambio], i) => {
+    const b = crearElemento('button', { type: 'button', class: `boton compacto${i ? ' secundario' : ''}` }, etiqueta);
+    b.addEventListener('click', async () => {
+      for (const x of botones) x.disabled = true;
+      try {
+        const res = await fetch('/api/configuracion/limites', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cambio) });
+        if (!res.ok) throw new Error();
+        aviso('Listo. La IA vuelve a responder; reenvía la orden que quedó pendiente.', 'ok');
+        await refrescarEstadoIA();
+        if (estado.vista === 'configuracion') cargarConfiguracion();
+      } catch {
+        for (const x of botones) x.disabled = false;
+        aviso('No se pudo cambiar el límite.', 'error');
+      }
+    });
+    return b;
+  });
+  const consumo = crearElemento('button', { type: 'button', class: 'boton secundario compacto' }, 'Ver consumo');
+  consumo.addEventListener('click', () => { mostrarVista('configuracion', { scroll: false }); setTimeout(() => $('#uso-card').scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); });
+  $('#ia-detenida-acciones').replaceChildren(...botones, consumo);
+  caja.hidden = false;
+}
+
+// ---------- Respaldo ----------
+
+// Dice cuándo fue el último respaldo y, en la portada, lo recuerda cuando ya pasó un mes (o nunca se ha hecho).
+// En el negocio de ejemplo no se recuerda nada.
+async function pintarRespaldo() {
+  let r = null;
+  try { const res = await fetch('/api/respaldo/estado'); if (res.ok) r = await res.json(); } catch { r = null; }
+  const tarjeta = $('#respaldo-card');
+  tarjeta.hidden = !r;
+  if (!r) { $('#respaldo-aviso').hidden = true; return; }
+  const megas = r.bytes / (1024 * 1024);
+  const peso = megas >= 1 ? `${megas.toFixed(1)} MB` : `${Math.max(1, Math.round(r.bytes / 1024))} KB`;
+  const cuando = r.ultimo ? (r.dias === 0 ? 'hoy' : r.dias === 1 ? 'ayer' : `hace ${r.dias} días`) : '';
+  $('#respaldo-estado').textContent = !r.archivos ? 'Todavía no hay datos que respaldar.' : `${r.ultimo ? `Último respaldo: ${cuando} (${fechaCorta(r.ultimo)}).` : 'Aún no has guardado ningún respaldo.'} Hoy pesaría cerca de ${peso} sin comprimir.`;
+  let pospuesto = 0;
+  try { pospuesto = Number(localStorage.getItem('respaldo-despues')) || 0; } catch { pospuesto = 0; }
+  const recordar = r.recordar && !estado.demo && estado.ultimo !== null && Date.now() > pospuesto;
+  $('#respaldo-aviso-titulo').textContent = r.ultimo ? `Tu último respaldo fue ${cuando}.` : 'Aún no tienes un respaldo.';
+  $('#respaldo-aviso').hidden = !recordar;
+}
+
+// ---------- Negocio de ejemplo ----------
+
+// Con varias empresas disponibles, la portada vacía ofrece abrir un negocio de ejemplo; dentro de él, un aviso fijo
+// recuerda que todo es inventado y permite volver o quitarlo.
+async function pintarAvisoDemo() {
+  let datos = null;
+  try { const res = await fetch('/api/empresas'); if (res.ok) datos = await res.json(); } catch { datos = null; }
+  const activa = datos?.lista.find((e) => e.id === datos.activa);
+  $('#vacio-demo').hidden = !datos || Boolean(activa?.demo);
+  $('#vacio-demo-nota').hidden = $('#vacio-demo').hidden;
+  $('#demo-aviso').hidden = !activa?.demo;
+  estado.puedeDemo = Boolean(datos) && !activa?.demo;
+  estado.demo = activa?.demo ? { id: activa.id, anterior: datos.anterior || 'principal' } : null;
+}
+
+async function cambiarEmpresa(peticion, error) {
+  try {
+    const res = await peticion();
+    if (res.ok) { window.location.reload(); return; }
+    const cuerpo = await res.json().catch(() => ({}));
+    aviso(cuerpo.errores?.[0] || error, 'error');
+  } catch {
+    aviso('No hay conexión con el servidor local.', 'error');
+  }
+}
+
+const abrirDemo = () => cambiarEmpresa(() => fetch('/api/empresas/demo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }), 'No se pudo abrir el negocio de ejemplo.');
+const salirDeDemo = () => cambiarEmpresa(() => fetch('/api/empresas/activa', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: estado.demo?.anterior || 'principal' }) }), 'No se pudo volver a tu negocio.');
+const quitarDemo = () => cambiarEmpresa(() => fetch(`/api/empresas/${encodeURIComponent(estado.demo?.id || '')}`, { method: 'DELETE' }), 'No se pudo quitar el ejemplo.');
+
 // ---------- Varias empresas ----------
 
 async function cargarEmpresas() {
@@ -3172,7 +3525,7 @@ async function cargarEmpresas() {
   $('#empresas-lista').replaceChildren(...datos.lista.map((e) => {
     const li = crearElemento('li', { class: 'fuente' });
     const info = crearElemento('div', { class: 'fuente-info' });
-    info.append(crearElemento('strong', {}, e.nombre), crearElemento('small', {}, e.id === 'principal' ? 'Carpeta data/' : `Carpeta data/empresas/${e.id}/`));
+    info.append(crearElemento('strong', {}, e.nombre), crearElemento('small', {}, e.demo ? 'Negocio de ejemplo con datos inventados' : e.id === 'principal' ? 'Carpeta data/' : `Carpeta data/empresas/${e.id}/`));
     const acciones = crearElemento('div', { class: 'fuente-acciones' });
     if (e.id === datos.activa) acciones.append(crearElemento('span', { class: 'empresa-activa' }, 'Abierta ahora'));
     else {
@@ -3254,9 +3607,15 @@ function pintarAvisoFacturas(evidencia) {
   if (!evidencia) return;
   const movidas = evidencia.movidas || [];
   if (!movidas.length) { p.replaceChildren('Tus facturas no cambian el color de ninguna área; lo que encontraron está en los hallazgos de cada una.'); return; }
-  const partes = movidas.map((m) => `${m.nombre} (de ${ETIQUETA_COLOR[m.de]} a ${ETIQUETA_COLOR[m.a]})`);
-  const lista = partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)}` : partes[0];
-  p.replaceChildren(crearElemento('strong', {}, movidas.length === 1 ? 'Tus facturas movieron un área: ' : `Tus facturas movieron ${movidas.length} áreas: `), `${lista}. Abre el área para ver por qué.`);
+  // Cada área es un botón que abre su panel, donde están los hallazgos "Según tus facturas".
+  const nodos = [crearElemento('strong', {}, movidas.length === 1 ? 'Tus facturas movieron un área: ' : `Tus facturas movieron ${movidas.length} áreas: `)];
+  movidas.forEach((m, i) => {
+    const boton = crearElemento('button', { type: 'button', title: `Ver por qué cambió ${m.nombre}` }, m.nombre);
+    boton.addEventListener('click', () => mostrarDetalle(m.id));
+    nodos.push(boton, ` (de ${ETIQUETA_COLOR[m.de]} a ${ETIQUETA_COLOR[m.a]})${i === movidas.length - 1 ? '.' : i === movidas.length - 2 ? ' y ' : ', '}`);
+  });
+  nodos.push(' Toca un área para ver por qué.');
+  p.replaceChildren(...nodos);
 }
 
 // Vuelve a pedir el diagnóstico en pantalla y lo repinta solo si las facturas cambiaron algún color o el plan.
@@ -3279,7 +3638,10 @@ function renderResultados(resp, { scroll = true } = {}) {
 
   $('#resultado-fecha').textContent = `Generado el ${fechaLarga(resp.creado)}`;
   const prio = resultado.prioridad.map((id) => resultado.distritos[id].nombre);
-  $('#prioridades').textContent = prio.length ? `Atender primero: ${prio.join(', ')}.` : 'Sin prioridades críticas con las respuestas actuales.';
+  // Solo las tres primeras: una lista de diez áreas no ayuda a decidir por dónde empezar.
+  const primeras = prio.slice(0, 3).join(', ');
+  const resto = prio.length - 3;
+  $('#prioridades').textContent = !prio.length ? 'Sin prioridades críticas con las respuestas actuales.' : `Atender primero: ${primeras}${resto > 0 ? ` y ${resto} ${resto === 1 ? 'área' : 'áreas'} más` : ''}.`;
 
   pintarAvisoFacturas(resultado.evidencia);
 
@@ -3298,6 +3660,7 @@ function renderResultados(resp, { scroll = true } = {}) {
   renderPlan(resultado.plan);
   renderAnalisis(resultado.distritos);
   renderBandeja(resp);
+  renderSemana();
 
   const bloqueIA = $('#resumen-ia');
   if (resumenIA) {
@@ -3314,7 +3677,7 @@ function renderResultados(resp, { scroll = true } = {}) {
 
 // ---------- Ciudad: cámara y simulador de escenarios ----------
 
-// Clic en la ciudad: un edificio abre su área; el núcleo de la plaza lleva al Orquestador.
+// Clic en la ciudad: un edificio abre su área; el núcleo de la plaza lleva al Coordinador.
 function alElegirEnCiudad(id) {
   if (id === 'orquestador') return irASeccionAgentes('orquestador');
   return mostrarDetalle(id);
@@ -3462,7 +3825,7 @@ async function cargarRed() {
   const distritos = estado.ultimo?.resultado?.distritos || {};
 
   pintarRed($('#red'), jer.arbol, {
-    nombre: (id) => (id === 'orquestador' ? 'Orquestador' : nombreArea(id)),
+    nombre: (id) => (id === 'orquestador' ? 'Coordinador' : nombreArea(id)),
     avatar: (id) => AREAS_ASSETS[id]?.avatar || estado.personalizados.agentes[id]?.avatar || '',
     estado: estadoDe,
     semaforo: (id) => distritos[id]?.color || null,
@@ -3472,7 +3835,7 @@ async function cargarRed() {
   const r = sit.resumen || {};
   const cuenta = { trabajando: enCurso.size || r.trabajando || 0, activo: r.activo || 0, bloqueado: r.bloqueado || 0, sin_actividad: (r.sin_actividad || 0) + (r.inactivo || 0) };
   const total = (sit.agentes || []).length;
-  $('#red-resumen').textContent = `${total} agentes coordinados por el Orquestador. Se arma con reglas, sin gastar IA.`;
+  $('#red-resumen').textContent = `${total} agentes dirigidos por el Coordinador. Se arma con reglas, sin gastar IA.`;
   const TONO = { trabajando: 'var(--cian)', activo: 'var(--verde)', bloqueado: 'var(--rojo)', sin_actividad: 'var(--gris)' };
   $('#red-conteo').replaceChildren(...Object.keys(NOMBRE_ESTADO_RED).map((k) => {
     const caja = crearElemento('div', { style: `--tono: ${TONO[k]}` });
@@ -3495,7 +3858,7 @@ async function cargarRed() {
   const recientes = (sit.agentes || []).filter((a) => a.ultimaActividad).sort((a, b) => String(b.ultimaActividad).localeCompare(String(a.ultimaActividad))).slice(0, 5);
   $('#red-reciente').replaceChildren(...(recientes.length
     ? recientes.map((a) => fila(a, `${fechaCorta(a.ultimaActividad)} ${horaCorta(a.ultimaActividad)}${a.ultimaRespuesta?.resumen ? ` · ${a.ultimaRespuesta.resumen}` : ''}`))
-    : [crearElemento('li', { class: 'vacio' }, 'Todavía no hay movimiento. Dale una orden a un agente.')]));
+    : [(() => { const li = crearElemento('li', { class: 'vacio' }, 'Todavía no hay movimiento.'); const b = crearElemento('button', { type: 'button', class: 'atajo en-linea' }, 'Hablar con un agente'); b.addEventListener('click', () => abrirChatDe(agentesRecomendados()[0] || ORDEN_AREAS[0])); li.append(b); return li; })()]));
 }
 
 // ---------- Conversación con los agentes ----------
@@ -3515,7 +3878,7 @@ function crearChat(seccion) {
   let area = seccion.dataset.area || '';
 
   const esOrquestador = () => area === 'orquestador';
-  const agente = () => (esOrquestador() ? 'el Orquestador' : nombreAgente(area));
+  const agente = () => (esOrquestador() ? 'el Coordinador' : nombreAgente(area));
   let notasUsadas = seccion.querySelector('.chat-notas');
   if (!notasUsadas) {
     notasUsadas = crearElemento('p', { class: 'chat-notas' });
@@ -3587,8 +3950,12 @@ function crearChat(seccion) {
       return;
     }
     nota.classList.remove('error');
+    if (estado.proveedorIA === 'ninguno') {
+      nota.replaceChildren(`Sin IA configurada: tus órdenes quedan anotadas como pendientes para ${responsable()}. Para que ${agente()} responda, activa la IA con tu clave.`, botonActivarIA());
+      return;
+    }
     nota.textContent = estado.proveedorIA === 'ninguno'
-      ? `Sin IA configurada: tus órdenes quedan registradas como pendientes para ${responsable()}. Para que ${agente()} responda, activa un proveedor en Configuración.`
+      ? ''
       : `Con IA activa, lo que escribas y el contexto de esta área salen de tu equipo hacia ${NOMBRE_PROVEEDOR[estado.proveedorIA] || estado.proveedorIA}.`;
   }
 
@@ -3644,8 +4011,15 @@ function crearChat(seccion) {
       if (j.notas?.length) partes.push(`Consultó notas: ${j.notas.map((n) => n.titulo).join(', ')}.`);
       if (j.intercambios?.length) partes.push(`Se coordinó con ${j.intercambios.filter((i) => i.respuesta || i.nota).map((i) => i.nombreDestino || i.destinoTexto).join(', ')}.`);
       if (j.busquedas?.length) partes.push(`Buscó en internet: ${j.busquedas.map((b) => `"${b.consulta}"`).join(', ')}.`);
-      if (j.pendiente && j.motivo) partes.push(j.motivo);
-      if (j.reglas) partes.push('Respondido con reglas, al instante y sin gastar tokens.');
+      if (j.pendiente && j.motivo) { partes.push(j.motivo); refrescarEstadoIA(); }
+      if (j.consolidada) partes.push('Ajustó su propuesta con lo que le respondieron.');
+      if (j.gastos?.length) {
+        const total = j.gastos.reduce((s, g) => s + g.monto, 0);
+        partes.push(`Propuso ${j.gastos.length === 1 ? 'un gasto' : `${j.gastos.length} gastos`} por $${Math.round(total).toLocaleString('es-MX')}: no se hace nada hasta que lo apruebes en la portada.`);
+        aviso(`${j.gastos.length === 1 ? 'Hay un gasto' : `Hay ${j.gastos.length} gastos`} por aprobar en la portada.`, 'ok');
+        pintarGastos();
+      }
+      if (j.reglas) partes.push('Respondido con reglas, al instante y sin gastar IA.');
       pintarTraza(j);
       if (j.sugerenciaRutina) {
         partes.push(`Has pedido esto ${j.sugerenciaRutina.veces} veces: puedes automatizarlo en Agentes › Rutinas.`);
@@ -3656,7 +4030,8 @@ function crearChat(seccion) {
       if (j.uso) { estado.uso = j.uso; actualizarEncabezadoIA(); }
       if (!res.ok) actualizarNota(j.errores?.[0] || 'No se pudo enviar la orden.');
       else texto.value = '';
-    } catch {
+    } catch (err) {
+      console.error('No se pudo completar la orden:', err);
       actualizarNota('No hay conexión con el servidor local.');
     } finally {
       boton.disabled = false;
@@ -3727,11 +4102,11 @@ async function mostrarDetalleAgente(id) {
   if (!estado.tipos) await cargarJerarquia(); // en el dashboard aún no se ha visitado Agentes
   const h = estado.habilidades?.[id];
   const tipo = estado.tipos?.[id] || (esPropio(id) ? 'propio' : 'subagente');
-  $('#detalle-etiqueta').textContent = { staff: 'Staff del Orquestador', subagente: 'Subagente', propio: 'Agente propio' }[tipo] || 'Agente';
+  $('#detalle-etiqueta').textContent = { staff: 'Staff del Coordinador', subagente: 'Subagente', propio: 'Agente propio' }[tipo] || 'Agente';
   $('#detalle-titulo').textContent = nombreArea(id);
   const estadoEl = $('#detalle-estado');
   const jefe = Object.entries(estado.subagentes || {}).find(([, lista]) => lista.includes(id))?.[0];
-  estadoEl.textContent = jefe ? `Depende de ${jefe === 'orquestador' ? 'el Orquestador' : nombreArea(jefe)}` : 'Reporta al Orquestador';
+  estadoEl.textContent = jefe ? `Depende de ${jefe === 'orquestador' ? 'el Coordinador' : nombreArea(jefe)}` : 'Reporta al Coordinador';
   estadoEl.className = 'detalle-estado apoyo';
   $('#detalle-agente').textContent = `Responsable: ${responsableDe(id)} · Agente: ${nombreAgente(id)} (${estadoOperativo(id)})`;
   $('#detalle-rol').textContent = h ? `${h.rol}. ${h.especialidad}` : '';
@@ -3907,6 +4282,15 @@ async function renderAvance(contra = '') {
   $('#avance-delta').textContent = delta === 0 ? 'Sin cambio' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`;
   const lapso = c.dias === 0 ? 'el mismo día' : c.dias === 1 ? 'en 1 día' : `en ${c.dias} días`;
   $('#avance-rango').textContent = `Madurez de ${antes} a ${despues} de 5, ${lapso}.`;
+  // Cuando las facturas movieron áreas, se separa lo que viene de ellas de lo que el dueño respondió.
+  const nota = $('#avance-facturas');
+  const f = c.facturas;
+  nota.hidden = !f;
+  if (f) {
+    const lista = f.movidas.map((m) => `${m.nombre} (de ${ETIQUETA_COLOR[m.de]} a ${ETIQUETA_COLOR[m.a]})`).join(', ');
+    const signo = f.deltaSinFacturas > 0 ? '+' : f.deltaSinFacturas < 0 ? '−' : '';
+    nota.textContent = `Parte de este cambio no viene de lo que respondiste, sino de lo que muestran tus facturas: ${lista}. Solo con tus respuestas la madurez sería ${f.madurezSinFacturas} de 5 (${f.deltaSinFacturas === 0 ? 'sin cambio' : `${signo}${Math.abs(f.deltaSinFacturas)}`} contra el diagnóstico anterior). No es un retroceso tuyo: es información nueva para decidir mejor.`;
+  }
   pintarSerieAvance(p.serie, c);
 
   const cambiadas = c.areas.filter((a) => a.cambio !== 'igual');
@@ -3990,7 +4374,7 @@ function actualizarEncabezadoIA() {
     return;
   }
   const u = estado.uso || {};
-  const consumo = u.total ? ` · ${u.total.toLocaleString('es-MX')} tokens${u.limite ? ` / ${u.limite.toLocaleString('es-MX')}` : ''}` : '';
+  const consumo = u.pesos ? ` · $${Math.round(u.pesos).toLocaleString('es-MX')} este mes${u.limitePesos ? ` de $${Math.round(u.limitePesos).toLocaleString('es-MX')}` : ''}` : '';
   el.textContent = `IA: ${u.modelo || NOMBRE_PROVEEDOR[estado.proveedorIA] || estado.proveedorIA}${consumo}`;
 }
 
@@ -4007,6 +4391,7 @@ async function refrescarEstadoIA() {
   } catch {
     estado.proveedorIA = 'ninguno';
   }
+  pintarIaDetenida();
   actualizarEncabezadoIA();
   for (const c of [chatArea, chatAgentes, chatOrquestador]) c?.refrescarNota();
 }
@@ -4029,6 +4414,7 @@ function datosFormularioIA() {
     modoAhorro: $('#cfg-modo-ahorro').value,
     usarLotes: $('#cfg-lotes').checked,
     limiteMensualTokens: Number($('#cfg-limite').value) || 0,
+    limiteMensualPesos: Number($('#cfg-limite-pesos').value) || 0,
     limiteDiarioTokens: Number($('#cfg-limite-diario').value) || 0,
     tipoCambio: Number($('#cfg-tipo-cambio').value) || 0,
     precioEntradaUsd: Number($('#cfg-precio-entrada').value) || 0,
@@ -4045,6 +4431,7 @@ function pintarConfiguracion(cfg) {
   $('#cfg-modo-ahorro').value = cfg.modoAhorro || 'equilibrado';
   $('#cfg-lotes').checked = cfg.usarLotes !== false;
   $('#cfg-limite').value = cfg.limiteMensualTokens || 0;
+  $('#cfg-limite-pesos').value = cfg.limiteMensualPesos || 0;
   $('#cfg-limite-diario').value = cfg.limiteDiarioTokens || 0;
   $('#cfg-tipo-cambio').value = cfg.tipoCambio || '';
   $('#cfg-precio-entrada').value = cfg.precioEntradaUsd || 0;
@@ -4197,7 +4584,7 @@ function conectarFeed() {
     if (evento.tipo === 'datos_reales_actualizados') { renderFlujo(); renderInforme(); cargarDatosReales(); refrescarSemaforo(); }
     if (evento.tipo === 'trabajo_inicio') return; // el feed del dashboard solo muestra lo terminado
     if (feed.querySelector('.vacio')) feed.replaceChildren();
-    const nombreDe = (area) => (area === 'orquestador' ? 'Orquestador' : nombreArea(area));
+    const nombreDe = (area) => (area === 'orquestador' ? 'Coordinador' : nombreArea(area));
     const texto = evento.tipo === 'diagnostico_creado'
       ? `Diagnóstico de ${d.nombre || 'sin nombre'} · prioridades: ${d.prioridad.length || 'ninguna'}`
       : evento.tipo === 'orden_enviada'
@@ -4227,6 +4614,7 @@ function conectarFeed() {
                   : evento.tipo;
     if (['investigacion_terminada', 'sitio_analizado', 'nota_agente', 'respuesta_agente', 'orden_enviada', 'calendario_importado'].includes(evento.tipo)) cargarBitacora();
     if (evento.tipo === 'investigacion_terminada') cargarInvestigacion();
+    if (evento.tipo === 'gasto_propuesto' || evento.tipo === 'gasto_decidido') pintarGastos();
     if (evento.tipo === 'sitio_analizado') cargarSitio();
     feed.prepend(crearElemento('li', {}, `${horaCorta(evento.momento)} · ${texto}`));
   };
@@ -4291,6 +4679,26 @@ async function iniciar() {
   $('#empezar-en-blanco').addEventListener('click', () => reiniciar({ enBlanco: true }));
   $('#avance-contra').addEventListener('change', (e) => renderAvance(e.target.value));
   $('#vacio-empezar').addEventListener('click', () => { renderPaso(); mostrarVista('asistente'); });
+  $('#vacio-demo').addEventListener('click', abrirDemo);
+  $('#demo-salir').addEventListener('click', salirDeDemo);
+  $('#demo-quitar').addEventListener('click', quitarDemo);
+  $('#semana-junta').addEventListener('click', () => mostrarVista('junta'));
+  $('#presupuesto-guardar').addEventListener('click', guardarPresupuesto);
+  let esperaArchivo = null;
+  $('#archivo-buscar').addEventListener('input', () => { clearTimeout(esperaArchivo); esperaArchivo = setTimeout(pintarArchivo, 250); });
+  $('#archivo-tipo').addEventListener('change', pintarArchivo);
+  $('#contexto-detalle').addEventListener('toggle', (e) => { if (e.target.open) pintarContexto(); });
+  $('#gastos-presupuesto').addEventListener('click', () => { mostrarVista('configuracion', { scroll: false }); setTimeout(() => $('#presupuesto-card').scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); });
+  $('#semana-copiar').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(textoSemana); aviso('Lista copiada.', 'ok'); } catch { aviso('No se pudo copiar; usa el botón de WhatsApp.', 'error'); }
+  });
+  $('#respaldo-despues').addEventListener('click', () => {
+    try { localStorage.setItem('respaldo-despues', String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch { /* sin almacenamiento */ }
+    $('#respaldo-aviso').hidden = true;
+  });
+  // Al descargar, el servidor anota la fecha: se vuelve a preguntar el estado un momento después.
+  for (const enlace of document.querySelectorAll('[data-respaldo]')) enlace.addEventListener('click', () => { $('#respaldo-aviso').hidden = true; setTimeout(pintarRespaldo, 2500); });
+  pintarAvisoDemo();
   // El panel lateral vive directo en <body>: así "position: fixed" no depende de ninguna tarjeta con transformaciones.
   document.body.append($('#detalle-fondo'), $('#detalle'));
   $('#detalle-cerrar').addEventListener('click', cerrarDetalle);

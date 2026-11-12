@@ -13,11 +13,11 @@ const limpiar = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : ''
 export const PERMISOS = {
   ia: { nombre: 'Agentes con IA', descripcion: 'Los agentes responden con el proveedor de IA que configuraste.', sale: 'Tu orden, el contexto del área, la ficha, hechos e ideas registrados.' },
   busquedaWeb: { nombre: 'Búsqueda en internet', descripcion: 'Investigación semanal de mercado y el analista de inversiones buscan en internet con tu clave.', sale: 'Las consultas de búsqueda (giro, zona, productos, competidores). Cada búsqueda se cobra aparte.' },
-  documentosIA: { nombre: 'Documentos con IA', descripcion: 'El Orquestador analiza con IA los documentos e imágenes que subes.', sale: 'El texto o la imagen del documento.' },
+  documentosIA: { nombre: 'Documentos con IA', descripcion: 'El Coordinador analiza con IA los documentos e imágenes que subes.', sale: 'El texto o la imagen del documento.' },
   tareasAutomaticas: { nombre: 'Tareas semanales automáticas', descripcion: 'Investigación de mercado y análisis del sitio corren solos cada semana.', sale: 'Lo mismo que las dos anteriores, sin que lo pidas cada vez.' },
   analizarSitio: { nombre: 'Análisis del sitio web', descripcion: 'La aplicación descarga tu página principal para revisarla.', sale: 'Una visita a tu propio sitio desde esta computadora; nada hacia la IA salvo que repartas con ella.' },
   rutinas: { nombre: 'Rutinas automáticas', descripcion: 'Órdenes repetidas que decidiste automatizar se envían solas al agente.', sale: 'La orden y su contexto, igual que si la escribieras tú.' },
-  piloto: { nombre: 'Piloto automático de los agentes', descripcion: 'Cada agente hace su revisión periódica (semanal o mensual) sin que se la pidas y se coordina con los demás; el Orquestador reparte lo que detecte. Apagado hasta que lo enciendas.', sale: 'Igual que una orden tuya, una vez por periodo por cada agente activo en Agentes › Piloto.', defecto: false },
+  piloto: { nombre: 'Piloto automático de los agentes', descripcion: 'Cada agente hace su revisión periódica (semanal o mensual) sin que se la pidas y se coordina con los demás; el Coordinador reparte lo que detecte. Apagado hasta que lo enciendas.', sale: 'Igual que una orden tuya, una vez por periodo por cada agente activo en Agentes › Piloto.', defecto: false },
 };
 
 export function sanitizarPermisos(entrada, base = null) {
@@ -54,6 +54,7 @@ export function sanitizarConfiguracion(entrada) {
     modoAhorro: MODOS_AHORRO.includes(e.modoAhorro) ? e.modoAhorro : 'equilibrado',
     usarLotes: e.usarLotes === undefined ? true : !(e.usarLotes === false || e.usarLotes === 'false' || e.usarLotes === 0), // piloto por Batches (50% de descuento)
     limiteMensualTokens: tope(e.limiteMensualTokens), // 0 = sin límite
+    limiteMensualPesos: decimal(e.limiteMensualPesos, 10000000), // tope de gasto del mes en pesos; 0 = sin tope
     limiteDiarioTokens: tope(e.limiteDiarioTokens), // 0 = sin límite
     tipoCambio: decimal(e.tipoCambio, 1000), // pesos por dólar; 0 = el sugerido (src/precios.js)
     precioEntradaUsd: decimal(e.precioEntradaUsd, 10000), // dólares por millón de tokens; 0 = precio de lista
@@ -77,6 +78,7 @@ export function enmascarar(cfg) {
     modoAhorro: cfg.modoAhorro || 'equilibrado',
     usarLotes: cfg.usarLotes !== false,
     limiteMensualTokens: cfg.limiteMensualTokens || 0,
+    limiteMensualPesos: cfg.limiteMensualPesos || 0,
     limiteDiarioTokens: cfg.limiteDiarioTokens || 0,
     tipoCambio: cfg.tipoCambio || 0,
     precioEntradaUsd: cfg.precioEntradaUsd || 0,
@@ -139,6 +141,18 @@ export function crearConfiguracion(archivo, { proteger: protegerClaves = false }
       return nueva;
     },
 
+    // Cambia solo los límites de consumo (tope en pesos y límites por tokens) sin tocar lo demás.
+    guardarLimites(cambios) {
+      const actual = this.leer();
+      const limpio = sanitizarConfiguracion(cambios);
+      const cfg = { ...actual };
+      for (const campo of ['limiteMensualPesos', 'limiteMensualTokens', 'limiteDiarioTokens']) {
+        if (cambios && Object.hasOwn(cambios, campo)) cfg[campo] = limpio[campo];
+      }
+      escribir(cfg);
+      return cfg;
+    },
+
     // Cambia uno o varios permisos sin tocar lo demás.
     guardarPermisos(cambios) {
       const actual = this.leer();
@@ -173,6 +187,7 @@ export function configuracionEfectiva(base, guardada) {
     modoAhorro: g.modoAhorro || 'equilibrado',
     usarLotes: g.usarLotes !== false,
     limiteMensualTokens: g.limiteMensualTokens || 0,
+    limiteMensualPesos: g.limiteMensualPesos || 0,
     limiteDiarioTokens: g.limiteDiarioTokens || 0,
     tipoCambio: g.tipoCambio || 0,
     precioEntradaUsd: g.precioEntradaUsd || 0,

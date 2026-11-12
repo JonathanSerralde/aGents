@@ -112,3 +112,44 @@ test('lo gastado antes de llevar el costo por llamada se estima con las proporci
   // Lo que ya trae costo registrado no se vuelve a contar.
   assert.deepEqual(costoLegado({ ...mes, conCosto: 800000, sinPrecio: 200000 }), { usd: 0, sinPrecio: 0 });
 });
+
+test('el tope mensual en pesos detiene la IA y lo dice en dinero', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agents-precios-'));
+  const servidor = crearServidor(opcionesTemporales(dir, { llamarIA: async () => 'x'.repeat(4000) }));
+  await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${servidor.address().port}`;
+  const json = (metodo, cuerpo) => ({ method: metodo, headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) });
+  const ordenar = async () => (await fetch(`${base}/api/agentes/ventas/mensajes`, json('POST', { texto: 'Hola' }))).json();
+  try {
+    await fetch(`${base}/api/configuracion`, json('PUT', { tipoCambio: 20, precioEntradaUsd: 2, precioSalidaUsd: 10, limiteMensualPesos: 0.05 }));
+    assert.equal((await ordenar()).pendiente, false, 'la primera orden cabe en el tope');
+    const uso = (await (await fetch(`${base}/api/uso`)).json()).actual;
+    assert.equal(uso.limitePesos, 0.05);
+    assert.equal(uso.alcanzado, true);
+    assert.equal(uso.porcentajePesos, 100);
+    const segunda = await ordenar();
+    assert.equal(segunda.pendiente, true);
+    assert.match(segunda.motivo, /tope de \$0\.05 al mes/);
+
+    assert.equal(uso.detenidaPor, 'pesos');
+
+    // Subir solo el tope (como hace el aviso de "IA detenida") libera la IA sin reiniciar y sin tocar lo demás.
+    const subido = await (await fetch(`${base}/api/configuracion/limites`, json('PUT', { limiteMensualPesos: 500 }))).json();
+    assert.equal(subido.uso.alcanzado, false);
+    assert.equal(subido.uso.detenidaPor, null);
+    assert.equal(subido.uso.tipoCambio, 20, 'el tipo de cambio guardado sigue igual');
+    const cfg = await (await fetch(`${base}/api/configuracion`)).json();
+    assert.equal(cfg.precioSalidaUsd, 10);
+    assert.equal(cfg.limiteMensualPesos, 500);
+    assert.equal((await ordenar()).pendiente, false);
+
+    // El límite por tokens también dice que fue él quien detuvo a la IA.
+    await fetch(`${base}/api/configuracion/limites`, json('PUT', { limiteMensualTokens: 10 }));
+    assert.equal((await (await fetch(`${base}/api/uso`)).json()).actual.detenidaPor, 'tokens_mes');
+    await fetch(`${base}/api/configuracion/limites`, json('PUT', { limiteMensualTokens: 0 }));
+    assert.equal((await (await fetch(`${base}/api/uso`)).json()).actual.detenidaPor, null);
+  } finally {
+    await new Promise((r) => servidor.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

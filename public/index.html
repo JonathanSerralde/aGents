@@ -97,6 +97,17 @@
       </header>
 
       <main class="contenedor">
+        <div id="ia-detenida" class="demo-aviso ia-detenida" role="status" hidden>
+          <p><strong id="ia-detenida-titulo">La IA está detenida.</strong> <span id="ia-detenida-texto"></span></p>
+          <div id="ia-detenida-acciones" class="acciones-inline"></div>
+        </div>
+        <div id="demo-aviso" class="demo-aviso" role="status" hidden>
+          <p><strong>Estás viendo un negocio de ejemplo.</strong> Todo es inventado: nombres, facturas y cifras. Lo que cambies aquí no toca tu información.</p>
+          <div class="acciones-inline">
+            <button id="demo-salir" class="boton compacto" type="button">Volver a mi negocio</button>
+            <button id="demo-quitar" class="boton secundario compacto" type="button">Quitar el ejemplo</button>
+          </div>
+        </div>
         <!-- ===================== DASHBOARD ===================== -->
         <section id="vista-dashboard" data-vista-panel>
           <div id="carga" class="carga" aria-hidden="true">
@@ -104,6 +115,42 @@
             <div class="carga-fila"><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div></div>
             <div class="carga-dos"><div class="hueso hueso-alto"></div><div class="hueso hueso-alto"></div></div>
           </div>
+          <div id="respaldo-aviso" class="demo-aviso respaldo-aviso" role="status" hidden>
+            <p><strong id="respaldo-aviso-titulo">Guarda un respaldo.</strong> Todo vive en esta computadora: si se daña o se pierde, se va con ella. Un respaldo tarda unos segundos.</p>
+            <div class="acciones-inline">
+              <a class="boton compacto" href="/api/respaldo" download data-respaldo>Guardar respaldo</a>
+              <button id="respaldo-despues" class="boton secundario compacto" type="button">Recordármelo en una semana</button>
+            </div>
+          </div>
+
+          <section id="semana-card" class="tarjeta semana" hidden aria-labelledby="semana-titulo">
+            <div class="semana-cabecera">
+              <div>
+                <h2 id="semana-titulo">Esta semana</h2>
+                <p id="semana-resumen" class="subtitulo"></p>
+              </div>
+              <button id="semana-junta" class="boton secundario compacto" type="button">Abrir la junta</button>
+            </div>
+            <ul id="semana-lista" class="bitacora-lista"></ul>
+            <p id="semana-mas" class="ayuda" hidden></p>
+            <div id="semana-llevar" class="semana-llevar" hidden>
+              <span class="ayuda">Llévalos en tu celular:</span>
+              <a id="semana-whatsapp" class="atajo" href="#" target="_blank" rel="noopener" title="Abre WhatsApp con la lista escrita para que te la mandes a ti o a tu equipo. La aplicación no envía nada.">Enviar por WhatsApp</a>
+              <button id="semana-copiar" class="atajo" type="button">Copiar lista</button>
+            </div>
+          </section>
+
+          <section id="gastos-card" class="tarjeta semana" hidden aria-labelledby="gastos-titulo">
+            <div class="semana-cabecera">
+              <div>
+                <h2 id="gastos-titulo">Gastos por aprobar</h2>
+                <p class="subtitulo">Tus agentes propusieron gastar esto. Nada se compra ni se paga desde la aplicación: tú decides, y ellos trabajan con tu respuesta.</p>
+              </div>
+              <button id="gastos-presupuesto" class="boton secundario compacto" type="button">Ver presupuesto</button>
+            </div>
+            <ul id="gastos-lista" class="bitacora-lista"></ul>
+          </section>
+
           <section id="primeros-pasos" class="tarjeta" hidden>
             <div class="panel-encabezado">
               <h3>Primeros pasos</h3>
@@ -147,7 +194,7 @@
 
           <section id="informe-card" class="tarjeta" hidden>
             <div class="panel-encabezado">
-              <h3>Informe del Orquestador</h3>
+              <h3>Informe del Coordinador</h3>
               <p class="subtitulo">Lo arma el cerebro de la oficina con reglas, sin IA: estado del negocio, contradicciones entre áreas, acciones vencidas, mercado y sitio, y el siguiente paso.</p>
               <div class="acciones-inline">
                 <a class="boton secundario compacto" href="/api/informe/reporte.docx">Word</a>
@@ -174,7 +221,9 @@
               <p class="subtitulo">Responde el diagnóstico exprés (unos cinco minutos). Con tus respuestas se levanta una ciudad en 3D donde cada edificio es un área de tu negocio, con su semáforo y su plan de acción.</p>
               <div class="acciones-inline">
                 <button id="vacio-empezar" class="boton" type="button">Empezar diagnóstico</button>
+                <button id="vacio-demo" class="boton secundario" type="button" hidden>Ver un negocio de ejemplo</button>
               </div>
+              <p id="vacio-demo-nota" class="ayuda" hidden>El ejemplo es una ferretería inventada, ya con diagnóstico, facturas y junta. Se abre aparte: tu información no se toca.</p>
             </div>
           </div>
 
@@ -218,7 +267,7 @@
                   <circle id="dial-arco" cx="60" cy="60" r="50" class="dial-arco" stroke="url(#grad-dial)" pathLength="100" stroke-dasharray="0 100"/>
                 </svg>
                 <div class="dial-texto"><strong id="dial-valor">0</strong><span>de 5</span></div>
-                <p>Madurez</p>
+                <p id="dial-nivel">Madurez</p>
               </div>
 
               <div id="estado-area" class="estado-area hud"></div>
@@ -305,7 +354,7 @@
             </div>
             <div class="kpi">
               <span class="kpi-icono" data-icono="chart" aria-hidden="true"></span>
-              <div class="kpi-texto"><span class="kpi-etiqueta">Nivel de madurez</span><span id="kpi-madurez" class="kpi-valor">0<small> / 5</small></span></div>
+              <div class="kpi-texto"><span class="kpi-etiqueta" title="Qué tan ordenado está tu negocio, de 0 a 5. Es el promedio de tus áreas: bien vale 5, por revisar 3 y en atención 1.5.">Madurez: qué tan ordenado está</span><span id="kpi-madurez" class="kpi-valor">0<small> / 5</small></span></div>
               <span id="kpi-madurez-nota" class="kpi-nota" hidden></span>
             </div>
           </div>
@@ -323,6 +372,7 @@
               <button id="avance-actualizar" class="boton secundario compacto" type="button">Actualizar diagnóstico</button>
             </div>
             <div id="avance-cuerpo" class="avance-cuerpo" hidden>
+              <p id="avance-facturas" class="avance-facturas" hidden></p>
               <div class="avance-delta">
                 <strong id="avance-delta"></strong>
                 <span id="avance-rango"></span>
@@ -368,13 +418,15 @@
                 <button id="editar-equipo" class="boton secundario compacto" type="button">Editar equipo</button>
               </div>
               <div id="equipo-filtros" class="equipo-filtros" role="group" aria-label="Filtrar el equipo">
-                <button type="button" class="atajo activo" data-filtro="todos" aria-pressed="true">Todos</button>
+                <button type="button" class="atajo activo" data-filtro="recomendados" aria-pressed="true">Para tu negocio</button>
+                <button type="button" class="atajo" data-filtro="todos" aria-pressed="false">Todos</button>
                 <button type="button" class="atajo" data-filtro="areas" aria-pressed="false">Áreas</button>
                 <button type="button" class="atajo" data-filtro="atencion" aria-pressed="false">En atención</button>
                 <button type="button" class="atajo" data-filtro="apoyo" aria-pressed="false">Apoyo</button>
                 <button type="button" class="atajo" data-filtro="propio" aria-pressed="false">Míos</button>
               </div>
-              <div id="agentes" class="equipo-grid" data-filtro="todos"></div>
+              <p id="equipo-nota" class="ayuda"></p>
+              <div id="agentes" class="equipo-grid" data-filtro="recomendados"></div>
             </section>
 
             <section class="tarjeta">
@@ -458,7 +510,7 @@
           <section class="tarjeta junta">
             <div class="panel-encabezado">
               <h3 id="junta-titulo">Junta de la semana</h3>
-              <div class="acciones-inline">
+              <div id="junta-descargas" class="acciones-inline">
                 <a class="boton secundario compacto" href="/api/junta/reporte.docx">Word</a>
                 <a class="boton secundario compacto" href="/api/junta/reporte.html" target="_blank" rel="noopener">PDF</a>
               </div>
@@ -589,7 +641,7 @@
           <section id="documentos" class="tarjeta" data-pestana="documentos">
             <div class="panel-encabezado">
               <h3>Documentos para analizar</h3>
-              <p class="subtitulo">Sube contratos, estados de cuenta, facturas, reportes o fotos. El Orquestador los analiza y reparte el trabajo a los agentes. Word y texto se leen completos; PDF solo si tiene texto (no escaneado); imágenes solo con IA activa. Con IA, el contenido sale de tu equipo hacia el proveedor.</p>
+              <p class="subtitulo">Sube contratos, estados de cuenta, facturas, reportes o fotos. El Coordinador los analiza y reparte el trabajo a los agentes. Word y texto se leen completos; PDF solo si tiene texto (no escaneado); imágenes solo con IA activa. Con IA, el contenido sale de tu equipo hacia el proveedor.</p>
             </div>
             <div class="acciones-inline">
               <label class="boton secundario compacto subir">
@@ -604,7 +656,7 @@
           <section id="bitacora" class="tarjeta" data-pestana="bitacora">
             <div class="panel-encabezado">
               <h3>Bitácora compartida</h3>
-              <p class="subtitulo">La memoria común de la oficina: cada acción que propone un agente queda aquí como tarea abierta y el Orquestador la ve antes de repartir trabajo. Marca lo hecho para que los agentes den seguimiento en vez de repetirlo. Las notas son lo que un agente le informó a otro sin gastar IA.</p>
+              <p class="subtitulo">La memoria común de la oficina: cada acción que propone un agente queda aquí como tarea abierta y el Coordinador la ve antes de repartir trabajo. Marca lo hecho para que los agentes den seguimiento en vez de repetirlo. Las notas son lo que un agente le informó a otro sin gastar IA.</p>
             </div>
             <div id="bitacora-resumen" class="bitacora-resumen"></div>
             <ul id="bitacora-acciones" class="bitacora-lista"></ul>
@@ -633,10 +685,24 @@
             <details class="bitacora-notas"><summary>Notas entre agentes</summary><ul id="bitacora-notas"></ul></details>
           </section>
 
+          <section id="archivo-card" class="tarjeta" data-pestana="bitacora">
+            <div class="panel-encabezado">
+              <h3>Archivo de memoria</h3>
+              <span id="archivo-contador" class="pildora"></span>
+              <p class="subtitulo">Aquí queda todo lo que la oficina aprende de tu negocio: hechos, tus decisiones, conclusiones de los agentes y acciones cumplidas. No se envía completo a la IA: en cada orden el agente recibe solo lo que fijaste, lo que tiene que ver con esa orden y lo más reciente. Por eso el costo no sube con los meses.</p>
+            </div>
+            <div class="archivo-filtros">
+              <input id="archivo-buscar" type="search" class="filtro" placeholder="Busca en la memoria (ej. crédito, proveedor, renta)" aria-label="Buscar en el archivo de memoria">
+              <select id="archivo-tipo" aria-label="Tipo de entrada"><option value="">Todo</option></select>
+            </div>
+            <p id="archivo-estado" class="ayuda"></p>
+            <ul id="archivo-lista" class="bitacora-lista"></ul>
+          </section>
+
           <section id="calendario" class="tarjeta" data-pestana="bitacora">
             <div class="panel-encabezado">
               <h3>Calendario</h3>
-              <p class="subtitulo">Sin cuentas ni permisos: la oficina exporta sus fechas (acciones con vencimiento, plan del diagnóstico, tareas semanales) como archivo .ics que Google Calendar, Outlook o Calendario de Apple importan, o al que te suscribes con la URL local mientras la aplicación esté abierta. Si importas tu propio .ics, el Orquestador, Proyectos, Dirección y Planificador conocen tu agenda al proponer plazos.</p>
+              <p class="subtitulo">Sin cuentas ni permisos: la oficina exporta sus fechas (acciones con vencimiento, plan del diagnóstico, tareas semanales) como archivo .ics que Google Calendar, Outlook o Calendario de Apple importan, o al que te suscribes con la URL local mientras la aplicación esté abierta. Si importas tu propio .ics, el Coordinador, Proyectos, Dirección y Planificador conocen tu agenda al proponer plazos.</p>
             </div>
             <div class="acciones-inline">
               <a class="boton compacto" href="/api/calendario.ics">Descargar mis fechas (.ics)</a>
@@ -652,7 +718,7 @@
           <section id="piloto" class="tarjeta" data-pestana="piloto">
             <div class="panel-encabezado">
               <h3>Piloto automático</h3>
-              <p class="subtitulo">Cada agente tiene su revisión periódica y la hace solo: Finanzas revisa caja y cobranza cada semana, Fiscal el calendario del mes, Ventas la oferta de la semana, el Orquestador reparte lo que detecte… Se coordinan entre ellos (consultas, notas, encargos) y dejan sus acciones en la bitácora; tú lees el resultado en la conversación de cada agente y en Actividad. Enciende el piloto, elige qué agentes van y con qué frecuencia; las corridas se reparten de lunes a viernes a las 8:00 y como máximo 3 agentes por minuto. Al encenderlo, cada agente empieza a contar desde ese momento: su primera revisión es en su próximo día y hora, no de inmediato.</p>
+              <p class="subtitulo">Cada agente tiene su revisión periódica y la hace solo: Finanzas revisa caja y cobranza cada semana, Fiscal el calendario del mes, Ventas la oferta de la semana, el Coordinador reparte lo que detecte… Se coordinan entre ellos (consultas, notas, encargos) y dejan sus acciones en la bitácora; tú lees el resultado en la conversación de cada agente y en Actividad. Enciende el piloto, elige qué agentes van y con qué frecuencia; las corridas se reparten de lunes a viernes a las 8:00 y como máximo 3 agentes por minuto. Al encenderlo, cada agente empieza a contar desde ese momento: su primera revisión es en su próximo día y hora, no de inmediato.</p>
               <div class="acciones-inline">
                 <label class="interruptor"><input id="piloto-global" type="checkbox" aria-label="Encender el piloto automático"><span id="piloto-global-texto">Apagado</span></label>
                 <span id="piloto-estado" class="mensaje-estado" role="status"></span>
@@ -702,7 +768,7 @@
           <section id="investigacion" class="tarjeta" data-pestana="mercado">
             <div class="panel-encabezado">
               <h3>Investigación semanal de mercado</h3>
-              <p class="subtitulo">Cada semana el agente de Investigación de mercado busca en internet al menos 10 competidores de tu sector y resume al menos 5 comentarios positivos y 5 negativos de clientes de cada uno. Informa al Orquestador qué buscan y qué rechazan los clientes, y él reparte el trabajo a Ventas, Marketing y a las áreas que lo necesiten. Usa la búsqueda web de tu proveedor de IA con tu misma clave; cada búsqueda se cobra aparte en tu cuenta del proveedor. Como gasta IA, la programación empieza en pausa: actívala aquí cuando quieras que corra sola. Su primera corrida será en el siguiente día y hora que elijas, no de inmediato.</p>
+              <p class="subtitulo">Cada semana el agente de Investigación de mercado busca en internet al menos 10 competidores de tu sector y resume al menos 5 comentarios positivos y 5 negativos de clientes de cada uno. Informa al Coordinador qué buscan y qué rechazan los clientes, y él reparte el trabajo a Ventas, Marketing y a las áreas que lo necesiten. Usa la búsqueda web de tu proveedor de IA con tu misma clave; cada búsqueda se cobra aparte en tu cuenta del proveedor. Como gasta IA, la programación empieza en pausa: actívala aquí cuando quieras que corra sola. Su primera corrida será en el siguiente día y hora que elijas, no de inmediato.</p>
             </div>
             <div class="form-grid tres">
               <div class="campo"><label for="inv-activa">Programación</label><select id="inv-activa"><option value="1">Activa, cada semana</option><option value="0">Pausada</option></select></div>
@@ -728,7 +794,7 @@
           <section id="sitio" class="tarjeta" data-pestana="mercado">
             <div class="panel-encabezado">
               <h3>Análisis del sitio web</h3>
-              <p class="subtitulo">Revisa la página principal de tu sitio desde esta computadora, sin IA: conexión segura, encabezados de seguridad, versión para celular, botón de WhatsApp, aviso de privacidad, medición de visitas, textos para Google y velocidad. Con IA, el Orquestador reparte los hallazgos a Ciberseguridad, Tecnología, Marketing, Ventas y quien corresponda. Como no usa IA, corre solo cada semana (lunes a las 9:00) mientras la aplicación esté abierta y el permiso de tareas semanales esté encendido.</p>
+              <p class="subtitulo">Revisa la página principal de tu sitio desde esta computadora, sin IA: conexión segura, encabezados de seguridad, versión para celular, botón de WhatsApp, aviso de privacidad, medición de visitas, textos para Google y velocidad. Con IA, el Coordinador reparte los hallazgos a Ciberseguridad, Tecnología, Marketing, Ventas y quien corresponda. Como no usa IA, corre solo cada semana (lunes a las 9:00) mientras la aplicación esté abierta y el permiso de tareas semanales esté encendido.</p>
             </div>
             <div class="form-grid">
               <div class="campo ancho"><label for="sitio-url">Dirección del sitio</label><input id="sitio-url" type="text" maxlength="300" placeholder="https://miempresa.mx (si está vacío, se usa el de la ficha de la empresa)"></div>
@@ -745,7 +811,7 @@
           <section id="propios" class="tarjeta" data-pestana="propios">
             <div class="panel-encabezado">
               <h3>Mis agentes</h3>
-              <p class="subtitulo">Crea agentes propios con su especialidad. Elige qué áreas ven; el resto funciona igual que los demás (nombre, responsable, órdenes). Máximo 20. Cuando pides "Optimizar agentes con IA", el Orquestador también puede proponer aquí subagentes nuevos que tu negocio necesite; nada se crea sin tu aprobación.</p>
+              <p class="subtitulo">Crea agentes propios con su especialidad. Elige qué áreas ven; el resto funciona igual que los demás (nombre, responsable, órdenes). Máximo 20. Cuando pides "Optimizar agentes con IA", el Coordinador también puede proponer aquí subagentes nuevos que tu negocio necesite; nada se crea sin tu aprobación.</p>
             </div>
             <div id="propuestas-agentes" class="propuestas"></div>
             <ul id="propios-lista" class="propios-lista"></ul>
@@ -777,7 +843,7 @@
           <section id="jerarquia" class="tarjeta" data-pestana="jerarquia">
             <div class="panel-encabezado">
               <h3>Jerarquía</h3>
-              <p class="subtitulo">Quién reporta a quién. Tiene efecto real: el Orquestador delega a cualquiera; los demás solo a quienes reportan a ellos. Consultar, todos a todos.</p>
+              <p class="subtitulo">Quién reporta a quién. Tiene efecto real: el Coordinador delega a cualquiera; los demás solo a quienes reportan a ellos. Consultar, todos a todos.</p>
             </div>
             <div id="organigrama" class="organigrama"></div>
           </section>
@@ -785,7 +851,7 @@
           <section id="ajustes-card" class="tarjeta" data-pestana="ajustes">
             <div class="panel-encabezado">
               <h3>Ajustes por negocio</h3>
-              <p class="subtitulo">Los agentes se adaptan a tu empresa: escribe indicaciones para cada uno, o pide al Orquestador que proponga ajustes a partir del diagnóstico y las conversaciones. Nada se aplica sin tu aprobación.</p>
+              <p class="subtitulo">Los agentes se adaptan a tu empresa: escribe indicaciones para cada uno, o pide al Coordinador que proponga ajustes a partir del diagnóstico y las conversaciones. Nada se aplica sin tu aprobación.</p>
               <button id="optimizar-agentes" class="boton compacto" type="button">Optimizar agentes con IA</button>
               <span class="costo-ia" data-costo="optimizar" hidden></span>
             </div>
@@ -805,17 +871,17 @@
 
           <section id="orquestador" class="tarjeta" data-pestana="hablar">
             <div class="panel-encabezado">
-              <h3>Orquestador</h3>
-              <p class="subtitulo">Coordina a todos los agentes. Pídele prioridades o repartir órdenes entre áreas.</p>
+              <h3>Coordinador</h3>
+              <p class="subtitulo">Ve el negocio completo y dirige a todos los agentes. Pídele prioridades o que reparta una orden entre áreas.</p>
             </div>
             <section id="chat-orquestador" class="chat" data-area="orquestador">
               <div class="chat-cabecera">
-                <h4 class="chat-titulo">Habla con el Orquestador</h4>
+                <h4 class="chat-titulo">Habla con el Coordinador</h4>
                 <p class="chat-nota subtitulo"></p>
               </div>
               <ol class="chat-lista" aria-live="polite"></ol>
               <form class="chat-form">
-                <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Por ejemplo: ¿qué atiendo primero este mes? Ctrl+Enter para enviar." aria-label="Orden para el orquestador"></textarea>
+                <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Por ejemplo: ¿qué atiendo primero este mes? Ctrl+Enter para enviar." aria-label="Orden para el Coordinador"></textarea>
                 <button class="boton compacto" type="submit">Enviar</button>
               </form>
               <p class="costo-ia" data-costo="orden" hidden></p>
@@ -827,7 +893,7 @@
         <section id="vista-red" data-vista-panel hidden>
           <section class="tarjeta red-card">
             <div class="red-lienzo">
-              <svg id="red" viewBox="0 0 1200 860" role="img" aria-label="Mapa de quién reporta a quién: el Orquestador al centro, las áreas alrededor y sus subagentes en el borde."></svg>
+              <svg id="red" viewBox="0 0 1200 860" role="img" aria-label="Mapa de quién reporta a quién: el Coordinador al centro, las áreas alrededor y sus subagentes en el borde."></svg>
               <ul class="red-leyenda" aria-label="Qué significa cada color">
                 <li><span class="punto cian"></span>Trabajando ahora</li>
                 <li><span class="punto verde"></span>Activo</li>
@@ -923,7 +989,7 @@
             <div id="act-trabajando" class="act-trabajando"></div>
             <details class="sit-caja" open>
               <summary>Situación por agente <span id="sit-resumen" class="subtitulo"></span></summary>
-              <p class="subtitulo">Esto mismo recibe el Orquestador (y Dirección, Proyectos, Analista, Planificador, Auditoría y Contraloría) en su contexto: qué corre ahora, último trabajo, último reporte, acciones abiertas y piloto de cada agente. Se arma con reglas, sin IA.</p>
+              <p class="subtitulo">Esto mismo recibe el Coordinador (y Dirección, Proyectos, Analista, Planificador, Auditoría y Contraloría) en su contexto: qué corre ahora, último trabajo, último reporte, acciones abiertas y piloto de cada agente. Se arma con reglas, sin IA.</p>
               <div id="sit-tabla" class="sit-tabla"></div>
             </details>
             <ol id="act-lista" class="act-lista"></ol>
@@ -979,6 +1045,43 @@
 
         <!-- ===================== CONFIGURACIÓN ===================== -->
         <section id="vista-configuracion" data-vista-panel hidden>
+          <section id="presupuesto-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Presupuesto del mes por área</h3>
+              <p class="subtitulo">Escribe cuánto puede gastar cada área al mes. Tus agentes lo toman en cuenta al proponer y te avisan cuando algo no cabe. Lo que cueste dinero queda como "gasto por aprobar" hasta que tú decidas. Con la IA activa, estas cifras viajan al proveedor junto con el contexto del negocio.</p>
+            </div>
+            <div id="presupuesto-areas" class="form-grid tres"></div>
+            <div class="campo"><label for="presupuesto-nota">Regla general para los gastos (opcional)</label><input id="presupuesto-nota" type="text" maxlength="400" placeholder="Ej. Nada a crédito; publicidad solo digital"></div>
+            <div class="acciones-inline">
+              <button id="presupuesto-guardar" class="boton" type="button">Guardar presupuesto</button>
+              <span id="presupuesto-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <details class="plegable"><summary>Gastos decididos y por aprobar</summary>
+              <ul id="presupuesto-gastos" class="lista-datos compacta"></ul>
+            </details>
+          </section>
+
+          <section id="respaldo-card" class="tarjeta">
+            <div class="panel-encabezado">
+              <h3>Respaldo</h3>
+              <p class="subtitulo">Descarga un archivo .zip con todo lo que la oficina guarda de tu negocio: diagnósticos, equipo, conversaciones, bitácora, juntas y documentos. Guárdalo fuera de esta computadora, en una memoria USB o en tu nube personal. No incluye tu clave de IA y no se envía a ningún lado.</p>
+            </div>
+            <p id="respaldo-estado" class="subtitulo"></p>
+            <div class="acciones-inline">
+              <a class="boton" href="/api/respaldo" download data-respaldo>Guardar respaldo ahora</a>
+              <span id="respaldo-mensaje" class="mensaje-estado" role="status"></span>
+            </div>
+            <details class="plegable"><summary>Cómo se restaura</summary>
+              <ol class="lista-datos compacta">
+                <li>Cierra la aplicación.</li>
+                <li>Abre la carpeta "data" dentro de la carpeta donde está instalada.</li>
+                <li>Copia ahí el contenido del .zip y acepta reemplazar los archivos.</li>
+                <li>Abre la aplicación y vuelve a escribir tu clave de IA en esta pantalla.</li>
+              </ol>
+              <p class="ayuda">Las mismas instrucciones van dentro del .zip, en el archivo LEEME.</p>
+            </details>
+          </section>
+
           <section id="empresas-card" class="tarjeta" hidden>
             <div class="panel-encabezado">
               <h3>Empresas</h3>
@@ -1021,15 +1124,15 @@
           <section class="tarjeta">
             <div class="panel-encabezado">
               <h3>Bóvedas de notas (Obsidian u otras carpetas)</h3>
-              <p class="subtitulo">Conecta carpetas con notas en Markdown de este equipo. Al dar una orden, los agentes consultan las notas relacionadas (solo lectura; nunca escriben en la bóveda). Con IA activa, los fragmentos consultados salen hacia el proveedor.</p>
+              <p class="subtitulo">Conecta carpetas con notas en Markdown de este equipo. Al dar una orden, los agentes consultan las notas relacionadas (solo lectura; nunca escriben en tu carpeta). Con IA activa, los fragmentos consultados salen hacia el proveedor.</p>
             </div>
             <ul id="fuentes-lista" class="fuentes-lista"></ul>
             <div class="form-grid">
-              <div class="campo ancho"><label for="fuente-ruta">Carpeta de la bóveda (ruta completa en este equipo)</label><input id="fuente-ruta" type="text" maxlength="500" placeholder="Ej. C:\Users\TuNombre\Documents\MiBoveda"></div>
+              <div class="campo ancho"><label for="fuente-ruta">Carpeta de notas (ruta completa en este equipo)</label><input id="fuente-ruta" type="text" maxlength="500" placeholder="Ej. C:\Users\TuNombre\Documents\MiBoveda"></div>
               <div class="campo"><label for="fuente-nombre">Nombre (opcional)</label><input id="fuente-nombre" type="text" maxlength="80" placeholder="Ej. Wiki de la empresa"></div>
             </div>
             <div class="acciones-inline">
-              <button id="fuente-agregar" class="boton" type="button">Conectar bóveda</button>
+              <button id="fuente-agregar" class="boton" type="button">Conectar carpeta</button>
               <span id="fuente-mensaje" class="mensaje-estado" role="status"></span>
             </div>
             <div class="form-grid">
@@ -1068,7 +1171,7 @@
                 <div class="campo">
                   <label for="cfg-anthropic-modelo-busqueda">Modelo para búsquedas en internet (investigación de mercado e inversiones)</label>
                   <input id="cfg-anthropic-modelo-busqueda" type="text" autocomplete="off" placeholder="Vacío = el económico">
-                  <p class="ayuda">Las búsquedas reenvían sus resultados como tokens de entrada en cada vuelta: con un modelo grande una investigación puede costar cientos de miles de tokens.</p>
+                  <p class="ayuda">Cada búsqueda vuelve a enviar sus resultados a la IA, así que investigar es lo que más cuesta: con un modelo grande una sola investigación puede salir cara. El costo estimado aparece junto al botón antes de correrla.</p>
                 </div>
               </div>
               <div class="campo">
@@ -1131,30 +1234,40 @@
           <section id="uso-card" class="tarjeta">
             <div class="panel-encabezado">
               <h3>Consumo de IA</h3>
-              <p class="subtitulo">Tokens usados este mes con tu clave, por agente y por modelo. El límite mensual detiene las llamadas al proveedor cuando se alcanza; las órdenes quedan pendientes.</p>
+              <p class="subtitulo">Lo que llevas gastado este mes en IA con tu clave. Pon un tope en pesos: al llegar a él la IA se detiene y las órdenes quedan pendientes hasta que lo subas o empiece el mes.</p>
             </div>
             <div class="kpis kpis-uso">
-              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Modelo activo</span><span id="uso-modelo" class="kpi-valor chico">—</span></div></div>
-              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Tokens este mes</span><span id="uso-total" class="kpi-valor">0</span></div></div>
-              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Llamadas</span><span id="uso-llamadas" class="kpi-valor">0</span></div></div>
-              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Límite mensual</span><span id="uso-limite" class="kpi-valor chico">Sin límite</span></div></div>
               <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Gasto este mes</span><span id="uso-pesos" class="kpi-valor">$0</span></div></div>
-              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Hoy</span><span id="uso-hoy" class="kpi-valor">0</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Tope mensual</span><span id="uso-limite" class="kpi-valor chico">Sin tope</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Veces que se usó la IA</span><span id="uso-llamadas" class="kpi-valor">0</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Modelo activo</span><span id="uso-modelo" class="kpi-valor chico">—</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta" title="Los tokens son los pedazos de texto que el proveedor cobra: lo que lee y lo que escribe la IA.">Texto procesado este mes (tokens)</span><span id="uso-total" class="kpi-valor chico">0</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Texto procesado hoy (tokens)</span><span id="uso-hoy" class="kpi-valor chico">0</span></div></div>
             </div>
             <div class="uso-barra"><span id="uso-relleno"></span></div>
             <p id="uso-aviso" class="subtitulo"></p>
             <p id="uso-ahorro" class="subtitulo"></p>
             <p id="uso-costo-nota" class="subtitulo"></p>
             <div class="form-grid">
-              <div class="campo"><label for="cfg-limite">Límite mensual de tokens (0 = sin límite)</label><input id="cfg-limite" type="number" min="0" step="1000" value="0"></div>
-              <div class="campo"><label for="cfg-limite-diario">Límite diario de tokens (0 = sin límite; sugerido: 150,000)</label><input id="cfg-limite-diario" type="number" min="0" step="1000" value="0"></div>
-              <div class="campo ancho"><label for="cfg-tipo-cambio">Tipo de cambio (pesos por dólar; vacío = 18.50)</label><input id="cfg-tipo-cambio" type="number" min="0" step="0.01" placeholder="18.50"></div>
-              <div class="campo"><label for="cfg-precio-entrada">Precio de entrada (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-entrada" type="number" min="0" step="0.01" value="0"></div>
-              <div class="campo"><label for="cfg-precio-salida">Precio de salida (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-salida" type="number" min="0" step="0.01" value="0"></div>
+              <div class="campo"><label for="cfg-limite-pesos">Tope de gasto al mes, en pesos (0 = sin tope)</label><input id="cfg-limite-pesos" type="number" min="0" step="10" value="0"></div>
+              <div class="campo"><label for="cfg-tipo-cambio">Tipo de cambio (pesos por dólar; vacío = 18.50)</label><input id="cfg-tipo-cambio" type="number" min="0" step="0.01" placeholder="18.50"></div>
               <div class="campo ancho"><span class="etiqueta-campo">Por agente este mes</span><ul id="uso-agentes" class="lista-datos compacta"></ul></div>
             </div>
+            <details id="contexto-detalle" class="plegable"><summary>Cuánto contexto carga cada agente en una orden</summary>
+              <p class="ayuda">Es lo que se envía a la IA antes de tu mensaje: quién es el agente, tu negocio, el diagnóstico y la memoria. No crece con los meses, porque la memoria vive en el archivo y solo viaja lo relacionado con cada orden.</p>
+              <ul id="contexto-lista" class="lista-datos compacta"></ul>
+            </details>
+            <details class="plegable"><summary>Ajustes avanzados: límites por tokens y precios del proveedor</summary>
+              <p class="ayuda">Los tokens son los pedazos de texto que el proveedor cobra. Estos límites se suman al tope en pesos: la IA se detiene con el primero que se alcance.</p>
+              <div class="form-grid">
+                <div class="campo"><label for="cfg-limite">Límite mensual de tokens (0 = sin límite)</label><input id="cfg-limite" type="number" min="0" step="1000" value="0"></div>
+                <div class="campo"><label for="cfg-limite-diario">Límite diario de tokens (0 = sin límite; sugerido: 150,000)</label><input id="cfg-limite-diario" type="number" min="0" step="1000" value="0"></div>
+                <div class="campo"><label for="cfg-precio-entrada">Precio de entrada (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-entrada" type="number" min="0" step="0.01" value="0"></div>
+                <div class="campo"><label for="cfg-precio-salida">Precio de salida (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-salida" type="number" min="0" step="0.01" value="0"></div>
+              </div>
+            </details>
             <div class="acciones-inline">
-              <button id="uso-guardar" class="boton" type="button">Guardar límites y precios</button>
+              <button id="uso-guardar" class="boton" type="button">Guardar tope y precios</button>
               <span id="uso-mensaje" class="mensaje-estado" role="status"></span>
             </div>
           </section>

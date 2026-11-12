@@ -115,7 +115,7 @@ test('las empresas tienen carpetas separadas y la principal usa la carpeta de si
   const dir = mkdtempSync(join(tmpdir(), 'oficina-emp-'));
   try {
     const e = crearEmpresas(join(dir, 'empresas.json'), dir);
-    assert.deepEqual(e.leer(), { activa: PRINCIPAL, lista: [{ id: PRINCIPAL, nombre: 'Empresa principal', creada: null }] });
+    assert.deepEqual(e.leer(), { activa: PRINCIPAL, anterior: PRINCIPAL, lista: [{ id: PRINCIPAL, nombre: 'Empresa principal', creada: null }] });
     assert.equal(e.dirActiva(), dir);
     const nueva = e.crear('  Taller   Ñandú  ');
     assert.equal(nueva.nombre, 'Taller Ñandú');

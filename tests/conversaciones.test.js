@@ -81,7 +81,7 @@ test('el prompt del área solo lleva su contexto y el del orquestador lleva toda
   assert.match(sFin, /Menos de un mes de caja/);
   assert.doesNotMatch(sFin, /Ventas\. Estado/);
   const sOrq = sistemaPara('orquestador', diagnostico, equipo, { nombre: 'Tienda X' });
-  assert.match(sOrq, /Orquestador/);
+  assert.match(sOrq, /Coordinador/);
   assert.match(sOrq, /Finanzas\. Estado: Atención/);
   assert.match(sOrq, /Ventas\. Estado: Bien/);
   assert.match(sOrq, /bloquean: Finanzas/);
@@ -124,7 +124,7 @@ test('con IA el agente responde con el contexto de su área y el orquestador con
 
     const r2 = await (await post(base, 'orquestador', 'Qué atiendo primero')).json();
     assert.equal(r2.pendiente, false);
-    assert.match(recibido[1].sistema, /Orquestador/);
+    assert.match(recibido[1].sistema, /Coordinador/);
     assert.match(recibido[1].sistema, /Crecimiento: meta vertical/);
 
     // La segunda orden al mismo agente lleva el historial previo

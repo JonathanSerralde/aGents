@@ -69,7 +69,18 @@ export function compararDiagnosticos(anterior, actual) {
     iguales: areas.filter((x) => x.cambio === 'igual').length,
   };
 
+  // Si las facturas movieron el semáforo del diagnóstico actual (src/semaforo.js), parte del cambio no viene de las
+  // respuestas del dueño. Se dice cuánto sería la madurez solo con lo que respondió, para que una baja no parezca castigo.
+  const movidas = b.evidencia?.movidas || [];
+  let facturas = null;
+  if (movidas.length) {
+    const declarados = Object.fromEntries(Object.entries(b.distritos).map(([id, d]) => [id, { color: d.declarado || d.color }]));
+    const sinFacturas = madurez(declarados);
+    facturas = { movidas, madurezSinFacturas: sinFacturas, deltaSinFacturas: Math.round((sinFacturas - antes) * 10) / 10 };
+  }
+
   return {
+    facturas,
     anterior: { id: anterior.id, creado: anterior.creado },
     actual: { id: actual.id, creado: actual.creado },
     dias,
@@ -78,11 +89,11 @@ export function compararDiagnosticos(anterior, actual) {
     conteo,
     acciones,
     crecimiento: { vertical: eje('vertical'), horizontal: eje('horizontal') },
-    resumen: resumenDeAvance({ antes, despues, dias, conteo, acciones, areas }),
+    resumen: resumenDeAvance({ antes, despues, dias, conteo, acciones, areas, facturas }),
   };
 }
 
-function resumenDeAvance({ antes, despues, dias, conteo, acciones, areas }) {
+function resumenDeAvance({ antes, despues, dias, conteo, acciones, areas, facturas = null }) {
   const delta = Math.round((despues - antes) * 10) / 10;
   const lapso = dias === 0 ? 'el mismo día' : dias === 1 ? 'en 1 día' : `en ${dias} días`;
   const nombres = (cambio) => areas.filter((x) => x.cambio === cambio).map((x) => x.nombre).join(', ');
@@ -91,6 +102,7 @@ function resumenDeAvance({ antes, despues, dias, conteo, acciones, areas }) {
   ];
   if (conteo.mejoraron) partes.push(`Mejoraron: ${nombres('mejoro')}.`);
   if (conteo.empeoraron) partes.push(`Empeoraron: ${nombres('empeoro')}.`);
+  if (facturas) partes.push(`Tus facturas movieron ${facturas.movidas.map((m) => m.nombre).join(', ')}: solo con tus respuestas la madurez sería ${facturas.madurezSinFacturas} de 5.`);
   if (acciones.resueltas.length) partes.push(`${acciones.resueltas.length} ${acciones.resueltas.length === 1 ? 'acción del plan anterior ya no hace falta' : 'acciones del plan anterior ya no hacen falta'}.`);
   if (acciones.persistentes.length) partes.push(`${acciones.persistentes.length} ${acciones.persistentes.length === 1 ? 'sigue pendiente' : 'siguen pendientes'}.`);
   return partes.join(' ');

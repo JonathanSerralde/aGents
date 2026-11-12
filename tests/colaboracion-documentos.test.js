@@ -45,7 +45,7 @@ test('se extraen las líneas CONSULTAR y DELEGAR y se resuelven los agentes por 
   assert.match(componerRespuesta(r, [{ tipo: 'CONSULTAR', nombreDestino: 'Fina', texto: 'x', respuesta: '3 días' }]), /Consulta a Fina: x\n→ 3 días/);
 });
 
-test('un agente consulta a otro y el usuario recibe ambas respuestas; el destino no abre otra vuelta', async () => {
+test('un agente consulta a otro, entrega su versión final y el usuario ve ambas respuestas', async () => {
   const llamadas = [];
   const llamarIA = async ({ sistema, mensajes }) => {
     llamadas.push({ sistema, ultimo: mensajes.at(-1).texto });
@@ -60,13 +60,18 @@ test('un agente consulta a otro y el usuario recibe ambas respuestas; el destino
     assert.match(r.respuesta, /Consulta a Finanzas/);
     assert.match(r.respuesta, /2 meses de caja/);
     assert.doesNotMatch(r.respuesta, /^CONSULTAR/m);
-    assert.equal(llamadas.length, 2, 'la consulta del destino no debe generar una tercera llamada');
+    // Dos llamadas del intercambio y una tercera en la que quien preguntó entrega su versión final; la consulta
+    // que el destino intentó hacer a quien le preguntaba no genera otra.
+    assert.equal(llamadas.length, 3);
+    assert.match(llamadas[2].sistema, /Ya recibiste lo que contestaron los otros agentes/);
+    assert.match(llamadas[2].ultimo, /Finanzas: Hay 2 meses de caja/);
+    assert.equal(r.consolidada, true);
     const fin = await (await fetch(`${base}/api/agentes/finanzas/mensajes`)).json();
     assert.match(fin.mensajes[0].texto, /Pregunta de el agente de ventas/);
   });
 });
 
-test('solo el Orquestador puede delegar, hasta cuatro encargos', async () => {
+test('solo el Coordinador puede delegar, hasta cuatro encargos', async () => {
   const llamarIA = async ({ sistema }) => (/Esta petición viene de otro agente/.test(sistema) ? 'Hecho.' : 'Plan.\nDELEGAR: [Finanzas] — a\nDELEGAR: [Ventas] — b\nDELEGAR: [RH] — c\nDELEGAR: [Compras] — d\nDELEGAR: [Riesgos] — e');
   await conServidor({ llamarIA }, async (base) => {
     const orq = await (await fetch(`${base}/api/agentes/orquestador/mensajes`, json('POST', { texto: 'Reparte el trabajo' }))).json();
@@ -115,7 +120,7 @@ test('los documentos se guardan con su texto, se listan sin el texto y se borran
   }
 });
 
-test('el Orquestador analiza un documento subido y reparte encargos a los agentes', async () => {
+test('el Coordinador analiza un documento subido y reparte encargos a los agentes', async () => {
   const llamadas = [];
   const llamarIA = async ({ sistema, mensajes }) => {
     llamadas.push({ sistema, texto: mensajes.at(-1).texto, imagen: Boolean(mensajes.at(-1).imagen) });
@@ -133,7 +138,7 @@ test('el Orquestador analiza un documento subido y reparte encargos a los agente
     assert.deepEqual(analisis.analisis.delegaciones.map((d) => d.destino), ['fiscal', 'finanzas']);
     assert.match(analisis.analisis.resumen, /Encargo a Fiscal y legal/);
     assert.match(llamadas[0].texto, /Renta mensual/);
-    assert.match(llamadas[0].sistema, /Orquestador/);
+    assert.match(llamadas[0].sistema, /Coordinador/);
     const orq = await (await fetch(`${base}/api/agentes/orquestador/mensajes`)).json();
     assert.match(orq.mensajes.at(-1).texto, /contrato de arrendamiento/i);
     const lista = await (await fetch(`${base}/api/documentos`)).json();

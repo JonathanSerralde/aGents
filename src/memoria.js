@@ -1,7 +1,7 @@
 // Memoria compartida: el "cerebro" común de la oficina. Vive en data/memoria.json.
 // Cada respuesta de un agente deja aquí sus ACCIONES como tareas abiertas y su conclusión principal; los agentes
 // también pueden dejarse notas entre sí con "INFORMAR: [agente] — dato" sin gastar una llamada de IA.
-// El Orquestador ve todo (qué tiene pendiente cada área); cada agente ve lo suyo y las notas que le dejaron.
+// El Coordinador ve todo (qué tiene pendiente cada área); cada agente ve lo suyo y las notas que le dejaron.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { resolverAgente } from './colaboracion.js';
@@ -118,7 +118,10 @@ export function extraerConceptos(respuesta) {
   });
 }
 
-export function crearMemoria(archivo) {
+// archivar(entrada) y olvidar(tipo, texto) conectan con el archivo de memoria (src/archivo.js): lo que aquí se rota
+// o se borra por tope queda guardado allá. Son opcionales; un fallo del archivo nunca detiene a la memoria.
+export function crearMemoria(archivo, { archivar = null, olvidar = null } = {}) {
+  const alArchivo = (entrada) => { try { archivar?.(entrada); } catch { /* el archivo es un extra */ } };
   const VACIO = () => ({ acciones: [], conclusiones: {}, estados: {}, notas: [], hechos: [], ideas: [], conceptos: [] });
   function leerTodo() {
     if (!existsSync(archivo)) return VACIO();
@@ -149,16 +152,19 @@ export function crearMemoria(archivo) {
     for (const h of hechos) {
       if (datos.hechos.some((x) => igual(x.texto, h.texto))) continue;
       datos.hechos.push({ id: nuevoId(), area, texto: recortar(h.texto), fuente: recortar(h.fuente || origen, 80), origen, momento: new Date().toISOString() });
+      alArchivo({ tipo: 'hecho', area, texto: h.texto, fuente: h.fuente || origen });
       cuenta.hechos++;
     }
     for (const i of ideas) {
       if (datos.ideas.some((x) => igual(x.texto, i.texto))) continue;
       datos.ideas.push({ id: nuevoId(), area, texto: recortar(i.texto), veredicto: recortar(i.veredicto || '', 80), estado: 'por_validar', origen, momento: new Date().toISOString() });
+      alArchivo({ tipo: 'idea', area, texto: i.texto, fuente: origen });
       cuenta.ideas++;
     }
     for (const c of conceptos) {
       if (datos.conceptos.some((x) => igual(x.termino, c.termino))) continue;
       datos.conceptos.push({ id: nuevoId(), termino: recortar(c.termino, 60), texto: recortar(c.texto, 300), origen, momento: new Date().toISOString() });
+      alArchivo({ tipo: 'concepto', texto: `${c.termino}: ${c.texto}`, fuente: origen });
       cuenta.conceptos++;
     }
     datos.hechos = datos.hechos.slice(-MAX_HECHOS);
@@ -178,7 +184,10 @@ export function crearMemoria(archivo) {
     registrarRespuesta(area, respuesta, propios = {}) {
       const datos = leerTodo();
       const conclusion = extraerConclusion(respuesta);
-      if (conclusion) datos.conclusiones[area] = { texto: conclusion, momento: new Date().toISOString() };
+      if (conclusion) {
+        datos.conclusiones[area] = { texto: conclusion, momento: new Date().toISOString() };
+        alArchivo({ tipo: 'acuerdo', area, texto: conclusion, fuente: 'agente' });
+      }
       const estado = extraerEstado(respuesta);
       if (estado) datos.estados[area] = { ...estado, momento: new Date().toISOString() };
       let nuevas = 0;
@@ -218,10 +227,11 @@ export function crearMemoria(archivo) {
 
     borrarHecho(id) {
       const datos = leerTodo();
-      const antes = datos.hechos.length;
+      const borrado = datos.hechos.find((h) => h.id === id);
+      if (!borrado) return false;
       datos.hechos = datos.hechos.filter((h) => h.id !== id);
-      if (datos.hechos.length === antes) return false;
       escribir(datos);
+      try { olvidar?.('hecho', borrado.texto); } catch { /* el archivo es un extra */ }
       return true;
     },
 
@@ -232,6 +242,7 @@ export function crearMemoria(archivo) {
       i.estado = ['por_validar', 'aprobada', 'descartada'].includes(estado) ? estado : 'por_validar';
       i.actualizado = new Date().toISOString();
       escribir(datos);
+      if (i.estado !== 'por_validar') alArchivo({ tipo: 'decision', area: i.area, texto: `Idea ${i.estado}: ${i.texto}`, fuente: 'dueño' });
       return i;
     },
 
@@ -291,9 +302,11 @@ export function crearMemoria(archivo) {
       const datos = leerTodo();
       const a = datos.acciones.find((x) => x.id === id);
       if (!a) return null;
+      const yaEstaba = a.estado === 'hecha';
       a.estado = estado === 'hecha' ? 'hecha' : 'pendiente';
       a.actualizado = new Date().toISOString();
       escribir(datos);
+      if (a.estado === 'hecha' && !yaEstaba) alArchivo({ tipo: 'accion', area: a.area, texto: a.texto, fuente: a.responsable || 'bitácora' });
       return a;
     },
 
@@ -307,14 +320,15 @@ export function crearMemoria(archivo) {
       return lista;
     },
 
-    // Texto para el prompt. El Orquestador recibe el panorama completo; un agente, lo suyo.
-    resumenParaPrompt(area, propios = {}) {
+    // Texto para el prompt. El Coordinador recibe el panorama completo; un agente, lo suyo.
+    // hechos: false cuando los hechos los aporta el archivo de memoria (fijos, relacionados con la orden y recientes).
+    resumenParaPrompt(area, propios = {}, { hechos: conHechos = true } = {}) {
       const datos = leerTodo();
       const pendientes = datos.acciones.filter((a) => a.estado === 'pendiente');
       const hoy = fechaLocal(new Date());
       const vencidas = pendientes.filter((a) => a.vence && a.vence < hoy);
       const lineas = [];
-      // El gestor ágil de proyectos ve el panorama completo, igual que el Orquestador: la bitácora es su backlog.
+      // El gestor ágil de proyectos ve el panorama completo, igual que el Coordinador: la bitácora es su backlog.
       if (area === 'orquestador' || area === 'proyectos') {
         if (vencidas.length) lineas.push(`Acciones VENCIDAS (${vencidas.length}), atiéndelas o reasígnalas antes de proponer nuevas: ${vencidas.slice(0, 6).map((a) => `${nombreDe(a.area, propios)}: ${a.texto} (venció ${a.vence})`).join(' | ')}`);
         const porArea = new Map();
@@ -338,7 +352,7 @@ export function crearMemoria(archivo) {
         if (notas.length) lineas.push(`Notas que te dejaron otros agentes: ${notas.map((n) => `${nombreDe(n.origen, propios)}: ${n.texto}`).join(' | ')}`);
       }
       // Hechos e ideas van a todos: son la diferencia entre lo que la empresa ES y lo que alguien PROPUSO.
-      const hechos = datos.hechos.slice(-12).reverse();
+      const hechos = conHechos ? datos.hechos.slice(-12).reverse() : [];
       if (hechos.length) lineas.push(`HECHOS registrados de la empresa (trátalos como información real; cita la fuente): ${hechos.map((h) => `${h.texto} [${h.fuente}]`).join(' | ')}`);
       const ideas = datos.ideas.filter((i) => i.estado === 'por_validar').slice(-6).reverse();
       if (ideas.length) lineas.push(`IDEAS en evaluación (NO son hechos ni decisiones; no las des por aprobadas): ${ideas.map((i) => `${i.texto}${i.veredicto ? ` (veredicto previo: ${i.veredicto})` : ''}`).join(' | ')}`);

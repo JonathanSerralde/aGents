@@ -1,6 +1,6 @@
 // Ciudad de agentes en 3D: una ciudad nocturna de cristal y neón construida con geometría propia
 // (no hay imágenes de fondo). Cada área es un edificio con forma propia; su estado real del diagnóstico
-// se lee en el aro, las aristas y los acentos luminosos. En la plaza vive el núcleo del Orquestador,
+// se lee en el aro, las aristas y los acentos luminosos. En la plaza vive el núcleo del Coordinador,
 // conectado con cada edificio.
 // Clic en un edificio: selecciona el área. Arrastrar: gira la cámara. Mayús + arrastrar: desplaza.
 // Ctrl + rueda (o los botones de la escena): acerca o aleja.
@@ -410,7 +410,7 @@ function construirExpansion(horizontal) {
   return grupo;
 }
 
-// Plaza central: el núcleo del Orquestador, que coordina a todos los edificios.
+// Plaza central: el núcleo del Coordinador, que coordina a todos los edificios.
 function construirNucleo() {
   const grupo = new THREE.Group();
   grupo.userData = { area: 'orquestador' };
@@ -441,7 +441,7 @@ function construirNucleo() {
   luz.position.y = 1.3;
   grupo.add(luz);
 
-  const placa = crearPlaca('Orquestador', 'Coordina la oficina', '#25e2ff');
+  const placa = crearPlaca('Coordinador', 'Reparte el trabajo', '#25e2ff');
   placa.position.set(0, 2.15, 0);
   grupo.add(placa);
   // Los halos no cuentan para el clic: son más grandes que el núcleo y taparían a los vecinos.
@@ -716,7 +716,7 @@ function paso(tiempo) {
     }
   }
 
-  // Pulsos del Orquestador hacia cada área: más rápidos y brillantes si su agente está trabajando.
+  // Pulsos del Coordinador hacia cada área: más rápidos y brillantes si su agente está trabajando.
   for (const [id, e] of enlaces) {
     const activo = trabajando.has(id);
     const u = (t * (activo ? 0.7 : 0.16) + e.desfase) % 1;
@@ -915,7 +915,7 @@ export function acercar(factor) {
   }
 }
 
-// Áreas cuyo agente está trabajando ahora: su enlace con el Orquestador se enciende.
+// Áreas cuyo agente está trabajando ahora: su enlace con el Coordinador se enciende.
 export function marcarTrabajando(ids) {
   trabajando = new Set(ids);
   repintar();

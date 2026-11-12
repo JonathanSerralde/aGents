@@ -32,7 +32,7 @@ import { crearEmpresa, CAMPOS_EMPRESA } from './empresa.js';
 import { crearFuentes, buscar, fragmentosParaPrompt } from './conocimiento.js';
 import { generarDocx, generarHtml } from './reporte.js';
 import { crearDocumentos, LIMITE_DOCUMENTO } from './documentos.js';
-import { colaborar, componerRespuesta, extraerPeticiones } from './colaboracion.js';
+import { colaborar, componerRespuesta, extraerPeticiones, limpiarPeticiones } from './colaboracion.js';
 import { ORQUESTADOR, AREAS_CONVERSACION } from './conversaciones.js';
 import { conversarConBusqueda } from './agentes.js';
 import { instruccionInvestigacion, parsearInvestigacion, resumirSinIA, resumenParaPrompt, informeParaOrquestador, contenidoInvestigacion, crearInvestigaciones, MINIMO_COMPETIDORES, MINIMO_RESENAS } from './investigacion.js';
@@ -40,6 +40,9 @@ import { descargarSitio, evaluarSitio, informeSitioParaOrquestador, resumenSitio
 import { crearProgramacion, crearProgramador, DIAS } from './programador.js';
 import { crearMemoria } from './memoria.js';
 import { docxDesdeBloques, htmlDesdeBloques } from './reporte.js';
+import { crearRespaldos } from './respaldo.js';
+import { crearPresupuesto, extraerGastos, dinero as dineroCorto } from './presupuesto.js';
+import { crearArchivo, historialParaIA, TIPOS_ARCHIVO } from './archivo.js';
 import { estadoApoyo } from './apoyo.js';
 import { HABILIDADES } from './habilidades.js';
 import { contextoSectores } from './sectores.js';
@@ -50,6 +53,7 @@ import { proyectarFlujo } from './flujo.js';
 import { crearJuntas, armarJunta, mensajesDe, bloquesJunta, MAX_EN_JUNTA } from './junta.js';
 import { bloquesEntregable, instruccionEntregable, tipoDeEntregable } from './entregable.js';
 import { crearEmpresas } from './empresas.js';
+import { sembrarDemo, NOMBRE_DEMO } from './demo.js';
 import { armarPasaporte, bloquesPasaporte } from './pasaporte.js';
 import { crearCampanas, sanitizarPeticion, instruccionCampana, parsearCampana, OBJETIVOS, TONOS } from './campana.js';
 import { rutasDe } from './config.js';
@@ -165,7 +169,7 @@ export function crearServidor(opciones = {}) {
   const documentos = crearDocumentos(config.dirDocumentos);
   const MAX_TEXTO_DOCUMENTO_IA = 14000; // caracteres del documento que se envían al modelo
 
-  // Prompt del sistema de cualquier agente, con su ficha, su habilidad y, si es el Orquestador, los nombres de los agentes propios.
+  // Prompt del sistema de cualquier agente, con su ficha, su habilidad y, si es el Coordinador, los nombres de los agentes propios.
   // Todos reciben además la última investigación de mercado, el último análisis del sitio y su parte de la memoria compartida.
   // Agentes de apoyo opcionales (por ejemplo, Alimentos y bebidas): activos según el giro, la ficha o la elección del usuario.
   function apoyo() {
@@ -173,7 +177,8 @@ export function crearServidor(opciones = {}) {
   }
   const motivoInactivo = (area) => apoyo().inactivos[area] || null;
 
-  function sistemaDe(area, { compacto = false } = {}) {
+  // consulta: el texto de la orden, para traer del archivo de memoria solo lo que tiene que ver con ella.
+  function sistemaDe(area, { compacto = false, consulta = '' } = {}) {
     const propios = personalizados.leer().agentes;
     const personalizado = esIdPersonalizado(area) ? propios[area] : (area === ORQUESTADOR ? { nombresPropios: Object.values(propios).map((a) => a.nombre) } : null);
     const ap = apoyo(); // una sola lectura de disco por prompt
@@ -186,7 +191,8 @@ export function crearServidor(opciones = {}) {
       ajuste: ajustes.leer(area),
       investigacion: resumenParaPrompt(investigaciones.ultima()),
       sitio: resumenSitioParaPrompt(analisisSitio.ultimo()),
-      memoria: memoria.resumenParaPrompt(area, propios),
+      // El presupuesto del mes y los gastos por aprobar van con lo que cambia en cada orden.
+      memoria: [memoria.resumenParaPrompt(area, propios, { hechos: false }), recuerdos.paraPrompt({ consulta, area, nombreArea: (id) => nombreDe(id, propios) }), presupuesto.paraPrompt(relojActual())].filter(Boolean).join('\n\n'),
       // Quien coordina sabe qué está haciendo cada agente (registro de actividad, piloto y bitácora), no solo sus acciones.
       situacion: AGENTES_CON_SITUACION.includes(area) ? situacionParaPrompt(situacionActual(), { excepto: area }) : '',
     });
@@ -209,7 +215,7 @@ export function crearServidor(opciones = {}) {
 
   // ---- Tareas semanales: investigación de mercado y análisis del sitio ----
 
-  // Reparte un informe entre los agentes. Con IA, el Orquestador decide a quién (y siempre a los obligatorios);
+  // Reparte un informe entre los agentes. Con IA, el Coordinador decide a quién (y siempre a los obligatorios);
   // sin IA, el informe queda como orden pendiente para las personas responsables de las áreas obligatorias.
   // detalle: texto del informe que se adjunta a cada encargo para que el agente tenga el dato completo, no solo el resumen.
   async function repartir({ cfg, titulo, informe, obligatorios, instruccion, maximo = 6, detalle = '' }) {
@@ -229,7 +235,7 @@ export function crearServidor(opciones = {}) {
       let respuesta = await conversar(cfg, sistemaDe(ORQUESTADOR), [mensaje]);
       if (!respuesta) throw new Error('El proveedor no devolvió texto');
       fin(true);
-      // Los obligatorios siempre reciben encargo, aunque el Orquestador los haya omitido.
+      // Los obligatorios siempre reciben encargo, aunque el Coordinador los haya omitido.
       const destinos = new Set(extraerPeticiones(respuesta).filter((p) => p.tipo === 'DELEGAR').map((p) => resolverAgente(p.destinoTexto, propios)));
       for (const destino of obligatorios) {
         if (!destinos.has(destino)) respuesta += `\nDELEGAR: [${nombreDe(destino, propios)}] — Revisa el informe "${titulo}" y propón qué cambiar en tu área esta semana.`;
@@ -304,7 +310,7 @@ export function crearServidor(opciones = {}) {
     });
     investigaciones.actualizar(registro.id, { encargos: reparto.encargos, pendienteReparto: reparto.pendienteReparto, motivoPendiente: reparto.motivo, textoOrquestador: reparto.textoOrquestador });
     Object.assign(registro, { encargos: reparto.encargos, pendienteReparto: reparto.pendienteReparto, motivoPendiente: reparto.motivo, textoOrquestador: reparto.textoOrquestador });
-    conversaciones.agregar('mercado', { rol: 'agente', texto: `Investigación del ${new Date(momento).toLocaleDateString('es-MX')}: ${inv.competidores.length} competidores y ${inv.competidores.reduce((s, c) => s + c.positivos.length + c.negativos.length, 0)} comentarios. Buscan: ${inv.buscan.slice(0, 3).join('; ') || 'sin conclusión'}. Rechazan: ${inv.rechazan.slice(0, 3).join('; ') || 'sin conclusión'}. Entregado al Orquestador.`.slice(0, MAX_TEXTO) });
+    conversaciones.agregar('mercado', { rol: 'agente', texto: `Investigación del ${new Date(momento).toLocaleDateString('es-MX')}: ${inv.competidores.length} competidores y ${inv.competidores.reduce((s, c) => s + c.positivos.length + c.negativos.length, 0)} comentarios. Buscan: ${inv.buscan.slice(0, 3).join('; ') || 'sin conclusión'}. Rechazan: ${inv.rechazan.slice(0, 3).join('; ') || 'sin conclusión'}. Entregado al Coordinador.`.slice(0, MAX_TEXTO) });
     emitir('investigacion_terminada', { id: registro.id, competidores: inv.competidores.length, encargos: reparto.encargos.length, pendiente: reparto.pendienteReparto, busquedas: busquedasHechas.length, encargados: reparto.encargos.map((e) => e.destino) });
     return registro;
   }
@@ -340,7 +346,7 @@ export function crearServidor(opciones = {}) {
     return { ...prog, diaNombre: DIAS[prog.diaSemana], puedeIA: !bloqueoIA(configActual()), motivoIA: bloqueoIA(configActual()) };
   }
 
-  // "Optimizar agentes": el Orquestador propone ajustes por negocio para los agentes con más trabajo pendiente.
+  // "Optimizar agentes": el Coordinador propone ajustes por negocio para los agentes con más trabajo pendiente.
   async function optimizarAgentes(req, res) {
     const cfg = configActual();
     const bloqueo = bloqueoIA(cfg);
@@ -399,11 +405,11 @@ export function crearServidor(opciones = {}) {
     if (presupuesto) presupuesto.usadas++;
     const puedeConsultar = profundidad === 0 && presupuesto && presupuesto.usadas < presupuesto.max;
     // Prompt compacto (sin referencias largas, sector ni agenda) y modelo económico: son respuestas cortas entre agentes.
-    const sistema = `${sistemaDe(area, { compacto: true })}\n\nEsta petición viene de otro agente del sistema: responde breve y directo, sin usar DELEGAR${puedeConsultar ? '. Si te falta un dato que solo otro agente tiene, puedes hacer UNA sola CONSULTAR' : ' ni CONSULTAR'}.${adjunto ? `\n\n${adjunto}` : ''}`;
-    const historial = conversaciones.leer(area).slice(-4).map(({ rol, texto: t }) => ({ rol, texto: t }));
+    const sistema = `${sistemaDe(area, { compacto: true, consulta: texto })}\n\nEsta petición viene de otro agente del sistema: responde breve y directo, sin usar DELEGAR${puedeConsultar ? '. Si te falta un dato que solo otro agente tiene, puedes hacer UNA sola CONSULTAR' : ' ni CONSULTAR'}.${adjunto ? `\n\n${adjunto}` : ''}`;
+    const historial = historialParaIA(conversaciones.leer(area).slice(-4).map(({ rol, texto: t }) => ({ rol, texto: t })), { completos: 2 });
     const previo = agenteEnCurso;
     agenteEnCurso = area; // el consumo se atribuye a quien responde, no a quien preguntó
-    const fin = trabajo(area, /^Encargo del Orquestador/.test(texto) ? 'encargo' : 'consulta', texto);
+    const fin = trabajo(area, /^Encargo del Coordinador/.test(texto) ? 'encargo' : 'consulta', texto);
     let cruda;
     try {
       cruda = await conversar(cfg, sistema, [...historial, { rol: 'usuario', texto }], { nivel: 'automatico' });
@@ -437,7 +443,7 @@ export function crearServidor(opciones = {}) {
   async function resolverColaboracion(cfg, areaOrigen, respuesta, { maximo = null, adjunto = '' } = {}) {
     const propios = personalizados.leer().agentes;
     const eq = equipo.leer();
-    const nombreOrigen = eq.areas?.[areaOrigen]?.agente || (areaOrigen === ORQUESTADOR ? 'el Orquestador' : `el agente de ${areaOrigen}`);
+    const nombreOrigen = eq.areas?.[areaOrigen]?.agente || (areaOrigen === ORQUESTADOR ? 'el Coordinador' : `el agente de ${areaOrigen}`);
     const presupuesto = { usadas: 0, max: PRESUPUESTO_LLAMADAS };
     const intercambios = await colaborar({
       areaOrigen, nombreOrigen, respuesta, propios, equipo: eq, maximo,
@@ -447,12 +453,14 @@ export function crearServidor(opciones = {}) {
     return { texto: componerRespuesta(respuesta, intercambios), intercambios };
   }
 
-  // Informe del Orquestador (reglas, sin IA): estado, contradicciones, acciones vencidas, mercado y sitio.
+  // Informe del Coordinador (reglas, sin IA): estado, contradicciones, acciones vencidas, mercado y sitio.
   function informeActual() {
     return informeOficina({ diagnostico: store.ultimo(), equipo: equipo.leer(), marca: marca.leer(), memoria, investigacion: investigaciones.ultima(), sitio: analisisSitio.ultimo(), apoyo: apoyo(), propios: personalizados.leer().agentes, situacion: situacionActual(), progreso: progresoDe()?.comparacion || null, datosReales: datosReales.leer(), flujo: flujoActual() });
   }
 
   const relojActual = () => (config.ahora ? config.ahora() : new Date());
+  const respaldos = crearRespaldos(config.dirRaizDatos);
+  const presupuesto = crearPresupuesto(config.archivoPresupuesto);
 
   // Lee la carpeta de facturas y guarda el resumen. Conserva lo que el usuario capturó (saldo de hoy, vigilancia).
   function analizarCarpeta(carpeta) {
@@ -593,11 +601,14 @@ export function crearServidor(opciones = {}) {
   const investigaciones = crearInvestigaciones(config.dirInvestigaciones);
   const analisisSitio = crearAnalisisSitio(config.dirSitio);
   const programacion = crearProgramacion(config.archivoProgramacion, { pausadas: ['investigacion'] });
-  const memoria = crearMemoria(config.archivoMemoria);
+  // Archivo de memoria: guarda todo lo aprendido; al agente solo le llega lo fijado, lo relacionado y lo reciente.
+  const recuerdos = crearArchivo(config.archivoRecuerdos);
+  const memoria = crearMemoria(config.archivoMemoria, { archivar: (e) => recuerdos.agregar(e), olvidar: (tipo, texto) => recuerdos.olvidar(tipo, texto) });
+  if (!recuerdos.existe()) { try { recuerdos.importar(memoria.leer()); } catch { /* si falla, el archivo se llena con lo nuevo */ } }
   const calendario = crearCalendario(config.archivoCalendario);
   const rutinas = crearRutinas(config.archivoRutinas);
   const piloto = crearPiloto(config.archivoPiloto);
-  // Agentes que pueden ir en piloto: Orquestador, áreas, apoyo activo y propios.
+  // Agentes que pueden ir en piloto: Coordinador, áreas, apoyo activo y propios.
   const idsPiloto = () => [ORQUESTADOR, ...Object.keys(NOMBRES_DISTRITOS), ...apoyo().activos, ...idsPropios()];
   const AGENTES_CON_AGENDA = [ORQUESTADOR, 'proyectos', 'direccion', 'planificador'];
   // Reciben el estado de todos los agentes en su contexto: son quienes coordinan, priorizan o auditan.
@@ -655,7 +666,8 @@ export function crearServidor(opciones = {}) {
     const consultas = uno({ modelo: automatico, tokensEntrada: areaMayor + 400, salidaEsperada: 0, salidaMaxima: 2500, llamadas: MAX_CONSULTAS });
     const orden = uno({ modelo: principal, tokensEntrada: areaMayor + 400, salidaEsperada: media, salidaMaxima: 2500 });
     const crudas = {
-      orden: orden && consultas ? { aproximado: orden.aproximado, hasta: orden.hasta + consultas.hasta } : null,
+      // El tope incluye las consultas a otros agentes y la segunda vuelta en la que el agente ajusta su propuesta.
+      orden: orden && consultas ? { aproximado: orden.aproximado, hasta: orden.hasta * 2 + consultas.hasta } : null,
       entregable: uno({ modelo: principal, tokensEntrada: areaMayor + 300, salidaEsperada: Math.max(media, 1200), salidaMaxima: 2500 }),
       campana: uno({ modelo: principal, tokensEntrada: sistema('trafico') + 400, salidaEsperada: Math.max(media, 1200), salidaMaxima: 2500 }),
       investigacion: uno({ modelo: modeloPara(cfg, 'busqueda'), tokensEntrada: sistema('mercado') + 8 * 3000, salidaEsperada: 2000, salidaMaxima: 4096, busquedas: 8 }),
@@ -671,7 +683,7 @@ export function crearServidor(opciones = {}) {
   }
 
   // Estado del monitor: consumo del mes, límite y modelo activo.
-  function estadoUso(cfg = configActual()) {
+  function usoBase(cfg) {
     const resumen = uso.resumen();
     const limite = cfg.limiteMensualTokens || 0;
     const limiteDiario = cfg.limiteDiarioTokens || 0;
@@ -680,13 +692,26 @@ export function crearServidor(opciones = {}) {
     return { ...resumen, tipoCambio: cambio, pesos: Math.round(((resumen.costoUsd || 0) + legado.usd) * cambio * 100) / 100, sinPrecio: (resumen.sinPrecio || 0) + legado.sinPrecio, limite, limiteDiario, alcanzado: limiteAlcanzado(resumen, limite) || limiteAlcanzado({ total: resumen.hoy }, limiteDiario), porcentaje: limite ? Math.min(100, Math.round((resumen.total / limite) * 100)) : null, porcentajeHoy: limiteDiario ? Math.min(100, Math.round((resumen.hoy / limiteDiario) * 100)) : null, modelo: modeloActivo(cfg), modeloAutomatico: proveedorActivo(cfg) ? modeloPara(cfg, 'automatico') : '', modoAhorro: cfg.modoAhorro || 'equilibrado', usarLotes: cfg.usarLotes !== false, proveedor: proveedorActivo(cfg) || 'ninguno' };
   }
 
+  // Además del límite en tokens, el dueño puede poner un tope de gasto del mes en pesos, que es lo que entiende.
+  function estadoUso(cfg = configActual()) {
+    const u = usoBase(cfg);
+    const limitePesos = cfg.limiteMensualPesos || 0;
+    // `detenidaPor` dice cuál límite frenó a la IA, para que la pantalla ofrezca subir justo ese.
+    const detenidaPor = limitePesos > 0 && u.pesos >= limitePesos ? 'pesos' : limiteAlcanzado(u, u.limite) ? 'tokens_mes' : limiteAlcanzado({ total: u.hoy }, u.limiteDiario) ? 'tokens_dia' : null;
+    return { ...u, limitePesos, porcentajePesos: limitePesos ? Math.min(100, Math.round((u.pesos / limitePesos) * 100)) : null, alcanzado: Boolean(detenidaPor), detenidaPor };
+  }
+
   // ¿Se puede llamar al proveedor ahora? Devuelve null si sí, o el motivo si no.
   function bloqueoIA(cfg) {
     if (cfg.permisos && cfg.permisos.ia === false) return 'IA desactivada por ti en Accesos y permisos';
     if (!proveedorActivo(cfg)) return 'Sin IA configurada';
     const resumen = uso.resumen();
-    if (limiteAlcanzado(resumen, cfg.limiteMensualTokens)) return `Se alcanzó el límite mensual de ${cfg.limiteMensualTokens.toLocaleString('es-MX')} tokens; súbelo o espera al próximo mes en Configuración`;
-    if (limiteAlcanzado({ total: resumen.hoy }, cfg.limiteDiarioTokens)) return `Se alcanzó el límite diario de ${cfg.limiteDiarioTokens.toLocaleString('es-MX')} tokens; mañana se reanuda (o súbelo en Configuración)`;
+    if (cfg.limiteMensualPesos > 0) {
+      const gastado = estadoUso(cfg).pesos;
+      if (gastado >= cfg.limiteMensualPesos) return `Llegaste a tu tope de ${pesosCortos(cfg.limiteMensualPesos)} al mes para la IA (llevas cerca de ${pesosCortos(gastado)}); súbelo en Configuración › Consumo de IA o espera al próximo mes`;
+    }
+    if (limiteAlcanzado(resumen, cfg.limiteMensualTokens)) return `Se alcanzó el límite mensual de uso de la IA (${cfg.limiteMensualTokens.toLocaleString('es-MX')} tokens); súbelo en Configuración › Consumo de IA o espera al próximo mes`;
+    if (limiteAlcanzado({ total: resumen.hoy }, cfg.limiteDiarioTokens)) return `Se alcanzó el límite diario de uso de la IA (${cfg.limiteDiarioTokens.toLocaleString('es-MX')} tokens); mañana se reanuda, o súbelo en Configuración › Consumo de IA`;
     return null;
   }
 
@@ -762,7 +787,7 @@ export function crearServidor(opciones = {}) {
     if (!activo) {
       return { bloqueado: { codigo: 200, cuerpo: { ok: true, pendiente: true, motivo: bloqueo, respuesta: null, clasificacion, sugerenciaRutina, mensajes: conversaciones.leer(area) } } };
     }
-    let sistema = `${sistemaDe(area)}\n\nEl mensaje actual del usuario es ${DESCRIPCION_TIPO[clasificacion.tipo]}. ${instruccionPorTipo(clasificacion.tipo)}`;
+    let sistema = `${sistemaDe(area, { consulta: texto })}\n\nEl mensaje actual del usuario es ${DESCRIPCION_TIPO[clasificacion.tipo]}. ${instruccionPorTipo(clasificacion.tipo)}`;
     if (origen === 'rutina') sistema += '\n\nEsta orden la envía una rutina automática que el usuario programó: responde completo y con fecha, como un reporte que leerá después.';
     if (origen === 'piloto') sistema += '\n\nEsta es tu revisión periódica automática (piloto automático): nadie te la pidió hoy. Escribe como un reporte fechado que el dueño leerá después: breve, concreto, con tus ACCIONES y, si aplica, CONSULTAR o INFORMAR a otros agentes. Si no hay nada nuevo desde tu última revisión, dilo en dos líneas y no inventes trabajo.';
     // Notas de las bóvedas relacionadas con la orden (solo lectura, con tope de fragmentos).
@@ -773,20 +798,56 @@ export function crearServidor(opciones = {}) {
     } catch { /* una bóveda inaccesible no debe impedir la orden */ }
     // Lo automático lleva menos historial: cada mensaje reenviado cuesta tokens en cada orden.
     const largoHistorial = origen === 'usuario' ? HISTORIAL_PARA_IA : HISTORIAL_AUTOMATICO;
-    const historial = conversaciones.leer(area).slice(-largoHistorial).map(({ rol, texto: t }) => ({ rol, texto: t }));
+    // Los últimos mensajes van completos; los anteriores, recortados: no se paga entera una respuesta larga de hace días.
+    const historial = historialParaIA(conversaciones.leer(area).slice(-largoHistorial).map(({ rol, texto: t }) => ({ rol, texto: t })));
     const nivel = origen === 'usuario' ? 'principal' : 'automatico';
     const conBusqueda = AGENTES_CON_BUSQUEDA.includes(area) && cfg.permisos?.busquedaWeb !== false;
     return { cfg, sistema, historial, nivel, conBusqueda, clasificacion, sugerenciaRutina, notas, origen };
   }
 
   // Paso 2: con la respuesta cruda de la IA, resolver colaboración, guardar, recordar y avisar.
-  async function concluirOrden(area, cruda, { cfg, clasificacion, sugerenciaRutina = null, notas = [], origen, busquedas = [] }) {
-    const { texto: respuesta, intercambios } = await resolverColaboracion(cfg, area, cruda);
+  async function concluirOrden(area, cruda, { cfg, clasificacion, sugerenciaRutina = null, notas = [], origen, busquedas = [], sistema = '', historial = [], nivel = 'principal' }) {
+    const colaboracion = await resolverColaboracion(cfg, area, cruda);
+    const { intercambios } = colaboracion;
+    let respuesta = colaboracion.texto;
+    let definitiva = cruda; // de aquí salen las acciones, los gastos y el estado que se recuerdan
+    let consolidada = false;
+    // Segunda vuelta: con lo que contestaron los demás, el agente entrega una sola propuesta ya ajustada, en lugar
+    // de dejar su borrador con las respuestas pegadas debajo. Solo en órdenes del dueño (lo automático no gasta de más).
+    const contestaron = intercambios.filter((i) => i.respuesta);
+    if (sistema && origen === 'usuario' && contestaron.length && !bloqueoIA(cfg)) {
+      const fin = trabajo(area, 'orden', 'Ajustando la propuesta con lo que respondieron los demás agentes');
+      try {
+        const cierre = await conversar(cfg, `${sistema}\n\nYa recibiste lo que contestaron los otros agentes. Entrega ahora la versión final para el dueño: una sola propuesta ajustada a lo que te dijeron. Si un dato de ellos contradice tu borrador (por ejemplo, el presupuesto disponible), corrige el borrador y di qué cambiaste. Incluye tus ACCIONES, tus líneas GASTO si algo cuesta dinero y tu línea ESTADO. No copies sus respuestas completas y no escribas CONSULTAR ni DELEGAR.`, [
+          ...historial,
+          { rol: 'agente', texto: limpiarPeticiones(cruda) || cruda },
+          { rol: 'usuario', texto: `Respuestas de los otros agentes:\n\n${contestaron.map((i) => `${i.nombreDestino || i.destinoTexto}: ${i.respuesta}`).join('\n\n')}\n\nEntrega la versión final.` },
+        ], { nivel });
+        if (cierre && limpiarPeticiones(cierre)) {
+          definitiva = limpiarPeticiones(cierre);
+          respuesta = componerRespuesta(definitiva, intercambios);
+          consolidada = true;
+        }
+        fin(true);
+      } catch (err) {
+        fin(false, { error: err.message }); // si falla la segunda vuelta, se entrega el borrador con las respuestas
+      }
+    }
+    // Gastos propuestos: quedan pendientes hasta que el dueño los apruebe.
+    const propios = personalizados.leer().agentes;
+    const gastos = [];
+    for (const g of extraerGastos(definitiva)) {
+      const destino = resolverAgente(g.areaTexto, propios);
+      const paga = NOMBRES_DISTRITOS[destino] ? destino : NOMBRES_DISTRITOS[area] ? area : 'direccion';
+      const registrado = presupuesto.solicitar(paga, { concepto: g.concepto, monto: g.monto, origen: nombreDe(area, propios) }, relojActual());
+      if (registrado) gastos.push(registrado);
+    }
+    if (gastos.length) emitir('gasto_propuesto', { area, gastos: gastos.length, total: gastos.reduce((s, g) => s + g.monto, 0) });
     conversaciones.agregar(area, { rol: 'agente', texto: respuesta });
-    const recuerdo = recordar(area, cruda);
+    const recuerdo = recordar(area, definitiva);
     memoria.notasPara(area, { marcarLeidas: true }); // las notas ya entraron en el contexto de esta orden
     emitir('respuesta_agente', { area, intercambios: intercambios.length, acciones: recuerdo.nuevas, hechos: recuerdo.hechos, ideas: recuerdo.ideas, conceptos: recuerdo.conceptos, origen, destinos: intercambios.map((i) => i.destino).filter(Boolean) });
-    return { codigo: 200, cuerpo: { ok: true, pendiente: false, respuesta, intercambios, busquedas, clasificacion, sugerenciaRutina, memoria: recuerdo, notas: notas.map((n) => ({ fuente: n.fuente, ruta: n.ruta, titulo: n.titulo })), uso: estadoUso(cfg), mensajes: conversaciones.leer(area) } };
+    return { codigo: 200, cuerpo: { ok: true, pendiente: false, respuesta, intercambios, consolidada, gastos: gastos.map((g) => ({ id: g.id, area: g.area, concepto: g.concepto, monto: g.monto })), busquedas, clasificacion, sugerenciaRutina, memoria: recuerdo, notas: notas.map((n) => ({ fuente: n.fuente, ruta: n.ruta, titulo: n.titulo })), uso: estadoUso(cfg), mensajes: conversaciones.leer(area) } };
   }
 
   async function procesarOrden(area, texto, { origen = 'usuario' } = {}) {
@@ -1466,6 +1527,80 @@ export function crearServidor(opciones = {}) {
 
     if (ruta === '/api/eventos' && metodo === 'GET') return flujoEventos(req, res);
 
+    // Archivo de memoria: el dueño busca, fija (viaja siempre a los agentes), corrige o borra entradas.
+    if (ruta === '/api/archivo' && metodo === 'GET') {
+      const propios = personalizados.leer().agentes;
+      const r = recuerdos.listar({ q: url.searchParams.get('q') || '', tipo: url.searchParams.get('tipo') || '', area: url.searchParams.get('area') || '', limite: Math.min(100, Number(url.searchParams.get('limite')) || 40) });
+      return enviarJSON(res, 200, { ...r, tipos: TIPOS_ARCHIVO, entradas: r.entradas.map((e) => ({ ...e, nombreArea: e.area ? nombreDe(e.area, propios) : '' })) });
+    }
+    const entradaArchivo = ruta.match(/^\/api\/archivo\/([0-9a-f]{10})$/);
+    if (entradaArchivo && metodo === 'PUT') {
+      try {
+        const cuerpo = await leerCuerpo(req);
+        const e = recuerdos.cambiar(entradaArchivo[1], { fijo: typeof cuerpo.fijo === 'boolean' ? cuerpo.fijo : undefined, texto: typeof cuerpo.texto === 'string' ? limpiarTexto(cuerpo.texto) : undefined });
+        return e ? enviarJSON(res, 200, { ok: true, entrada: e }) : enviarJSON(res, 404, { ok: false, errores: ['Esa entrada no existe'] });
+      } catch (err) {
+        return enviarJSON(res, 422, { ok: false, errores: [err.message] });
+      }
+    }
+    if (entradaArchivo && metodo === 'DELETE') return recuerdos.borrar(entradaArchivo[1]) ? enviarJSON(res, 200, { ok: true }) : enviarJSON(res, 404, { ok: false, errores: ['Esa entrada no existe'] });
+
+    // Cuánto contexto carga cada agente en una orden y cuánto cuesta enviarlo, para ver quién pesa más.
+    if (ruta === '/api/contexto' && metodo === 'GET') {
+      const cfg = configActual();
+      const propios = personalizados.leer().agentes;
+      const modelo = modeloPara(cfg, 'principal');
+      const cambio = tipoCambioDe(cfg);
+      const ids = [ORQUESTADOR, ...Object.keys(NOMBRES_DISTRITOS), ...apoyo().activos, ...Object.keys(propios)];
+      const agentes = ids.map((id) => {
+        let tokens = 0;
+        try { tokens = tokensDe(sistemaDe(id)); } catch { tokens = 0; }
+        const usd = proveedorActivo(cfg) ? costoUsd({ modelo, entrada: tokens, salida: 0 }, cfg) : null;
+        return { id, nombre: nombreDe(id, propios), tokens, pesos: usd === null ? null : Math.round(usd * cambio * 1000) / 1000 };
+      }).sort((a, b) => b.tokens - a.tokens);
+      return enviarJSON(res, 200, { modelo: proveedorActivo(cfg) ? modelo : '', agentes });
+    }
+
+    // Presupuesto mensual por área y gastos que los agentes proponen: el dueño los aprueba o rechaza aquí.
+    const estadoPresupuesto = () => ({ ...presupuesto.leer(), gastos: presupuesto.gastos(relojActual()).slice(0, 60), resumen: presupuesto.resumen(relojActual()) });
+    if (ruta === '/api/presupuesto' && metodo === 'GET') return enviarJSON(res, 200, estadoPresupuesto());
+    if (ruta === '/api/presupuesto' && metodo === 'PUT') {
+      try {
+        presupuesto.guardar(await leerCuerpo(req));
+        return enviarJSON(res, 200, { ok: true, ...estadoPresupuesto() });
+      } catch (err) {
+        return enviarJSON(res, 400, { ok: false, errores: [err.message] });
+      }
+    }
+    const gastoRuta = ruta.match(/^\/api\/presupuesto\/gastos\/([0-9a-f]{8})$/);
+    if (gastoRuta && metodo === 'PUT') {
+      try {
+        const cuerpo = await leerCuerpo(req);
+        const gasto = presupuesto.decidir(gastoRuta[1], String(cuerpo.estado || ''), relojActual());
+        if (!gasto) return enviarJSON(res, 404, { ok: false, errores: ['Ese gasto no existe o el estado no es válido'] });
+        emitir('gasto_decidido', { area: gasto.area, estado: gasto.estado, monto: gasto.monto });
+        // La decisión queda en el archivo de memoria para que los agentes la tomen en cuenta.
+        if (gasto.estado !== 'pendiente') {
+          try { recuerdos.agregar({ tipo: 'decision', area: gasto.area, texto: `El dueño ${gasto.estado === 'aprobado' ? 'aprobó' : 'rechazó'} el gasto "${gasto.concepto}" por ${dineroCorto(gasto.monto)}`, fuente: 'aprobación de gastos' }); } catch { /* el archivo nunca bloquea */ }
+        }
+        return enviarJSON(res, 200, { ok: true, gasto, ...estadoPresupuesto() });
+      } catch (err) {
+        return enviarJSON(res, 400, { ok: false, errores: [err.message] });
+      }
+    }
+
+    // Respaldo de todas las empresas en un .zip que se descarga al navegador. No incluye la clave de IA.
+    if (ruta === '/api/respaldo/estado' && metodo === 'GET') return enviarJSON(res, 200, respaldos.estado(relojActual()));
+    if (ruta === '/api/respaldo' && metodo === 'GET') {
+      try {
+        const r = respaldos.generar(relojActual());
+        res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${r.nombre}"`, 'content-length': r.zip.length, 'cache-control': 'no-store' });
+        return res.end(r.zip);
+      } catch (err) {
+        return enviarJSON(res, 422, { ok: false, errores: [err.message] });
+      }
+    }
+
     if (ruta === '/api/estado' && metodo === 'GET') {
       const cfg = configActual();
       return enviarJSON(res, 200, {
@@ -1603,7 +1738,7 @@ export function crearServidor(opciones = {}) {
       }
     }
 
-    // Situación por agente (reglas): qué corre ahora, último trabajo y reporte, acciones, piloto. Es lo que ve el Orquestador.
+    // Situación por agente (reglas): qué corre ahora, último trabajo y reporte, acciones, piloto. Es lo que ve el Coordinador.
     if (ruta === '/api/situacion' && metodo === 'GET') {
       const sit = situacionActual();
       return enviarJSON(res, 200, { ...sit, texto: situacionParaPrompt(sit) });
@@ -1684,7 +1819,7 @@ export function crearServidor(opciones = {}) {
       }
     }
 
-    // Informe del Orquestador sin IA
+    // Informe del Coordinador sin IA
     if (ruta === '/api/informe' && metodo === 'GET') return enviarJSON(res, 200, informeActual());
     const inf = ruta.match(/^\/api\/informe\/reporte\.(docx|html)$/);
     if (inf && metodo === 'GET') return entregarReporte(res, informeActual().bloques, inf[1], `informe-${new Date().toISOString().slice(0, 10)}`);
@@ -1774,6 +1909,16 @@ export function crearServidor(opciones = {}) {
       });
     }
 
+    // Subir o quitar un límite de consumo desde el aviso de "IA detenida", sin reenviar toda la configuración.
+    if (ruta === '/api/configuracion/limites' && metodo === 'PUT') {
+      try {
+        configuracion.guardarLimites(await leerCuerpo(req));
+        return enviarJSON(res, 200, { ok: true, uso: estadoUso() });
+      } catch (err) {
+        return enviarJSON(res, 400, { ok: false, errores: [err.message] });
+      }
+    }
+
     if (ruta === '/api/configuracion' && metodo === 'PUT') {
       try {
         const cuerpo = await leerCuerpo(req);
@@ -1856,6 +2001,17 @@ export function crearServidorMultiempresa(opciones = {}) {
         const cuerpo = await leerCuerpo(req);
         return enviarJSON(res, 201, { ok: true, empresa: registro.crear(cuerpo.nombre), ...registro.leer() });
       }
+      // Negocio de ejemplo: se crea una sola vez con datos inventados (src/demo.js) y se abre. No usa IA.
+      if (ruta === '/api/empresas/demo' && req.method === 'POST') {
+        let demo = registro.leer().lista.find((e) => e.demo);
+        if (!demo) {
+          demo = registro.crear(NOMBRE_DEMO, { demo: true });
+          sembrarDemo(registro.dirDe(demo.id), { ahora: opciones.ahora ? opciones.ahora() : new Date() });
+        }
+        registro.activar(demo.id);
+        montar();
+        return enviarJSON(res, 201, { ok: true, empresa: demo, ...registro.leer() });
+      }
       if (ruta === '/api/empresas/activa' && req.method === 'PUT') {
         const cuerpo = await leerCuerpo(req);
         if (!registro.activar(String(cuerpo.id || ''))) return enviarJSON(res, 404, { ok: false, errores: ['Esa empresa no existe'] });
@@ -1863,6 +2019,13 @@ export function crearServidorMultiempresa(opciones = {}) {
         return enviarJSON(res, 200, { ok: true, ...registro.leer() });
       }
       const renombrar = ruta.match(/^\/api\/empresas\/([a-z0-9-]+)$/);
+      if (renombrar && req.method === 'DELETE') {
+        const datos = registro.leer();
+        if (!datos.lista.some((e) => e.id === renombrar[1] && e.demo)) return enviarJSON(res, 422, { ok: false, errores: ['Solo se puede quitar el negocio de ejemplo'] });
+        if (datos.activa === renombrar[1]) { registro.activar(datos.anterior); montar(); }
+        registro.eliminarDemo(renombrar[1]);
+        return enviarJSON(res, 200, { ok: true, ...registro.leer() });
+      }
       if (renombrar && req.method === 'PUT') {
         const cuerpo = await leerCuerpo(req);
         const empresa = registro.renombrar(renombrar[1], cuerpo.nombre);

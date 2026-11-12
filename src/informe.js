@@ -1,4 +1,4 @@
-// Informe del Orquestador sin IA: el "cerebro" resume el estado del negocio con reglas, a partir del último diagnóstico,
+// Informe del Coordinador sin IA: el "cerebro" resume el estado del negocio con reglas, a partir del último diagnóstico,
 // la memoria compartida (acciones vencidas y abiertas), la última investigación de mercado y el último análisis del sitio.
 // Se calcula al vuelo; en Word o PDF con reporte.js.
 import { NOMBRES_DISTRITOS } from './diagnostico.js';
@@ -16,7 +16,7 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
   const responsable = (id) => equipo?.areas?.[id]?.responsable || 'el dueño';
   const resumen = { rojos: [], amarillos: [], verdes: [], cruzados: 0, vencidas: 0, porVencer: 0, abiertas: 0, porArea: {}, siguientePaso: '', avance: '', datosReales: '', flujo: '', flujoNivel: '', sector: (apoyo?.sectores || []).map((id) => apoyo.nombresSectores?.[id] || id) };
 
-  push('titulo', `Informe del Orquestador — ${marca?.nombre || 'Tu negocio'}`);
+  push('titulo', `Informe del Coordinador — ${marca?.nombre || 'Tu negocio'}`);
   push('parrafo', `Generado el ${fecha(ahora.toISOString())} con reglas locales, sin IA. ${diagnostico ? `Último diagnóstico: ${fecha(diagnostico.creado)}.` : 'Todavía no hay diagnóstico.'}`);
 
   push('subtitulo', 'Estado del negocio');
@@ -34,7 +34,7 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
     }
     if (r.crecimiento?.bloqueos?.length) push('parrafo', `Crecer ahora sería arriesgado: ${r.crecimiento.bloqueos.join(', ')} en atención.`);
   } else {
-    push('parrafo', 'Sin diagnóstico: haz el primero para que el Orquestador tenga con qué trabajar.');
+    push('parrafo', 'Sin diagnóstico: haz el primero para que el Coordinador tenga con qué trabajar.');
   }
 
   // Avance contra el diagnóstico anterior (src/progreso.js): la evidencia de que el negocio se movió.
@@ -114,7 +114,7 @@ export function informeOficina({ diagnostico, equipo, marca, memoria, investigac
         : 'Hacer el diagnóstico.';
   resumen.siguientePaso = siguiente;
   push('parrafo', siguiente);
-  push('nota', 'Este informe lo arma el Orquestador con reglas del proyecto y los datos guardados en tu equipo; no sustituye el criterio del dueño ni la revisión de un profesional.');
+  push('nota', 'Este informe lo arma el Coordinador con reglas del proyecto y los datos guardados en tu equipo; no sustituye el criterio del dueño ni la revisión de un profesional.');
   return { bloques: b, resumen };
 }
 

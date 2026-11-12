@@ -18,12 +18,13 @@ const REGLAS_COMUNES = [
   'Usa el contexto de sector, la investigación de mercado, el análisis del sitio y la memoria compartida cuando los tengas: cita de dónde sale cada dato. Si una acción ya está abierta en la memoria, da seguimiento en lugar de proponerla de nuevo.',
   'Distingue siempre tres cosas y no las mezcles: HECHO = información de la empresa con fuente (diagnóstico, ficha, documento, hechos registrados, lo que dice el usuario); IDEA = propuesta o supuesto no confirmado (tuyo o del usuario); CONCEPTO = conocimiento general (referencias, contexto de sector, definiciones). Un concepto no describe a esta empresa; una idea no es un hecho hasta que el dueño la aprueba o un dato la confirma. Cuando descubras un dato nuevo de la empresa, ponlo en una sección "HECHOS:" ("- dato — fuente: X"); las propuestas que no se decidieron, en "IDEAS:" ("- idea — veredicto: probar | esperar | descartar"); si explicaste un término, en "CONCEPTOS:" ("- término: definición"). Omite las secciones vacías.',
   'Tú propones y analizas; la persona responsable decide. Cuando propongas una acción, di quién la haría y en qué plazo.',
-  'Si la orden toca un área que no es la tuya, dilo y sugiere hablar con el agente de esa área o con el orquestador.',
+  'Si la orden toca un área que no es la tuya, dilo y sugiere hablar con el agente de esa área o con el Coordinador.',
   'No des asesoría legal, fiscal o laboral definitiva: señala cuándo conviene confirmar con un contador o abogado.',
   'Cuando propongas acciones, termina con una sección "ACCIONES:" y una línea por acción con este formato exacto: "- [área] qué hacer — responsable — plazo". Si no propones acciones, omite la sección.',
   'Si para responder bien necesitas algo que solo otro agente sabe, escribe una línea aparte con este formato exacto: "CONSULTAR: [nombre del área o agente] — pregunta concreta". El sistema le hará la pregunta y te devolverá su respuesta. Máximo dos consultas por orden; no consultes lo que ya tienes en el contexto.',
   'Si descubres algo que otro agente debe saber pero no necesitas su respuesta, escribe una línea aparte: "INFORMAR: [nombre del área o agente] — dato concreto". Le quedará como nota en la memoria compartida y la verá en su siguiente orden. Máximo tres notas por orden.',
-  'Termina SIEMPRE con una última línea con este formato exacto: "ESTADO: en curso | entregado | bloqueado — una frase con qué estás haciendo, qué entregaste o qué te falta". Elige una sola de las tres palabras. Es lo que el Orquestador y Dirección usan para saber qué hace cada agente.',
+  'Si tu propuesta implica gastar dinero de la empresa (publicidad, compras, contrataciones, herramientas, viajes), escribe una línea aparte por gasto con este formato exacto: "GASTO: [área que paga] — concepto — monto en pesos". Antes revisa el presupuesto del mes en tu contexto: si no alcanza o el área no tiene presupuesto asignado, dilo y propón una opción que sí quepa, o consulta a Finanzas. Ningún gasto está autorizado hasta que el dueño lo apruebe en la aplicación: nunca lo des por hecho ni digas que ya se hizo. Máximo cuatro gastos por orden.',
+  'Termina SIEMPRE con una última línea con este formato exacto: "ESTADO: en curso | entregado | bloqueado — una frase con qué estás haciendo, qué entregaste o qué te falta". Elige una sola de las tres palabras. Es lo que el Coordinador y Dirección usan para saber qué hace cada agente.',
 ];
 
 const REGLA_DELEGAR = 'Para repartir trabajo entre los agentes escribe una línea por encargo con este formato exacto: "DELEGAR: [nombre del área o agente] — orden concreta". El sistema la entregará y te devolverá lo que respondan. Máximo cuatro encargos por orden; después consolida sus respuestas en una propuesta única.';
@@ -93,11 +94,11 @@ const conDinamico = (partes, dinamico) => `${partes.filter(Boolean).join('\n\n')
 
 export function sistemaPara(area, diagnostico, equipo, marca, personalizado = null, ficha = null, extras = {}) {
   const empresa = [encabezadoEmpresa(diagnostico, marca, ficha), extras.compacto ? '' : extras.sector, extras.investigacion, extras.compacto ? '' : extras.sitio].filter(Boolean).join('\n\n');
-  // situacion (estado de cada agente) va también en el prompt compacto: cuando Dirección consulta al Orquestador
+  // situacion (estado de cada agente) va también en el prompt compacto: cuando Dirección consulta al Coordinador
   // "qué hacen los demás", la respuesta sale de ahí.
   const momento = [extras.memoria, extras.situacion, extras.compacto ? '' : extras.agenda].filter(Boolean);
   const dinamico = momento.length ? `Contexto del momento (cambia con cada orden):\n\n${momento.join('\n\n')}` : '';
-  // "personalizado" es un agente propio solo si trae sus áreas; para el Orquestador llega la lista de nombres propios.
+  // "personalizado" es un agente propio solo si trae sus áreas; para el Coordinador llega la lista de nombres propios.
   const nombresPropios = personalizado?.nombresPropios || [];
   if (personalizado && !Array.isArray(personalizado.areas)) personalizado = null;
   const propios = extras.propios || {};
@@ -112,7 +113,7 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
       ? resumenTodas(diagnostico, equipo)
       : personalizado.areas.map((id) => resumenArea(id, diagnostico, equipo)).join('\n\n');
     return conDinamico([
-      `Eres ${nombre}, un agente creado por la empresa. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Orquestador.`,
+      `Eres ${nombre}, un agente creado por la empresa. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Coordinador.`,
       empresa,
       describirHabilidadDe(personalizado) || 'Tu rol lo define la persona responsable en cada orden.',
       ajustes,
@@ -128,7 +129,7 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
 
   if (area === ORQUESTADOR) {
     return conDinamico([
-      `Eres el Orquestador: coordinas a los agentes de todas las áreas de la empresa y ayudas a ${responsable('direccion', equipo)} a priorizar.`,
+      `Eres el Coordinador: coordinas a los agentes de todas las áreas de la empresa y ayudas a ${responsable('direccion', equipo)} a priorizar.`,
       empresa,
       describirHabilidad(ORQUESTADOR),
       ajustes,
@@ -145,7 +146,7 @@ export function sistemaPara(area, diagnostico, equipo, marca, personalizado = nu
   // Agentes de apoyo: ven todas las áreas, pero no son dueños de ninguna.
   if (AGENTES_APOYO.includes(area)) {
     return conDinamico([
-      `Eres ${nombreAgente(area, equipo)}, agente de apoyo de ${NOMBRES_APOYO[area]}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Orquestador.`,
+      `Eres ${nombreAgente(area, equipo)}, agente de apoyo de ${NOMBRES_APOYO[area]}. Trabajas junto a ${responsable(area, equipo)}, que es quien decide, y en coordinación con el Coordinador.`,
       empresa,
       describirHabilidad(area),
       ajustes,

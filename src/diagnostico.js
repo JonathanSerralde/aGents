@@ -371,7 +371,7 @@ const PESO_AREA = { finanzas: 5, fiscal: 4, direccion: 4, rh: 3, operaciones: 3,
 const PESO_COLOR = { rojo: 10, amarillo: 4 };
 
 // Reglas cruzadas: contradicciones entre áreas que ninguna regla de un solo distrito ve.
-// Son las que el Orquestador debe señalar primero ("invertir en captación con la caja en rojo").
+// Son las que el Coordinador debe señalar primero ("invertir en captación con la caja en rojo").
 export function hallazgosCruzados(d) {
   const lista = [];
   const cruce = (cond, color, texto, accion, areas) => { if (cond) lista.push({ color, texto, accion, areas }); };

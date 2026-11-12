@@ -60,7 +60,7 @@ test('el gestor ágil de proyectos es staff con vista completa de la bitácora y
   assert.match(sistemaPara('inversiones', null, null, null), /Nafin/); // referencias de financiamiento
 });
 
-test('Brainstorm y Descubrimiento son staff del Orquestador, producen ideas y validan con experimentos', () => {
+test('Brainstorm y Descubrimiento son staff del Coordinador, producen ideas y validan con experimentos', () => {
   assert.equal(tipoDe('brainstorm'), 'staff');
   assert.equal(tipoDe('descubrimiento'), 'staff');
   assert.equal(superiorDe('brainstorm'), 'orquestador');
@@ -128,7 +128,7 @@ test('los paquetes de sector activan sus subagentes y dan contexto: agencia, esc
   for (const s of Object.values(SECTORES)) assert.ok(s.contexto.length >= 3 && s.nombre && s.giros.length);
 });
 
-test('el Orquestador puede proponer subagentes nuevos y el usuario los acepta o rechaza', () => {
+test('el Coordinador puede proponer subagentes nuevos y el usuario los acepta o rechaza', () => {
   const respuesta = 'AGENTE: Ventas\nNOTAS: vende a crédito\nMOTIVO: así opera\n\nNUEVO AGENTE: [Gestor de licitaciones]\nROL: Prepara licitaciones públicas\nESPECIALIDAD: CompraNet y bases\nAREAS: ventas, fiscal\nPREGUNTA:\n- ¿Qué licitaciones has ganado?\nMARCOS:\n- Calendario de licitaciones\nACCIONES:\n- Armar el expediente\nLIMITES:\n- No firma\nMOTIVO: 40% de la venta es a gobierno\n\nNUEVO AGENTE: Ventas\nROL: duplicado\nMOTIVO: x';
   const nuevos = parsearNuevosAgentes(respuesta);
   assert.equal(nuevos.length, 2);
@@ -163,7 +163,7 @@ test('el Orquestador puede proponer subagentes nuevos y el usuario los acepta o 
   }
 });
 
-test('los agentes inactivos no aparecen en el organigrama ni en la lista del Orquestador', () => {
+test('los agentes inactivos no aparecen en el organigrama ni en la lista del Coordinador', () => {
   const texto = organigrama({}, ['alimentos']);
   assert.doesNotMatch(texto, /Alimentos y bebidas/);
   assert.match(organigrama({}), /Alimentos y bebidas/);

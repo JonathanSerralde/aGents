@@ -1,12 +1,12 @@
 // Situación de la oficina: qué está haciendo y qué hizo cada agente, armada con reglas (sin IA) a partir del registro
-// de actividad, las conversaciones, la memoria compartida y el piloto automático. El Orquestador, Dirección y el staff
+// de actividad, las conversaciones, la memoria compartida y el piloto automático. El Coordinador, Dirección y el staff
 // la reciben en su contexto para contestar "¿qué están haciendo los demás?" con hechos, en vez de decir que no lo saben.
 import { nombreDe } from './jerarquia.js';
 
 export const NOMBRE_TIPO_TRABAJO = {
   orden: 'orden del usuario',
   consulta: 'consulta de otro agente',
-  encargo: 'encargo del Orquestador',
+  encargo: 'encargo del Coordinador',
   busqueda: 'orden con búsqueda en internet',
   investigacion: 'investigación de mercado',
   reparto: 'reparto de trabajo',
@@ -109,7 +109,7 @@ function lineaDe(a) {
   return `- ${a.nombre}: ${partes.join('; ')}.`;
 }
 
-// Texto para el prompt del Orquestador, Dirección y staff. excepto: el propio agente (no se describe a sí mismo).
+// Texto para el prompt del Coordinador, Dirección y staff. excepto: el propio agente (no se describe a sí mismo).
 export function situacionParaPrompt(sit, { excepto = null, maximo = 3000 } = {}) {
   if (!sit?.agentes?.length) return '';
   const otros = sit.agentes.filter((a) => a.id !== excepto);
@@ -129,7 +129,7 @@ export function situacionParaPrompt(sit, { excepto = null, maximo = 3000 } = {})
   return lineas.join('\n').slice(0, maximo);
 }
 
-// Bloques para el informe del Orquestador sin IA.
+// Bloques para el informe del Coordinador sin IA.
 export function bloquesSituacion(sit) {
   const b = [];
   if (!sit?.agentes?.length) return b;

@@ -1,6 +1,6 @@
 // Análisis del sitio web del propio negocio. Se descarga la página principal desde esta máquina y se revisa con
 // reglas (sin IA): seguridad (HTTPS, encabezados), presencia móvil, contacto, aviso de privacidad, medición y peso.
-// Con IA, el Orquestador reparte los hallazgos a Tecnología, Ciberseguridad, Marketing, Ventas y quien corresponda.
+// Con IA, el Coordinador reparte los hallazgos a Tecnología, Ciberseguridad, Marketing, Ventas y quien corresponda.
 import { crearRegistros } from './registros.js';
 
 const TIEMPO_MAXIMO_MS = 12000;
@@ -233,7 +233,7 @@ export function contenidoSitio(a, marca) {
     for (const x of lista) push('vineta', `${x.titulo}: ${x.detalle}${x.accion ? ` Acción: ${x.accion}` : ''}`);
   }
   if (a.encargos?.length) {
-    push('subtitulo', 'Trabajo repartido por el Orquestador');
+    push('subtitulo', 'Trabajo repartido por el Coordinador');
     for (const e of a.encargos) push('vineta', `${e.nombreDestino || e.destinoTexto}: ${e.texto}${e.respuesta ? ` → ${e.respuesta.slice(0, 400)}` : e.error ? ` (sin respuesta: ${e.error})` : ' (pendiente para la persona responsable)'}`);
   }
   push('subtitulo', 'Sobre este reporte');

@@ -73,7 +73,7 @@ test('la oficina exporta acciones con vencimiento, plan y tareas semanales, y ar
   }
 });
 
-test('el servidor entrega el .ics, importa la agenda y se la da al Orquestador pero no a un agente de área', async () => {
+test('el servidor entrega el .ics, importa la agenda y se la da al Coordinador pero no a un agente de área', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cal-srv-'));
   const recibido = [];
   const servidor = crearServidor(opcionesTemporales(dir, { llamarIA: async ({ sistema }) => { recibido.push(sistema); return 'OK'; } }));

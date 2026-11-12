@@ -48,6 +48,8 @@ export function rutasDe(dir) {
     archivoDatosReales: join(dir, 'datos-reales.json'),
     archivoCampanas: join(dir, 'campanas.json'),
     archivoJuntas: join(dir, 'juntas.json'),
+    archivoPresupuesto: join(dir, 'presupuesto.json'),
+    archivoRecuerdos: join(dir, 'memoria-archivo.json'),
   };
 }
 
@@ -80,6 +82,8 @@ export const config = {
   archivoDatosReales: join(RAIZ, 'data', 'datos-reales.json'), // resumen del último análisis de CFDI y CSV (nunca los archivos)
   archivoCampanas: join(RAIZ, 'data', 'campanas.json'), // última campaña propuesta por la IA
   archivoJuntas: join(RAIZ, 'data', 'juntas.json'), // compromisos de cada junta semanal
+  archivoPresupuesto: join(RAIZ, 'data', 'presupuesto.json'), // presupuesto mensual por área y gastos por aprobar
+  archivoRecuerdos: join(RAIZ, 'data', 'memoria-archivo.json'), // archivo de memoria: todo lo aprendido, tipado; no viaja completo a la IA
   dirRaizDatos: join(RAIZ, 'data'), // carpeta de la empresa principal; las demás viven en data/empresas/<id>/
   protegerClaves: false, // el arranque normal lo enciende: cifra la clave de API con DPAPI en Windows
   abrirNavegador: env.ABRIR_NAVEGADOR === '1', // lo usa el lanzador de doble clic

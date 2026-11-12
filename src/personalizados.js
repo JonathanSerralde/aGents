@@ -54,7 +54,7 @@ export function crearPersonalizados(archivo) {
     writeFileSync(archivo, JSON.stringify(datos, null, 2), 'utf8');
   }
 
-  // Propuestas del Orquestador ("Optimizar agentes"): agentes nuevos que no se crean hasta que el usuario acepta.
+  // Propuestas del Coordinador ("Optimizar agentes"): agentes nuevos que no se crean hasta que el usuario acepta.
   const MAX_PROPUESTAS = 6;
   function leerPropuestas() {
     if (!existsSync(archivo)) return [];

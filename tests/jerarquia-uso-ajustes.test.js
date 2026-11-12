@@ -45,9 +45,9 @@ test('la jerarquía define superiores, subordinados y quién puede delegar', () 
   assert.equal(puedeDelegar('direccion', 'finanzas'), true);
   assert.equal(puedeDelegar('finanzas', 'ventas'), false);
   assert.equal(puedeDelegar('ventas', 'x-norte', propios), true);
-  assert.match(organigrama(propios), /- Orquestador\n  - Dirección\n/);
+  assert.match(organigrama(propios), /- Coordinador\n  - Dirección\n/);
   assert.match(organigrama(propios), /      - Norte/);
-  assert.equal(arbol().nombre, 'Orquestador');
+  assert.equal(arbol().nombre, 'Coordinador');
   assert.match(describirPosicion('marketing'), /Reportas a Dirección/);
   assert.match(describirPosicion('marketing'), /solo a: .*Investigación de mercado/);
   assert.match(describirPosicion('marketing'), /Imagen y exhibición/);
@@ -57,7 +57,7 @@ test('la jerarquía define superiores, subordinados y quién puede delegar', () 
 });
 
 test('Dirección puede delegar a sus áreas; un área no puede delegar a otra', async () => {
-  const llamarIA = async ({ sistema }) => (/otro agente del sistema/.test(sistema) ? 'Listo.' : 'Plan.\nDELEGAR: [Finanzas] — proyecta la caja\nDELEGAR: [Orquestador] — no deberías');
+  const llamarIA = async ({ sistema }) => (/otro agente del sistema/.test(sistema) ? 'Listo.' : 'Plan.\nDELEGAR: [Finanzas] — proyecta la caja\nDELEGAR: [Coordinador] — no deberías');
   await conServidor({ llamarIA }, async (base) => {
     const dir = await (await fetch(`${base}/api/agentes/direccion/mensajes`, json('POST', { texto: 'Organiza' }))).json();
     assert.equal(dir.intercambios.filter((i) => i.respuesta).length, 1);
@@ -133,7 +133,7 @@ test('los ajustes por negocio se guardan, entran al prompt y las propuestas se a
   }
 });
 
-test('parsearPropuestas entiende los bloques del Orquestador', () => {
+test('parsearPropuestas entiende los bloques del Coordinador', () => {
   const texto = 'Propongo:\nAGENTE: [Finanzas]\nNOTAS: Negocio de temporada.\nMARCOS:\n- Presupuesto por temporada\nACCIONES:\n- Reservar caja en octubre\nLIMITES:\n- No proyectar sin ventas del año anterior\nMOTIVO: ventas concentradas en diciembre\n\nAGENTE: Ventas\nNOTAS: Clientes recurrentes.\nMOTIVO: recurrencia alta';
   const p = parsearPropuestas(texto);
   assert.equal(p.length, 2);
@@ -145,7 +145,7 @@ test('parsearPropuestas entiende los bloques del Orquestador', () => {
 });
 
 test('"Optimizar agentes" genera propuestas por API y se aceptan desde la pantalla', async () => {
-  const llamarIA = async () => 'AGENTE: [Finanzas]\nNOTAS: Vende solo de contado.\nACCIONES:\n- Arqueo diario\nMOTIVO: caja en rojo\n\nAGENTE: [Orquestador]\nNOTAS: Prioriza liquidez.\nMOTIVO: base en rojo';
+  const llamarIA = async () => 'AGENTE: [Finanzas]\nNOTAS: Vende solo de contado.\nACCIONES:\n- Arqueo diario\nMOTIVO: caja en rojo\n\nAGENTE: [Coordinador]\nNOTAS: Prioriza liquidez.\nMOTIVO: base en rojo';
   await conServidor({ llamarIA }, async (base) => {
     await fetch(`${base}/api/diagnosticos`, json('POST', { contacto_nombre: 'P', confianza: 'alto', giro: 'comercio', empleados: '1-5', ventas_anuales: 'menos_1m', antiguedad_anios: 1, meses_caja: 0.5 }));
     const r = await (await fetch(`${base}/api/ajustes/optimizar`, { method: 'POST' })).json();
@@ -161,7 +161,7 @@ test('"Optimizar agentes" genera propuestas por API y se aceptan desde la pantal
     assert.equal(manual.notas, 'Solo mayoreo.');
     assert.equal((await fetch(`${base}/api/ajustes/inventado`)).status, 404);
     const jer = await (await fetch(`${base}/api/jerarquia`)).json();
-    assert.equal(jer.arbol.nombre, 'Orquestador');
+    assert.equal(jer.arbol.nombre, 'Coordinador');
   });
   await conServidor({}, async (base) => {
     const sin = await fetch(`${base}/api/ajustes/optimizar`, { method: 'POST' });

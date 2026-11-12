@@ -72,7 +72,7 @@ test('por defecto se compara contra el anterior del mismo giro', () => {
   assert.equal(elegirAnterior(lista, lista[2]), null);
 });
 
-test('el informe del Orquestador incluye el avance cuando hay con qué comparar', () => {
+test('el informe del Coordinador incluye el avance cuando hay con qué comparar', () => {
   const antes = diag('a', '2026-10-01T10:00:00.000Z', { finanzas: 'rojo' });
   const ahora = diag('b', '2026-11-05T10:00:00.000Z', { finanzas: 'verde' });
   const progreso = compararDiagnosticos(antes, ahora);
@@ -144,4 +144,17 @@ test('el servidor compara los dos últimos diagnósticos y permite borrar uno', 
   const tras = await (await fetch(`${base}/api/progreso`)).json();
   assert.equal(tras.comparacion, null);
   assert.equal(tras.serie.length, 1);
+});
+
+test('cuando las facturas mueven el semáforo, el avance separa ese efecto de las respuestas', () => {
+  const anterior = { id: 'a', creado: '2026-01-01T00:00:00.000Z', resultado: { distritos: { finanzas: { nombre: 'Finanzas', color: 'amarillo' }, ventas: { nombre: 'Ventas', color: 'verde' } }, plan: [] } };
+  // El dueño respondió igual, pero las facturas pusieron Finanzas en rojo.
+  const actual = { id: 'b', creado: '2026-02-01T00:00:00.000Z', resultado: { distritos: { finanzas: { nombre: 'Finanzas', color: 'rojo', declarado: 'amarillo' }, ventas: { nombre: 'Ventas', color: 'verde', declarado: 'verde' } }, plan: [], evidencia: { movidas: [{ id: 'finanzas', nombre: 'Finanzas', de: 'amarillo', a: 'rojo' }] } } };
+  const c = compararDiagnosticos(anterior, actual);
+  assert.ok(c.madurez.delta < 0, 'con facturas la madurez baja');
+  assert.equal(c.facturas.madurezSinFacturas, c.madurez.antes);
+  assert.equal(c.facturas.deltaSinFacturas, 0);
+  assert.match(c.resumen, /Tus facturas movieron Finanzas: solo con tus respuestas la madurez sería 4 de 5/);
+  // Sin facturas que muevan nada, no hay nota.
+  assert.equal(compararDiagnosticos(anterior, { ...actual, resultado: { ...actual.resultado, evidencia: { movidas: [] } } }).facturas, null);
 });

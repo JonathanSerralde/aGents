@@ -162,6 +162,32 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 }
 @media (max-width: 960px) { .menu-plegar { display: none; } }
 
+/* ---------- Negocio de ejemplo y pendientes de la semana ---------- */
+.demo-aviso { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; padding: 12px 18px; border-radius: 16px; font-size: 0.92rem; background: rgba(255, 178, 62, 0.1); border: 1px solid rgba(255, 178, 62, 0.5); }
+.demo-aviso p { flex: 1 1 420px; margin: 0; }
+.demo-aviso strong { color: var(--amarillo); }
+.respaldo-aviso { background: rgba(37, 226, 255, 0.07); border-color: rgba(37, 226, 255, 0.4); }
+.respaldo-aviso strong { color: var(--cian); }
+.ia-detenida { background: rgba(255, 61, 139, 0.08); border-color: rgba(255, 61, 139, 0.5); }
+.ia-detenida strong { color: var(--rojo); }
+.semaforo-facturas button { padding: 0; font: inherit; font-weight: 600; color: var(--cian); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.semana { display: grid; gap: 14px; }
+.semana-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
+.semana-cabecera h2 { font-size: 1.5rem; line-height: 1.15; }
+.semana .bitacora-lista li { grid-template-columns: auto minmax(0, 1fr); align-items: center; padding: 12px 16px; font-size: 0.98rem; }
+.semana .bitacora-lista input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: var(--verde); }
+.semana .bitacora-lista li.hecha .bitacora-texto { text-decoration: line-through; color: var(--texto-suave); }
+.semana .bitacora-lista small { display: block; margin-top: 2px; color: var(--texto-suave); }
+.gasto { grid-template-columns: minmax(0, 1fr) auto !important; }
+.gasto strong { font-family: var(--display); font-size: 1.15rem; white-space: nowrap; }
+.gasto .gasto-contexto { display: block; margin-top: 2px; font-size: 0.84rem; color: var(--texto-suave); }
+.gasto .gasto-contexto.alerta { color: var(--amarillo); }
+.gasto .acciones-inline { grid-column: 1 / -1; }
+.campo small.ayuda { display: block; margin-top: 4px; }
+.semana-llevar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.semana-llevar a.atajo { text-decoration: none; }
+.semana-listo { padding: 12px 16px; border-radius: 14px; font-weight: 600; color: var(--verde); background: rgba(46, 240, 181, 0.08); border: 1px solid rgba(46, 240, 181, 0.4); }
+
 /* ---------- Esqueleto de carga ---------- */
 .carga { display: none; gap: 20px; order: 0; }
 body.cargando .carga { display: grid; }
@@ -184,6 +210,7 @@ body.recien-cargado #vista-dashboard > *, body.recien-cargado #vista-resultados 
 .vacio-estado .vacio-icono { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; color: var(--cian); background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(37, 226, 255, 0.1)); border: 1px solid var(--borde-fuerte); box-shadow: var(--brillo); }
 .vacio-estado .vacio-icono svg { width: 26px; height: 26px; }
 .vacio-estado strong { font-family: var(--display); font-size: 1.12rem; font-weight: 600; }
+.vacio-estado .acciones-inline { justify-content: center; }
 .vacio-estado p { max-width: 52ch; color: var(--texto-suave); font-size: 0.9rem; }
 .vacio-estado .boton { margin-top: 6px; }
 
@@ -312,6 +339,7 @@ input[type="color"] { padding: 2px; }
 #vista-resultados { display: contents; }
 #vista-dashboard > .escena, #vista-dashboard .escena { order: 1; }
 #dashboard-vacio { order: 1; }
+#semana-card, #respaldo-aviso, #gastos-card { order: 0; }
 .kpis { order: 2; }
 #avance-card { order: 3; }
 #flujo-card { order: 3; }
@@ -455,6 +483,7 @@ input[type="color"] { padding: 2px; }
 .avance-delta.sube strong { background: linear-gradient(120deg, #2ef0b5, #25e2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .avance-delta.baja strong { color: #ff86b5; }
 .avance-delta span { font-size: 0.9rem; color: var(--texto-suave); }
+.avance-facturas { grid-column: 1 / -1; margin: 0; padding: 10px 14px; border-radius: 12px; font-size: 0.88rem; color: var(--texto-suave); background: rgba(37, 226, 255, 0.07); border: 1px solid rgba(37, 226, 255, 0.3); }
 #avance-serie { width: 100%; max-width: 340px; height: auto; margin-top: 10px; overflow: visible; }
 #avance-serie text { fill: var(--texto-suave); font-size: 10px; font-family: var(--cuerpo); }
 .avance-areas, .avance-resueltas { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -591,6 +620,8 @@ input[type="color"] { padding: 2px; }
 @media (min-width: 1180px) { .fila-equipo { grid-template-columns: minmax(0, 1.9fr) minmax(300px, 1fr); } }
 
 .equipo-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+#equipo-nota { margin: -4px 0 12px; }
+.atajo.en-linea { margin-left: 8px; vertical-align: baseline; }
 .equipo-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(218px, 1fr)); max-height: 560px; overflow-y: auto; padding: 2px 6px 2px 2px; }
 
 .agente-card {
@@ -620,6 +651,7 @@ input[type="color"] { padding: 2px; }
 .agente-card.revisando .agente-estado { color: var(--cian); }
 .equipo-separador { margin: 18px 0 6px; padding-top: 14px; border-top: 1px solid var(--borde); font-size: 0.86rem; color: var(--texto-suave); }
 
+.equipo-grid[data-filtro="recomendados"] .agente-card:not(.recomendado),
 .equipo-grid[data-filtro="areas"] .agente-card:is(.apoyo, .propio),
 .equipo-grid[data-filtro="atencion"] .agente-card:not(.rojo),
 .equipo-grid[data-filtro="apoyo"] .agente-card:not(.apoyo),
@@ -1014,6 +1046,15 @@ body.con-cajon { overflow: hidden; }
 .bitacora-lista small { display: block; color: var(--texto-suave); }
 .chip-tipo { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.68rem; border: 1px solid currentColor; }
 .chip-tipo.hecho { color: var(--verde); }
+.chip-tipo.decision { color: var(--cian); }
+.chip-tipo.acuerdo { color: var(--violeta); }
+.chip-tipo.accion { color: var(--texto-suave); }
+.chip-tipo.concepto { color: var(--texto-suave); }
+.archivo-filtros { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) minmax(140px, 220px); margin-bottom: 8px; }
+.bitacora-lista li.archivo-item { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.bitacora-lista li.archivo-item.fijo { border-color: var(--cian); box-shadow: inset 3px 0 0 var(--cian); }
+.archivo-item small { display: block; margin-top: 3px; color: var(--texto-suave); }
+.archivo-item .junta-acciones { display: flex; gap: 6px; }
 .chip-tipo.idea { color: var(--amarillo); }
 .chip-tipo.concepto { color: #b28bff; }
 .memoria-tipos { display: grid; gap: 10px; margin-top: 14px; }
@@ -1166,7 +1207,10 @@ body.con-cajon { overflow: hidden; }
   .nav { flex-direction: column-reverse; }
   .nav .boton { width: 100%; min-width: 0; }
   .bienvenida h1 { font-size: 1.3rem; }
-  .bienvenida p { white-space: normal; }
+  .bienvenida p { display: none; } /* en pantallas chicas el contenido va primero */
+  .cabecera-estado .chip { display: none; }
+  .semana-cabecera h2 { font-size: 1.3rem; }
+  .demo-aviso .boton { flex: 1 1 auto; }
   .cabecera-estado { width: 100%; flex-wrap: wrap; }
   .escenario { height: 520px; }
   .hud-titulo { max-width: calc(100% - 40px); left: 16px; top: 14px; }

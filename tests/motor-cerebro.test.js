@@ -92,7 +92,7 @@ test('los plazos de los agentes se vuelven fechas y la memoria sabe qué venció
   }
 });
 
-test('el informe del Orquestador se arma sin IA con estado, vencidas, mercado y siguiente paso', () => {
+test('el informe del Coordinador se arma sin IA con estado, vencidas, mercado y siguiente paso', () => {
   const dir = mkdtempSync(join(tmpdir(), 'inf-'));
   try {
     const memoria = crearMemoria(join(dir, 'memoria.json'));
@@ -106,7 +106,7 @@ test('el informe del Orquestador se arma sin IA con estado, vencidas, mercado y 
       sitio: { urlFinal: 'https://t.mx/', puntaje: 40, hallazgos: [{ color: 'rojo', titulo: 'Conexión segura (HTTPS)' }] },
       apoyo: { sectores: ['retail'] }, ahora: manana,
     });
-    assert.equal(bloques[0].texto, 'Informe del Orquestador — Tienda');
+    assert.equal(bloques[0].texto, 'Informe del Coordinador — Tienda');
     assert.ok(resumen.rojos.includes('Finanzas') && resumen.rojos.includes('Fiscal y legal'));
     assert.equal(resumen.cruzados, 1);
     assert.equal(resumen.vencidas, 1);
@@ -145,7 +145,7 @@ test('un agente consultado puede hacer una consulta más (segunda vuelta) dentro
   const llamarIA = async ({ sistema, mensajes }) => {
     const texto = mensajes.at(-1).texto;
     llamadas.push(sistema.match(/Eres ([^,]+),/)?.[1] || 'orq');
-    if (/Eres el Orquestador/.test(sistema)) return 'Plan.\nDELEGAR: [Ventas] — Propón la oferta de la semana';
+    if (/Eres el Coordinador/.test(sistema)) return 'Plan.\nDELEGAR: [Ventas] — Propón la oferta de la semana';
     if (/Esta petición viene de otro agente/.test(sistema) && /agente del área de Ventas/.test(sistema)) {
       assert.match(sistema, /puedes hacer UNA sola CONSULTAR/);
       return 'Oferta lista.\nCONSULTAR: [Finanzas] — ¿hay caja para un descuento de 10%?\nDELEGAR: [Marketing] — esto no debe ejecutarse';
@@ -173,7 +173,7 @@ test('un agente consultado puede hacer una consulta más (segunda vuelta) dentro
     const informe = await (await fetch(`${base}/api/informe`)).json();
     assert.ok(informe.bloques.length > 5);
     assert.equal((await fetch(`${base}/api/informe/reporte.docx`)).status, 200);
-    assert.match(await (await fetch(`${base}/api/informe/reporte.html`)).text(), /Informe del Orquestador/);
+    assert.match(await (await fetch(`${base}/api/informe/reporte.html`)).text(), /Informe del Coordinador/);
   } finally {
     await new Promise((r) => servidor.close(r));
     rmSync(dir, { recursive: true, force: true });

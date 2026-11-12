@@ -1,4 +1,4 @@
-// Comunicación entre agentes. Un agente puede escribir "CONSULTAR: [área] — pregunta", el Orquestador (o un
+// Comunicación entre agentes. Un agente puede escribir "CONSULTAR: [área] — pregunta", el Coordinador (o un
 // superior) "DELEGAR: [área] — orden", y cualquiera "INFORMAR: [área] — dato". Consultar y delegar llaman al agente
 // destino y devuelven su respuesta al origen (una sola vuelta, con tope de encargos); informar solo deja una nota en
 // la memoria compartida, sin llamar a la IA, y el destino la ve en su siguiente orden.
@@ -17,7 +17,7 @@ const normalizar = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-
 export function resolverAgente(texto, propios = {}) {
   const t = normalizar(texto).replace(/^agente de\s+/, '').replace(/^el\s+/, '');
   if (!t) return null;
-  if (t === 'orquestador') return ORQUESTADOR;
+  if (t === 'coordinador' || t === 'orquestador') return ORQUESTADOR; // el nombre anterior sigue valiendo
   const candidatos = [
     ...Object.entries(NOMBRES_DISTRITOS),
     ...Object.entries(NOMBRES_APOYO),
@@ -74,14 +74,14 @@ export async function colaborar({ areaOrigen, nombreOrigen, respuesta, propios, 
       continue;
     }
     llamadas++;
-    // Jerarquía: solo se delega a subordinados directos (el Orquestador, a cualquiera). Consultar siempre se puede.
+    // Jerarquía: solo se delega a subordinados directos (el Coordinador, a cualquiera). Consultar siempre se puede.
     if (p.tipo === 'DELEGAR' && !puedeDelegar(areaOrigen, destino, propios)) {
-      intercambios.push({ tipo: p.tipo, destino, destinoTexto: p.destinoTexto, texto: p.texto, respuesta: null, error: 'No está en tu línea de mando; pídelo al Orquestador o consúltalo' });
+      intercambios.push({ tipo: p.tipo, destino, destinoTexto: p.destinoTexto, texto: p.texto, respuesta: null, error: 'No está en tu línea de mando; pídelo al Coordinador o consúltalo' });
       continue;
     }
     const nombreDestino = equipo?.areas?.[destino]?.agente || NOMBRES_DISTRITOS[destino] || NOMBRES_APOYO[destino] || propios[destino]?.nombre || destino;
     const textoDestino = p.tipo === 'DELEGAR'
-      ? `Encargo del Orquestador: ${p.texto}`
+      ? `Encargo del Coordinador: ${p.texto}`
       : `Pregunta de ${nombreOrigen}: ${p.texto} (responde solo lo que te preguntan, breve y con datos de tu área).`;
     try {
       const r = await responder(destino, textoDestino);

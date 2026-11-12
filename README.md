@@ -2,7 +2,7 @@
 
 **Una oficina de agentes de IA para que una pyme mexicana se diagnostique, se organice y crezca, instalada en su propia computadora.**
 
-Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agentes de apoyo + un Orquestador que se coordinan entre sí, con una ciudad 3D donde cada edificio es un departamento. Funciona completa **sin IA** (motor de reglas) y, si el empresario pone su propia clave de API, los agentes responden, investigan y trabajan solos.
+Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agentes de apoyo + un Coordinador que se coordinan entre sí, con una ciudad 3D donde cada edificio es un departamento. Funciona completa **sin IA** (motor de reglas) y, si el empresario pone su propia clave de API, los agentes responden, investigan y trabajan solos.
 
 > Pensada para el empresario por su cuenta que quiere crecer vertical (vender más a quien ya le compra) y horizontalmente (abrir mercados, sucursales o líneas), y para los consultores que lo acompañan. Cualquier pyme puede instalarla y moldearla: sectores, agentes, skills y tareas se editan desde la pantalla.
 
@@ -13,7 +13,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 | Si eres… | La oficina te da… |
 |---|---|
 | Dueño de una pyme | Un diagnóstico guiado de 15 minutos, un semáforo por área, un plan con plazos y un equipo de agentes que revisa tu negocio cada semana y te dice qué atender primero |
-| Consultor o contador | Una herramienta que deja en tu cliente, con reportes en Word/PDF, calculadora laboral con la LFT, informe del Orquestador y bitácora de acciones |
+| Consultor o contador | Una herramienta que deja en tu cliente, con reportes en Word/PDF, calculadora laboral con la LFT, informe del Coordinador y bitácora de acciones |
 | Desarrollador | Un proyecto Node.js sin dependencias, con 160 pruebas, API local documentada y agentes definidos en texto (habilidades) fáciles de ampliar |
 
 ## Principios (no negociables)
@@ -30,7 +30,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - Asistente guiado por pasos con identidad, logotipo y equipo; bloque específico por giro: comercio, servicios, manufactura, construcción, alimentos, agencia de marketing, educación y salud.
 - Semáforo por área (verde/amarillo/rojo), **reglas cruzadas** que detectan contradicciones entre áreas (gastar en captación con la caja en rojo, expandirse dependiendo del dueño…), prioridad ponderada, plan de acción a 30/60 días y motor de crecimiento vertical/horizontal.
 - Reportes en Word (.docx, generados sin dependencias) y página imprimible para PDF.
-- **Informe del Orquestador** por reglas: estado, contradicciones, acciones vencidas, mercado, sitio y siguiente paso.
+- **Informe del Coordinador** por reglas: estado, contradicciones, acciones vencidas, mercado, sitio y siguiente paso.
 - **Calculadora laboral** (Ley Federal del Trabajo): aguinaldo, vacaciones y prima, finiquito, liquidación, PTU, fondo de ahorro, vales, descuento INFONAVIT y listas de alta/baja.
 - **Análisis del sitio web** del negocio: HTTPS, encabezados de seguridad, versión móvil, botón de WhatsApp, aviso de privacidad, medición, velocidad.
 - Campañas: piezas con los tamaños correctos de Meta, TikTok, Google/YouTube, LinkedIn, WhatsApp, X y Pinterest.
@@ -38,10 +38,10 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 
 ### Agentes (con IA, usando tu clave)
 - **11 agentes de área**: Dirección, Finanzas, Ventas, Marketing, Compras, Operaciones, Recursos humanos, Tecnología, Fiscal y legal, Riesgos, Crecimiento.
-- **Staff del Orquestador**: Analista, Planificador, Brainstorm y creatividad, Descubrimiento de ideas, Gestión ágil de proyectos, Auditoría, Contraloría.
+- **Staff del Coordinador**: Analista, Planificador, Brainstorm y creatividad, Descubrimiento de ideas, Gestión ágil de proyectos, Auditoría, Contraloría.
 - **Subagentes por área**: Contabilidad, Crédito y cobranza, Análisis de inversiones, Venta en línea, Atención a clientes, Tráfico digital, Investigación de mercado, Imagen y exhibición, Operación de tienda, Producción y calidad, Mantenimiento, Inventarios y almacén, Logística e importaciones, Mejora continua, Capacitación, Reclutamiento, Nómina y seguridad social, Transformación digital, Ciberseguridad, Jurídico, Expansión y aperturas, Prevención de pérdidas, Administración de oficina.
 - **Opcionales por sector** (se activan solos según el giro): Alimentos y bebidas, Cuentas de agencia, Control escolar, Admisiones, Operación clínica.
-- Hasta 20 **agentes propios** creados por el usuario, y subagentes que el Orquestador propone cuando detecta una necesidad.
+- Hasta 20 **agentes propios** creados por el usuario, y subagentes que el Coordinador propone cuando detecta una necesidad.
 - Cada agente tiene su **skill** (rol, especialidad, preguntas que hace primero, marcos, acciones, límites, indicadores) con especificidad mexicana (CFDI, IMSS, LFT, Profeco, COFEPRIS, RVOE…) y **ajustes por negocio**.
 
 ### Cómo trabajan juntos
@@ -49,9 +49,22 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Comunicación entre agentes**: `CONSULTAR`, `DELEGAR`, `INFORMAR`, con segunda vuelta y presupuesto de llamadas por orden.
 - **Memoria compartida (bitácora)**: acciones con plazo y vencimiento, **hechos** de la empresa, **ideas** en evaluación y glosario de **conceptos**. Un clasificador distingue si lo que escribes es un dato real, una idea o una pregunta, y el agente responde en consecuencia.
 - **Investigación semanal de mercado**: al menos 10 competidores y 5 comentarios positivos y negativos de clientes por cada uno (búsqueda web del proveedor), repartida a Ventas, Marketing y a quien aluda cada queja.
-- **Piloto automático**: cada agente tiene su revisión periódica (Finanzas revisa caja y cobranza, Fiscal el calendario del mes, Ventas la oferta de la semana, el Orquestador reparte lo que detecte) y la hace solo, coordinándose con los demás. Apagado hasta que el usuario lo enciende.
+- **Piloto automático**: cada agente tiene su revisión periódica (Finanzas revisa caja y cobranza, Fiscal el calendario del mes, Ventas la oferta de la semana, el Coordinador reparte lo que detecte) y la hace solo, coordinándose con los demás. Apagado hasta que el usuario lo enciende.
 - **Rutinas**: si repites una orden tres veces, la oficina te ofrece automatizarla.
 - Ingesta de documentos (Word, PDF con texto, imágenes con IA), bóvedas de notas Obsidian u otras carpetas Markdown, ficha completa de la empresa.
+
+### Equipo con presupuesto y aprobación del dueño
+- **Cadena de dos pasos:** el agente que recibe un encargo o una consulta puede hacer una consulta más (Dirección → Marketing → Finanzas), con tope de seis llamadas por orden.
+- **Segunda vuelta** (`concluirOrden` en `src/server.js`): en las órdenes del dueño, quien preguntó recibe las respuestas y entrega una sola propuesta ya ajustada; las respuestas de los demás quedan debajo. Lo automático (piloto y rutinas) no hace segunda vuelta.
+- **Presupuesto por área** (`src/presupuesto.js`, Configuración › Presupuesto del mes): el dueño captura cuánto puede gastar cada área al mes; entra al contexto de todos los agentes con lo ya aprobado y lo disponible.
+- **Gastos por aprobar:** cuando una propuesta cuesta dinero, el agente escribe `GASTO: [área] — concepto — monto`. Queda pendiente en la portada con lo que significaría para el presupuesto; el dueño aprueba o rechaza y la decisión queda como hecho del área. La aplicación no compra ni paga nada.
+
+### Memoria que no encarece con el tiempo
+- **Archivo de memoria** (`src/archivo.js`, `data/memoria-archivo.json`): guarda todo lo que la oficina aprende, tipado (hecho, decisión, conclusión, acción cumplida, idea, concepto), hasta 20,000 entradas. No viaja completo a la IA.
+- **Lo que sí viaja en cada orden:** lo que el dueño fijó (máximo 12), hasta seis entradas relacionadas con la orden (búsqueda por palabras y sinónimos de negocio, sin IA), lo más reciente y las últimas conclusiones del área; todo en un bloque de 2,200 caracteres como máximo.
+- **Historial recortado:** de la conversación con cada agente, los últimos cuatro mensajes van completos y los anteriores se reducen a su inicio.
+- **Buscador para el dueño** (Agentes › Bitácora › Archivo de memoria, `/api/archivo`): buscar, fijar, soltar y borrar. En Configuración › Consumo de IA se ve cuánto contexto carga cada agente (`/api/contexto`).
+- La búsqueda es por palabras, no por significado: buscar por significado pediría un modelo local o enviar todo al proveedor.
 
 ### Tareas automáticas que sí arrancan, y solo las que el usuario enciende
 - Un agente del piloto o una tarea semanal sin configuración propia cuenta desde que se encendió (`_encendido` en `data/piloto.json`, `_inicio` en `data/programacion.json`), no desde "ahora" en cada lectura. Antes su próxima corrida siempre quedaba en el futuro y no corría nunca.
@@ -68,9 +81,26 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - El asistente ofrece dos caminos: **exprés** (22 preguntas esenciales en cuatro pasos, unos cinco minutos, para cualquier giro) y **completo** (todas las áreas más las preguntas del giro). El exprés da un primer semáforo y plan; al actualizar, el completo ya trae lleno lo contestado. La lista de preguntas esenciales vive en `CAMPOS_EXPRES` (`public/app.js`); el servidor no cambia, porque el motor ya tolera respuestas parciales.
 
 ### Avance medible
-- **Tu avance** (`src/progreso.js`, `GET /api/progreso`): compara el diagnóstico en pantalla con uno anterior y dice, con reglas y sin IA, cuánto cambió la madurez, qué áreas mejoraron o empeoraron y qué acciones del plan anterior ya no hacen falta. Incluye la línea de madurez de todos los diagnósticos guardados y un selector para elegir contra cuál comparar. El Informe del Orquestador (pantalla, Word y PDF) abre con ese avance.
+- **Tu avance** (`src/progreso.js`, `GET /api/progreso`): compara el diagnóstico en pantalla con uno anterior y dice, con reglas y sin IA, cuánto cambió la madurez, qué áreas mejoraron o empeoraron y qué acciones del plan anterior ya no hacen falta. Incluye la línea de madurez de todos los diagnósticos guardados y un selector para elegir contra cuál comparar. El Informe del Coordinador (pantalla, Word y PDF) abre con ese avance.
 - **Actualizar diagnóstico**: el asistente parte de las respuestas del diagnóstico anterior; el dueño solo corrige lo que cambió (o elige "Empezar en blanco").
 - **Borrar diagnósticos** de prueba desde Reportes (`DELETE /api/diagnosticos/:id`), con confirmación en el mismo botón.
+
+### Qué hacer esta semana y negocio de ejemplo
+- **Esta semana** (portada): lo primero que se ve en la Ciudad son hasta tres compromisos de la junta de la semana, con responsable y fecha, para palomearlos al cumplirlos. Son los mismos de la Junta semanal; "Atender primero" ahora nombra solo tres áreas.
+- **Negocio de ejemplo** (`src/demo.js`): con la instalación vacía, "Ver un negocio de ejemplo" abre una ferretería inventada ya con dos diagnósticos, facturas, flujo de caja y junta. Vive en su propia carpeta (`data/empresas/<id>/`), no usa IA y no toca tus datos; un aviso fijo permite volver a tu negocio o quitar el ejemplo. Es la única empresa que la aplicación puede eliminar.
+
+- **Pocos agentes a la vista:** el equipo de la portada y el selector del chat abren con hasta seis agentes "Para tu negocio": las tres áreas más urgentes, los del sector, los propios y el apoyo de esas áreas. Los demás siguen en "Todos".
+
+- **Respaldo con un clic** (`src/respaldo.js`, `GET /api/respaldo`): Configuración › Respaldo descarga un .zip con los datos de todas las empresas y un LEEME con los pasos para restaurar. Excluye `config.json` (la clave de IA), se arma en el equipo y no se envía a ningún lado. La portada lo recuerda si nunca se ha hecho o si pasó un mes.
+
+- **Avisos que resuelven:** cuando un límite detiene a la IA, un aviso fijo dice cuál fue, cuánto se lleva gastado y cuánto cuesta una orden, con botones para subirlo ahí mismo (`PUT /api/configuracion/limites` cambia solo los límites). En el aviso del semáforo, cada área movida por las facturas abre su panel con el porqué.
+
+- **Estados vacíos con siguiente paso:** la junta sin diagnóstico ofrece empezar o ver el ejemplo; los avisos de "Sin IA configurada" traen el botón "Activar la IA"; la red de agentes y la bitácora vacías llevan al chat o a la junta.
+
+- **Pantallas chicas y celular:** todas las vistas se acomodan sin desbordarse desde 400 px de ancho. La oficina solo escucha en esta computadora (127.0.0.1), así que no se abre desde el teléfono; para llevarse los pendientes, "Esta semana" los manda por WhatsApp (lo abre el usuario; la aplicación no envía nada) o los copia.
+
+- **Avance sin castigo:** cuando las facturas mueven el semáforo, "Tu avance" dice qué áreas movieron y cuánto sería la madurez solo con las respuestas del dueño (`facturas` en la comparación de `src/progreso.js`).
+- **Red de agentes legible:** el nombre de cada área se coloca donde menos se encima con otros nodos y nombres (`ubicarEtiquetas` en `public/red.js`).
 
 ### Junta semanal
 - **Junta del lunes** (`src/junta.js`, `GET /api/junta`, vista "Junta semanal"): una hoja por semana con tres cifras (dinero y cobranza si hay facturas; madurez y áreas en atención si no), hasta tres decisiones en orden de urgencia con su motivo, y hasta tres compromisos con responsable, repartidos entre áreas. Sin IA. Los compromisos se fijan al abrir la semana y viven en la bitácora; el lunes siguiente la hoja empieza por decir cuáles se cumplieron. Se exporta a Word y PDF.
@@ -84,11 +114,14 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 ### Costo de la IA en pesos
 - **Costo antes de actuar** (`src/precios.js`, `costos` en `GET /api/estado`): junto a cada acción que gasta IA (orden a un agente, redactar un entregable, construir una campaña, investigar el mercado, optimizar agentes, analizar un documento) aparece cuánto cuesta en pesos: un aproximado y un tope. La entrada sale del tamaño real del contexto de los agentes; la salida esperada, del promedio del mes; el tope supone la respuesta más larga y todas las consultas y búsquedas permitidas. El monitor de consumo muestra el gasto del mes en pesos: cada llamada guarda su costo en dólares en `data/uso.json` y lo anterior se estima con las proporciones del mes. Los precios son de lista de Anthropic (octubre de 2026) y el tipo de cambio lo escribe el dueño (18.50 si lo deja vacío); nada se consulta en internet. Para otro proveedor o un modelo que no esté en la lista, el dueño escribe el precio por millón de tokens en Configuración › Consumo de IA; sin precio, esos tokens se cuentan aparte en vez de inventarles costo. Es una estimación: la factura del proveedor es la que manda.
 
+- **Tope mensual en pesos** (`limiteMensualPesos`, Configuración › Consumo de IA): el dueño fija cuánto quiere gastar al mes; al llegar, la IA se detiene y el aviso lo dice en dinero. Los límites por tokens siguen disponibles en "Ajustes avanzados".
+- **Lenguaje de dueño:** el agente que reparte el trabajo se llama Coordinador (antes Orquestador; el nombre anterior sigue valiendo en las órdenes), el consumo se muestra primero en pesos y la madurez va acompañada de su nivel en palabras.
+
 ### El semáforo se mueve con las facturas
 - **Semáforo con evidencia** (`src/semaforo.js`, `aplicarEvidencia` en `src/diagnostico.js`): el diagnóstico más reciente se entrega con el color de cada área ajustado por lo que muestran las facturas y el flujo de caja (concentración de clientes, recompra, venta a crédito, gastos mayores que ventas, proveedor único, faltante de caja y cobranza vencida). La evidencia solo baja un color o le da color a un área sin respuestas; nunca lo mejora, porque las facturas no ven todo el negocio. Si pone en rojo Finanzas, Dirección u Operaciones, Crecimiento queda bloqueado igual que en el diagnóstico. Cada señal agrega su acción al plan (`origen: 'facturas'`), cada área conserva su color respondido en `declarado` y el dashboard avisa qué áreas se movieron. También señala cuando lo respondido y lo facturado difieren en 20 puntos o más (concentración y recompra). El archivo del diagnóstico no se modifica, los diagnósticos anteriores se entregan como se respondieron y los agentes con IA siguen recibiendo solo lo declarado: lo de las facturas viaja a la IA únicamente si se registra como hechos. Se apaga en Configuración › Datos reales (`PUT /api/flujo` con `semaforo: false`).
 
 ### Datos reales, entregables y varias empresas
-- **Datos reales** (`src/datos-reales.js`, Configuración › Datos reales): lee en este equipo una carpeta con facturas CFDI 3.3/4.0 (.xml emitidos y recibidos) y CSV de ventas, sin IA y sin subir nada. Calcula ventas, gastos, nómina timbrada, concentración de clientes y proveedores, recurrencia y venta a crédito (PPD), y saca hallazgos por área. Solo guarda el resumen; los hechos se registran en la bitácora si el usuario lo pide. El Informe del Orquestador lo incluye.
+- **Datos reales** (`src/datos-reales.js`, Configuración › Datos reales): lee en este equipo una carpeta con facturas CFDI 3.3/4.0 (.xml emitidos y recibidos) y CSV de ventas, sin IA y sin subir nada. Calcula ventas, gastos, nómina timbrada, concentración de clientes y proveedores, recurrencia y venta a crédito (PPD), y saca hallazgos por área. Solo guarda el resumen; los hechos se registran en la bitácora si el usuario lo pide. El Informe del Coordinador lo incluye.
 - **Entregables del plan** (`src/entregable.js`): cada acción del plan descarga su documento de Word. Sin IA sale el formato adecuado (manual de procedimiento, política, formato de control, plan de una página o ficha de acción); con IA, el agente del área lo redacta con los datos de la empresa.
 - **Varias empresas** (`src/empresas.js`, Configuración › Empresas): para consultores y despachos. Cada empresa tiene su carpeta (`data/` para la principal, `data/empresas/<id>/` para las demás); la clave de IA y los permisos son de la instalación.
 
@@ -106,7 +139,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - `docs/03-piloto.md`: protocolo de ocho semanas con cinco negocios de giros distintos y criterios para decidir si se sigue.
 
 ### Interfaz
-- **Ciudad 3D nocturna** (`public/oficina.js`): cada área es un edificio de cristal cuyo aro, aristas y acentos muestran su semáforo; las áreas en atención llevan una baliza. En la plaza vive el núcleo del Orquestador, enlazado con cada edificio (el enlace se enciende cuando ese agente trabaja). Cámaras isométrica, panorámica y aérea, órbita, rayos X y acercamiento; arrastrar gira, Mayús + arrastrar desplaza, Ctrl + rueda acerca.
+- **Ciudad 3D nocturna** (`public/oficina.js`): cada área es un edificio de cristal cuyo aro, aristas y acentos muestran su semáforo; las áreas en atención llevan una baliza. En la plaza vive el núcleo del Coordinador, enlazado con cada edificio (el enlace se enciende cuando ese agente trabaja). Cámaras isométrica, panorámica y aérea, órbita, rayos X y acercamiento; arrastrar gira, Mayús + arrastrar desplaza, Ctrl + rueda acerca.
 - **Simulador de escenarios** sobre la ciudad: cambia el color de cada área (o usa un escenario) y recalcula la madurez con la misma fórmula del dashboard. Solo en pantalla: nunca modifica el diagnóstico guardado.
 - **Red de agentes** (`public/red.js`): mapa radial de la jerarquía real con el estado operativo de cada agente (`/api/jerarquia` + `/api/situacion`), quién está bloqueado y el último movimiento. Sin IA.
 - Menú plegable en escritorio (se recuerda en el navegador), esqueleto de carga mientras llega la información, estados vacíos con su acción, cifras que cuentan y gráficas que se trazan al entrar. Todo respeta la preferencia de movimiento reducido.
@@ -116,7 +149,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Accesos y permisos** en el dashboard: interruptor por capacidad (IA, búsqueda web, documentos, tareas semanales, sitio, rutinas, piloto) con la nota de qué sale de tu equipo.
 - **Monitor de consumo**: tokens por mes y por día, por agente y por modelo; caché leída y búsquedas; límites mensual y diario que bloquean con motivo claro.
 - **Plan de ahorro de tokens**: caché de prompt (sistema e historial), modelo económico para lo automático, piloto por lotes al 50 % (Message Batches), historial y prompts recortados en lo interno, prompt en dos bloques (lo estable se lee de caché; lo que cambia por orden va aparte), pensamiento extendido apagado (los prompts ya dan la estructura) y continuación automática si una respuesta se corta.
-- **Situación de la oficina**: cada agente termina sus respuestas con una línea ESTADO (en curso, entregado o bloqueado); con eso, el registro de actividad y el piloto, la oficina sabe qué hace cada agente. El Orquestador y Dirección lo reciben en su contexto, y la pregunta "¿qué está haciendo cada agente?" se contesta con reglas al instante, sin gastar tokens, incluso con la IA apagada.
+- **Situación de la oficina**: cada agente termina sus respuestas con una línea ESTADO (en curso, entregado o bloqueado); con eso, el registro de actividad y el piloto, la oficina sabe qué hace cada agente. El Coordinador y Dirección lo reciben en su contexto, y la pregunta "¿qué está haciendo cada agente?" se contesta con reglas al instante, sin gastar tokens, incluso con la IA apagada.
 - **Actividad**: historial de todo lo que hacen los agentes (consultas de búsqueda incluidas) y estado en vivo en el encabezado.
 
 ## Instalación
@@ -180,7 +213,7 @@ data/           Tus datos (ignorada por git)
 | POST / GET | `/api/diagnosticos[/:id]` · GET `/:id/reporte.docx|html` | Diagnósticos y reportes |
 | GET/PUT | `/api/equipo` | Responsable y agente por área; agentes opcionales |
 | GET/POST | `/api/agentes/:area/mensajes` | Conversación y órdenes a cualquier agente (resuelve `CONSULTAR`/`DELEGAR`/`INFORMAR`) |
-| GET/POST/PUT/DELETE | `/api/agentes-personalizados[/:id]` · POST `/propuestas/:i/aceptar|rechazar` | Agentes propios y propuestas del Orquestador |
+| GET/POST/PUT/DELETE | `/api/agentes-personalizados[/:id]` · POST `/propuestas/:i/aceptar|rechazar` | Agentes propios y propuestas del Coordinador |
 | GET/PUT | `/api/empresa` | Ficha de la empresa |
 | GET/POST/DELETE | `/api/fuentes` · GET `/buscar?q=` | Bóvedas de notas |
 | GET/POST | `/api/documentos` · POST `/:id/analizar` | Documentos e ingesta |
@@ -190,7 +223,7 @@ data/           Tus datos (ignorada por git)
 | GET | `/api/jerarquia` · `/api/habilidades` | Organigrama, tipos y perfiles |
 | GET/PUT | `/api/ajustes[/:agente]` · POST `/optimizar` | Ajustes por negocio y optimización |
 | GET | `/api/memoria` · PUT `/acciones/:id` · POST `/hechos` · PUT `/ideas/:id` | Bitácora: acciones, hechos, ideas, glosario |
-| GET | `/api/informe[/reporte.docx|html]` | Informe del Orquestador |
+| GET | `/api/informe[/reporte.docx|html]` | Informe del Coordinador |
 | GET/POST | `/api/investigacion` · `/ejecutar` · `/importar` · PUT `/programacion` | Investigación semanal de mercado |
 | GET/POST | `/api/sitio` · `/analizar` | Análisis del sitio web |
 | GET/POST | `/api/laboral` · `/calcular` | Calculadora laboral |

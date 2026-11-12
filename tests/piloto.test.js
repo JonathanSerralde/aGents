@@ -10,7 +10,7 @@ import { opcionesTemporales } from './_servidor.js';
 
 const json = (metodo, cuerpo) => ({ method: metodo, headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) });
 
-test('cada área y el Orquestador tienen su tarea periódica; el resto usa la genérica y arranca apagado', () => {
+test('cada área y el Coordinador tienen su tarea periódica; el resto usa la genérica y arranca apagado', () => {
   for (const id of ['direccion', 'finanzas', 'ventas', 'marketing', 'compras', 'operaciones', 'rh', 'tecnologia', 'fiscal', 'riesgos', 'crecimiento']) {
     assert.ok(HABILIDADES[id].piloto?.tarea.length > 80, id);
     assert.equal(defectosDe(id).activo, true, id);
@@ -64,7 +64,7 @@ test('con el piloto encendido los agentes hacen su revisión solos, se coordinan
     recibido.push({ sistema, texto: mensajes.at(-1).texto });
     if (/Esta petición viene de otro agente/.test(sistema)) return 'Dato: dos meses de caja.';
     if (/agente del área de Finanzas/.test(sistema)) return 'Caja ajustada.\nACCIONES:\n- [finanzas] Cobrar las facturas vencidas — Luis — 1 semana\nINFORMAR: [Ventas] — no ofrecer crédito esta semana';
-    if (/Eres el Orquestador/.test(sistema)) return 'Resumen semanal.\nDELEGAR: [Compras] — Renegocia plazos con el proveedor principal';
+    if (/Eres el Coordinador/.test(sistema)) return 'Resumen semanal.\nDELEGAR: [Compras] — Renegocia plazos con el proveedor principal';
     return 'Sin novedades desde la última revisión.';
   };
   const servidor = crearServidor(opcionesTemporales(dir, { llamarIA, ahora: () => reloj }));
@@ -88,7 +88,7 @@ test('con el piloto encendido los agentes hacen su revisión solos, se coordinan
     assert.equal((await (await fetch(`${base}/api/piloto`)).json()).activo, true);
     // El usuario enciende también al Analista para los lunes.
     await fetch(`${base}/api/piloto/analista`, json('PUT', { activo: true, frecuencia: 'semanal', diaSemana: 1, hora: 8 }));
-    // Lunes 8:05: toca Dirección, Finanzas, Orquestador y Analista (4; Crecimiento y Riesgos son mensuales), pero máximo 3 por tick.
+    // Lunes 8:05: toca Dirección, Finanzas, Coordinador y Analista (4; Crecimiento y Riesgos son mensuales), pero máximo 3 por tick.
     const primera = await servidor.tickPiloto(reloj);
     assert.equal(primera.length, MAX_POR_TICK);
     const segunda = await servidor.tickPiloto(reloj);
@@ -96,7 +96,7 @@ test('con el piloto encendido los agentes hacen su revisión solos, se coordinan
     assert.deepEqual(await servidor.tickPiloto(reloj), []); // ya nadie pendiente
     const corridos = [...primera, ...segunda].sort();
     assert.deepEqual(corridos, ['analista', 'direccion', 'finanzas', 'orquestador']);
-    // Finanzas dejó acción y nota a Ventas; el Orquestador encargó a Compras sin que nadie lo pidiera.
+    // Finanzas dejó acción y nota a Ventas; el Coordinador encargó a Compras sin que nadie lo pidiera.
     const fin = (await (await fetch(`${base}/api/agentes/finanzas/mensajes`)).json()).mensajes;
     assert.equal(fin[0].origen, 'piloto');
     assert.match(recibido.find((r) => /agente del área de Finanzas/.test(r.sistema)).sistema, /revisión periódica automática/);
@@ -104,7 +104,7 @@ test('con el piloto encendido los agentes hacen su revisión solos, se coordinan
     assert.ok(mem.acciones.some((a) => a.area === 'finanzas' && /facturas vencidas/.test(a.texto)));
     assert.ok(mem.notas.some((n) => n.destino === 'ventas' && n.origen === 'finanzas'));
     const compras = (await (await fetch(`${base}/api/agentes/compras/mensajes`)).json()).mensajes;
-    assert.match(compras[0].texto, /Encargo del Orquestador: Renegocia plazos/);
+    assert.match(compras[0].texto, /Encargo del Coordinador: Renegocia plazos/);
     const estado1 = await (await fetch(`${base}/api/piloto`)).json();
     assert.match(estado1.agentes.find((a) => a.id === 'finanzas').ultimoResultado, /respondida/);
     const act = await (await fetch(`${base}/api/actividad`)).json();

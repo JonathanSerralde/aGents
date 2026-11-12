@@ -1,7 +1,7 @@
 // Investigación semanal de mercado y competencia.
 // El agente de Investigación de mercado busca en internet (con la búsqueda web del proveedor de IA y la clave
 // del usuario) al menos 10 competidores del sector y resume al menos 5 comentarios positivos y 5 negativos de
-// clientes de cada uno. Con eso informa al Orquestador qué buscan y qué rechazan los clientes, y el Orquestador
+// clientes de cada uno. Con eso informa al Coordinador qué buscan y qué rechazan los clientes, y el Coordinador
 // reparte el trabajo a Ventas, Marketing y a quien lo necesite. Todo queda en data/investigaciones/.
 import { terminos } from './conocimiento.js';
 import { crearRegistros } from './registros.js';
@@ -124,7 +124,7 @@ export function resumenParaPrompt(inv) {
   return lineas.join('\n').slice(0, 900);
 }
 
-// Lo que el agente de mercado entrega al Orquestador para que reparta el trabajo.
+// Lo que el agente de mercado entrega al Coordinador para que reparta el trabajo.
 export function informeParaOrquestador(inv) {
   const porCompetidor = inv.competidores.slice(0, 12).map((c) => {
     const pos = c.positivos.slice(0, 3).join(' / ');
@@ -161,7 +161,7 @@ export function contenidoInvestigacion(inv, marca) {
     for (const x of inv.oportunidades) push('vineta', x);
   }
   if (inv.encargos?.length) {
-    push('subtitulo', 'Trabajo repartido por el Orquestador');
+    push('subtitulo', 'Trabajo repartido por el Coordinador');
     for (const e of inv.encargos) push('vineta', `${e.nombreDestino || e.destinoTexto}: ${e.texto}${e.respuesta ? ` → ${e.respuesta.slice(0, 400)}` : e.error ? ` (sin respuesta: ${e.error})` : ' (pendiente para la persona responsable)'}`);
   }
   if (inv.busquedas?.length) {

@@ -1,5 +1,5 @@
 // Ajustes por negocio para cada agente: notas, marcos, acciones y límites adicionales a su habilidad base.
-// El usuario los escribe a mano o acepta propuestas que el Orquestador genera con IA ("Optimizar agentes").
+// El usuario los escribe a mano o acepta propuestas que el Coordinador genera con IA ("Optimizar agentes").
 // Vive en data/ajustes.json. Las propuestas no se aplican hasta que el usuario las acepta.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -103,7 +103,7 @@ export function describirAjustes(ajuste) {
 }
 
 // Parsea los bloques "NUEVO AGENTE: nombre" con ROL/ESPECIALIDAD/AREAS/MARCOS/ACCIONES/LIMITES/MOTIVO: subagentes que
-// el Orquestador propone crear porque ningún agente cubre esa necesidad del negocio.
+// el Coordinador propone crear porque ningún agente cubre esa necesidad del negocio.
 export function parsearNuevosAgentes(respuesta) {
   const nuevos = [];
   const partes = String(respuesta || '').split(/^\s*NUEVO AGENTE\s*:\s*/im).slice(1);
@@ -126,7 +126,7 @@ export function parsearNuevosAgentes(respuesta) {
   return nuevos.filter((n) => n.nombre.length >= 2);
 }
 
-// Parsea la respuesta del Orquestador con bloques "AGENTE: nombre" y secciones NOTAS/MARCOS/ACCIONES/LIMITES/MOTIVO.
+// Parsea la respuesta del Coordinador con bloques "AGENTE: nombre" y secciones NOTAS/MARCOS/ACCIONES/LIMITES/MOTIVO.
 export function parsearPropuestas(respuesta) {
   const bloques = [];
   const partes = String(respuesta || '').replace(/^\s*NUEVO AGENTE\s*:[\s\S]*?(?=^\s*AGENTE\s*:|(?![\s\S]))/gim, '').split(/^\s*AGENTE\s*:\s*/im).slice(1);

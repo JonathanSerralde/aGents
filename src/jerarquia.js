@@ -1,4 +1,4 @@
-// Jerarquía de los agentes: quién reporta a quién. Tiene efecto real: solo el Orquestador y los superiores
+// Jerarquía de los agentes: quién reporta a quién. Tiene efecto real: solo el Coordinador y los superiores
 // pueden DELEGAR trabajo a sus subordinados; cualquiera puede CONSULTAR a cualquiera.
 import { NOMBRES_DISTRITOS } from './diagnostico.js';
 import { NOMBRES_APOYO } from './apoyo.js';
@@ -57,11 +57,11 @@ const BASE = {
 };
 
 export function nombreDe(id, propios = {}) {
-  if (id === ORQ) return 'Orquestador';
+  if (id === ORQ) return 'Coordinador';
   return NOMBRES_DISTRITOS[id] || NOMBRES_APOYO[id] || propios[id]?.nombre || id;
 }
 
-// Un agente propio reporta a la primera área que ve o, si ve todas, al Orquestador.
+// Un agente propio reporta a la primera área que ve o, si ve todas, al Coordinador.
 export function posicionDe(id, propios = {}) {
   if (BASE[id]) return BASE[id];
   const p = propios[id];
@@ -74,7 +74,7 @@ export function superiorDe(id, propios = {}) {
   return posicionDe(id, propios)?.reportaA ?? null;
 }
 
-// Tipo de cada agente: 'orquestador' (coordina), 'staff' (reporta al Orquestador o a Dirección sin ser área:
+// Tipo de cada agente: 'orquestador' (coordina), 'staff' (reporta al Coordinador o a Dirección sin ser área:
 // Analista, Planificador, Auditoría, Contraloría), 'area' (los 11 distritos del diagnóstico), 'subagente' (agente de
 // apoyo que cuelga de un área o de un staff: Tráfico digital de Marketing, Nómina de RH, etc.) y 'propio' (creado por el usuario).
 export function tipoDe(id, propios = {}) {
@@ -102,7 +102,7 @@ export function subordinadosDe(id, propios = {}, inactivos = []) {
   return todos.filter((x) => x !== id && superiorDe(x, propios) === id);
 }
 
-// ¿Puede "origen" delegar trabajo a "destino"? El Orquestador a cualquiera; los demás solo a sus subordinados directos.
+// ¿Puede "origen" delegar trabajo a "destino"? El Coordinador a cualquiera; los demás solo a sus subordinados directos.
 export function puedeDelegar(origen, destino, propios = {}) {
   if (origen === ORQ) return destino !== ORQ;
   return superiorDe(destino, propios) === origen;
@@ -115,14 +115,14 @@ export function describirPosicion(id, propios = {}, inactivos = []) {
   const partes = [];
   const tipo = tipoDe(id, propios);
   if (tipo === 'subagente') partes.push(`Eres subagente de ${nombreDe(pos.reportaA, propios)}: tu trabajo alimenta a esa área y sus prioridades mandan sobre las tuyas.`);
-  if (pos.reportaA) partes.push(`Reportas a ${nombreDe(pos.reportaA, propios)}; el Orquestador coordina a todos.`);
+  if (pos.reportaA) partes.push(`Reportas a ${nombreDe(pos.reportaA, propios)}; el Coordinador dirige a todos.`);
   const sub = subordinadosDe(id, propios, inactivos).map((x) => nombreDe(x, propios));
   if (sub.length) partes.push(`Puedes encargar trabajo con "DELEGAR: [agente] — orden" solo a: ${sub.join(', ')}.`);
   else if (id !== ORQ) partes.push('No puedes delegar; sí puedes consultar a cualquier agente.');
   return partes.join(' ');
 }
 
-// Organigrama en texto, para el Orquestador y para la pantalla.
+// Organigrama en texto, para el Coordinador y para la pantalla.
 export function organigrama(propios = {}, inactivos = []) {
   const todos = [...Object.keys(BASE), ...Object.keys(propios)].filter((x) => !inactivos.includes(x));
   const hijos = (id) => todos.filter((x) => superiorDe(x, propios) === id);

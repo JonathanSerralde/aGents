@@ -288,7 +288,7 @@ function hechosDe(r) {
   return t;
 }
 
-// Resumen de una línea para el informe del Orquestador.
+// Resumen de una línea para el informe del Coordinador.
 export function resumenDatosReales(r) {
   if (!r) return '';
   const partes = [`Datos reales del ${r.periodo.desde} al ${r.periodo.hasta} (${r.comprobantes} comprobantes)`];
