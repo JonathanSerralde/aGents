@@ -23,9 +23,10 @@ import { crearRutinas, FRECUENCIAS } from './rutinas.js';
 import { crearActividad } from './actividad.js';
 import { crearPiloto, MAX_POR_TICK } from './piloto.js';
 import { crearUso, limiteAlcanzado } from './uso.js';
+import { costoUsd, costoLegado, estimar, precioDe, tipoCambioDe, tokensDe, pesosCortos } from './precios.js';
 import { crearAjustes, parsearPropuestas, parsearNuevosAgentes } from './ajustes.js';
 import { arbol, nombreDe, subagentesPorArea, tipoDe } from './jerarquia.js';
-import { resolverAgente } from './colaboracion.js';
+import { resolverAgente, MAX_CONSULTAS } from './colaboracion.js';
 import { crearPersonalizados, esIdPersonalizado, AVATARES_PERMITIDOS } from './personalizados.js';
 import { crearEmpresa, CAMPOS_EMPRESA } from './empresa.js';
 import { crearFuentes, buscar, fragmentosParaPrompt } from './conocimiento.js';
@@ -631,17 +632,52 @@ export function crearServidor(opciones = {}) {
 
   // Configuración vigente: lo guardado desde la pantalla manda sobre .env. Se relee en cada uso para no reiniciar.
   // Lleva el registrador de consumo para que cada llamada al proveedor quede anotada.
-  const configActual = () => ({
-    ...configuracionEfectiva(config, configuracion.leer()),
-    registrarUso: (u) => uso.registrar({ ...u, agente: agenteEnCurso }),
-  });
+  const configActual = () => {
+    const cfg = configuracionEfectiva(config, configuracion.leer());
+    return { ...cfg, registrarUso: (u) => uso.registrar({ ...u, agente: agenteEnCurso, costoUsd: costoUsd(u, cfg) }) };
+  };
+
+  // Cuánto costaría cada acción con IA, en pesos, antes de hacerla. Es una estimación: la entrada sale del tamaño
+  // real del contexto de los agentes; la salida esperada, del promedio de este mes (o 700 tokens si hay poco historial);
+  // "hasta" supone que la respuesta llega al tope y que hay todas las consultas y búsquedas permitidas.
+  function costosEstimados(cfg = configActual()) {
+    const tipoCambio = tipoCambioDe(cfg);
+    if (!proveedorActivo(cfg)) return { activo: false, tipoCambio, acciones: {} };
+    const r = uso.resumen();
+    const media = r.llamadas >= 5 ? Math.max(200, Math.round(r.salida / r.llamadas)) : 700;
+    const sistema = (area) => { try { return tokensDe(sistemaDe(area)); } catch { return 3000; } };
+    const areaMayor = Math.max(...Object.keys(NOMBRES_DISTRITOS).map(sistema));
+    const orquestador = sistema(ORQUESTADOR);
+    const principal = modeloPara(cfg, 'principal');
+    const automatico = modeloPara(cfg, 'automatico');
+    const uno = (datos) => estimar(datos, cfg);
+    const suma = (a, b) => (a && b ? { aproximado: a.aproximado + b.aproximado, hasta: a.hasta + b.hasta } : null);
+    const consultas = uno({ modelo: automatico, tokensEntrada: areaMayor + 400, salidaEsperada: 0, salidaMaxima: 2500, llamadas: MAX_CONSULTAS });
+    const orden = uno({ modelo: principal, tokensEntrada: areaMayor + 400, salidaEsperada: media, salidaMaxima: 2500 });
+    const crudas = {
+      orden: orden && consultas ? { aproximado: orden.aproximado, hasta: orden.hasta + consultas.hasta } : null,
+      entregable: uno({ modelo: principal, tokensEntrada: areaMayor + 300, salidaEsperada: Math.max(media, 1200), salidaMaxima: 2500 }),
+      campana: uno({ modelo: principal, tokensEntrada: sistema('trafico') + 400, salidaEsperada: Math.max(media, 1200), salidaMaxima: 2500 }),
+      investigacion: uno({ modelo: modeloPara(cfg, 'busqueda'), tokensEntrada: sistema('mercado') + 8 * 3000, salidaEsperada: 2000, salidaMaxima: 4096, busquedas: 8 }),
+      documento: suma(uno({ modelo: principal, tokensEntrada: orquestador + tokensDe('x'.repeat(MAX_TEXTO_DOCUMENTO_IA)), salidaEsperada: Math.max(media, 900), salidaMaxima: 3000 }), { aproximado: 0, hasta: 0 }),
+      optimizar: uno({ modelo: principal, tokensEntrada: orquestador + 2500, salidaEsperada: 1500, salidaMaxima: 2500 }),
+      diagnostico: uno({ modelo: principal, tokensEntrada: 700, salidaEsperada: 300, salidaMaxima: 2500 }),
+    };
+    const acciones = {};
+    for (const [clave, e] of Object.entries(crudas)) {
+      if (e) acciones[clave] = { aproximado: Math.round(e.aproximado * 100) / 100, hasta: Math.round(e.hasta * 100) / 100, texto: `Cuesta ${e.aproximado < 0.01 ? '' : 'cerca de '}${pesosCortos(e.aproximado)}; a lo más, ${pesosCortos(e.hasta)}.` };
+    }
+    return { activo: true, tipoCambio, modelo: principal, precioConocido: Boolean(precioDe(principal, cfg)), acciones };
+  }
 
   // Estado del monitor: consumo del mes, límite y modelo activo.
   function estadoUso(cfg = configActual()) {
     const resumen = uso.resumen();
     const limite = cfg.limiteMensualTokens || 0;
     const limiteDiario = cfg.limiteDiarioTokens || 0;
-    return { ...resumen, limite, limiteDiario, alcanzado: limiteAlcanzado(resumen, limite) || limiteAlcanzado({ total: resumen.hoy }, limiteDiario), porcentaje: limite ? Math.min(100, Math.round((resumen.total / limite) * 100)) : null, porcentajeHoy: limiteDiario ? Math.min(100, Math.round((resumen.hoy / limiteDiario) * 100)) : null, modelo: modeloActivo(cfg), modeloAutomatico: proveedorActivo(cfg) ? modeloPara(cfg, 'automatico') : '', modoAhorro: cfg.modoAhorro || 'equilibrado', usarLotes: cfg.usarLotes !== false, proveedor: proveedorActivo(cfg) || 'ninguno' };
+    const cambio = tipoCambioDe(cfg);
+    const legado = costoLegado(resumen, cfg); // lo gastado antes de llevar el costo por llamada
+    return { ...resumen, tipoCambio: cambio, pesos: Math.round(((resumen.costoUsd || 0) + legado.usd) * cambio * 100) / 100, sinPrecio: (resumen.sinPrecio || 0) + legado.sinPrecio, limite, limiteDiario, alcanzado: limiteAlcanzado(resumen, limite) || limiteAlcanzado({ total: resumen.hoy }, limiteDiario), porcentaje: limite ? Math.min(100, Math.round((resumen.total / limite) * 100)) : null, porcentajeHoy: limiteDiario ? Math.min(100, Math.round((resumen.hoy / limiteDiario) * 100)) : null, modelo: modeloActivo(cfg), modeloAutomatico: proveedorActivo(cfg) ? modeloPara(cfg, 'automatico') : '', modoAhorro: cfg.modoAhorro || 'equilibrado', usarLotes: cfg.usarLotes !== false, proveedor: proveedorActivo(cfg) || 'ninguno' };
   }
 
   // ¿Se puede llamar al proveedor ahora? Devuelve null si sí, o el motivo si no.
@@ -1437,6 +1473,7 @@ export function crearServidor(opciones = {}) {
         proveedorIA: proveedorActivo(cfg) || 'ninguno',
         modelo: modeloActivo(cfg),
         uso: estadoUso(cfg),
+        costos: costosEstimados(cfg),
         apoyo: apoyo(),
         trabajando: actividad.trabajando(),
         local: true,

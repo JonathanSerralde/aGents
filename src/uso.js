@@ -34,7 +34,7 @@ export function crearUso(archivo) {
 
   return {
     // cacheLeido: parte de "entrada" que vino de la caché del proveedor (más barata); busquedas: búsquedas web cobradas aparte.
-    registrar({ proveedor = '', modelo = '', entrada = 0, salida = 0, agente = '', cacheLeido = 0, busquedas = 0 }, fecha = new Date()) {
+    registrar({ proveedor = '', modelo = '', entrada = 0, salida = 0, agente = '', cacheLeido = 0, busquedas = 0, costoUsd = null }, fecha = new Date()) {
       const datos = leerTodo();
       const mes = mesActual(fecha);
       const m = datos.meses[mes] || (datos.meses[mes] = vacio(mes));
@@ -45,6 +45,9 @@ export function crearUso(archivo) {
       m.salida += s;
       m.cacheLeido = (m.cacheLeido || 0) + Math.max(0, Math.round(Number(cacheLeido) || 0));
       m.busquedas = (m.busquedas || 0) + Math.max(0, Math.round(Number(busquedas) || 0));
+      // Costo en dólares de la llamada (src/precios.js). Si el modelo no tiene precio conocido, se cuentan sus tokens aparte.
+      if (typeof costoUsd === 'number' && Number.isFinite(costoUsd)) { m.costoUsd = Math.round(((m.costoUsd || 0) + Math.max(0, costoUsd)) * 1e6) / 1e6; m.conCosto = (m.conCosto || 0) + e + s; }
+      else m.sinPrecio = (m.sinPrecio || 0) + e + s;
       const clave = `${proveedor}:${modelo}`;
       m.porModelo[clave] = (m.porModelo[clave] || 0) + e + s;
       if (agente) m.porAgente[agente] = (m.porAgente[agente] || 0) + e + s;

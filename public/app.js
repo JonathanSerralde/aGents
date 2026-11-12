@@ -1905,11 +1905,23 @@ async function optimizarAgentes() {
 
 // ---------- Consumo de IA ----------
 
+// Costo estimado en pesos junto a cada acción que gasta IA (src/precios.js). Sin IA configurada no se muestra nada.
+const costoDe = (accion) => (estado.costos?.activo ? estado.costos.acciones?.[accion] || null : null);
+function pintarCostos() {
+  for (const el of document.querySelectorAll('[data-costo]')) {
+    const c = costoDe(el.dataset.costo);
+    el.hidden = !c;
+    el.textContent = c ? c.texto : '';
+  }
+}
+
 function pintarUso(u) {
   if (!u) return;
   $('#uso-modelo').textContent = u.modelo || (u.proveedor !== 'ninguno' ? u.proveedor : 'Sin IA');
   $('#uso-total').textContent = (u.total || 0).toLocaleString('es-MX');
   $('#uso-llamadas').textContent = String(u.llamadas || 0);
+  $('#uso-pesos').textContent = u.pesos ? (u.pesos < 10 ? `$${u.pesos.toFixed(2)}` : `$${Math.round(u.pesos).toLocaleString('es-MX')}`) : '$0';
+  $('#uso-costo-nota').textContent = u.proveedor !== 'ninguno' ? `Gasto aproximado en pesos, a $${(u.tipoCambio || 0).toFixed(2)} por dólar y con precios de lista del proveedor; tu factura es la que manda.${u.sinPrecio ? ` ${u.sinPrecio.toLocaleString('es-MX')} tokens se gastaron en un modelo sin precio conocido y no están contados: escribe su precio abajo.` : ''}` : '';
   $('#uso-limite').textContent = u.limite ? u.limite.toLocaleString('es-MX') : 'Sin límite';
   const relleno = $('#uso-relleno');
   relleno.style.width = `${u.limite ? u.porcentaje : 0}%`;
@@ -1940,9 +1952,10 @@ async function cargarUso() {
 async function guardarLimite() {
   try {
     const res = await fetch('/api/configuracion', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(datosFormularioIA()) });
-    if (!res.ok) return mensaje($('#uso-mensaje'), 'No se pudo guardar el límite.', 'error');
+    if (!res.ok) return mensaje($('#uso-mensaje'), 'No se pudo guardar.', 'error');
     await cargarUso();
-    mensaje($('#uso-mensaje'), 'Límite guardado.', 'ok');
+    refrescarEstadoIA();
+    mensaje($('#uso-mensaje'), 'Guardado.', 'ok');
   } catch {
     mensaje($('#uso-mensaje'), 'No hay conexión con el servidor local.', 'error');
   }
@@ -1976,7 +1989,7 @@ async function cargarDocumentos() {
     const metodo = { docx: 'Word, texto leído', texto: 'texto leído', pdf: 'PDF, texto leído', 'pdf-sin-texto': 'PDF sin texto (escaneado): no se puede leer', imagen: 'imagen: se analiza con IA' }[d.metodo] || d.metodo;
     info.append(crearElemento('strong', {}, d.nombre), crearElemento('small', {}, `${fechaCorta(d.creado)} · ${(d.tam / 1024).toFixed(0)} KB · ${metodo}${d.caracteres ? ` · ${d.caracteres} caracteres` : ''}`));
     const acciones = crearElemento('div', { class: 'doc-acciones' });
-    const analizar = crearElemento('button', { class: 'boton compacto', type: 'button' }, d.analisis ? 'Volver a analizar' : 'Analizar con el Orquestador');
+    const analizar = crearElemento('button', { class: 'boton compacto', type: 'button', title: costoDe('documento')?.texto || '' }, d.analisis ? 'Volver a analizar' : 'Analizar con el Orquestador');
     analizar.addEventListener('click', async () => {
       analizar.disabled = true;
       analizar.textContent = 'Analizando…';
@@ -2724,7 +2737,7 @@ function renderPlan(plan) {
       formato.addEventListener('click', () => descargarEntregable(p, false, formato));
       entregables.append(formato);
       if (estado.proveedorIA !== 'ninguno') {
-        const redactar = crearElemento('button', { type: 'button', class: 'atajo', title: 'El agente del área lo redacta con los datos de tu empresa. Gasta tokens de tu clave.' }, 'Redactar con IA');
+        const redactar = crearElemento('button', { type: 'button', class: 'atajo', title: `El agente del área lo redacta con los datos de tu empresa. ${costoDe('entregable')?.texto || 'Gasta tokens de tu clave.'}` }, costoDe('entregable') ? `Redactar con IA (≈ $${costoDe('entregable').aproximado.toFixed(2)})` : 'Redactar con IA');
         redactar.addEventListener('click', () => descargarEntregable(p, true, redactar));
         entregables.append(redactar);
       }
@@ -3986,6 +3999,8 @@ async function refrescarEstadoIA() {
     const s = await fetch('/api/estado').then((r) => r.json());
     estado.proveedorIA = s.proveedorIA || 'ninguno';
     estado.uso = s.uso || null;
+    estado.costos = s.costos || null;
+    pintarCostos();
     estado.apoyo = s.apoyo || { activos: AGENTES_APOYO, inactivos: {} };
     $('#cfg-version').textContent = s.version || '—';
     pintarUso(s.uso);
@@ -4015,6 +4030,9 @@ function datosFormularioIA() {
     usarLotes: $('#cfg-lotes').checked,
     limiteMensualTokens: Number($('#cfg-limite').value) || 0,
     limiteDiarioTokens: Number($('#cfg-limite-diario').value) || 0,
+    tipoCambio: Number($('#cfg-tipo-cambio').value) || 0,
+    precioEntradaUsd: Number($('#cfg-precio-entrada').value) || 0,
+    precioSalidaUsd: Number($('#cfg-precio-salida').value) || 0,
   };
 }
 
@@ -4028,6 +4046,9 @@ function pintarConfiguracion(cfg) {
   $('#cfg-lotes').checked = cfg.usarLotes !== false;
   $('#cfg-limite').value = cfg.limiteMensualTokens || 0;
   $('#cfg-limite-diario').value = cfg.limiteDiarioTokens || 0;
+  $('#cfg-tipo-cambio').value = cfg.tipoCambio || '';
+  $('#cfg-precio-entrada').value = cfg.precioEntradaUsd || 0;
+  $('#cfg-precio-salida').value = cfg.precioSalidaUsd || 0;
   $('#cfg-openai-key').value = cfg.openaiKey || '';
   $('#cfg-openai-modelo').value = cfg.openaiModelo || '';
   mostrarGrupoProveedor();

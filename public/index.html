@@ -283,6 +283,7 @@
                   <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Dale una orden a este agente. Ctrl+Enter para enviar." aria-label="Orden para el agente"></textarea>
                   <button class="boton compacto" type="submit">Enviar</button>
                 </form>
+                <p class="costo-ia" data-costo="orden" hidden></p>
               </section>
             </aside>
           </div>
@@ -581,6 +582,7 @@
                 <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Dale una orden a este agente. Ctrl+Enter para enviar." aria-label="Orden para el agente"></textarea>
                 <button class="boton compacto" type="submit">Enviar</button>
               </form>
+              <p class="costo-ia" data-costo="orden" hidden></p>
             </section>
           </section>
 
@@ -710,6 +712,7 @@
             <div class="acciones-inline">
               <button id="inv-guardar" class="boton secundario compacto" type="button">Guardar programación</button>
               <button id="inv-ejecutar" class="boton compacto" type="button">Investigar ahora</button>
+              <span class="costo-ia" data-costo="investigacion" hidden></span>
               <span id="inv-mensaje" class="mensaje-estado" role="status"></span>
             </div>
             <p id="inv-estado" class="subtitulo"></p>
@@ -784,6 +787,7 @@
               <h3>Ajustes por negocio</h3>
               <p class="subtitulo">Los agentes se adaptan a tu empresa: escribe indicaciones para cada uno, o pide al Orquestador que proponga ajustes a partir del diagnóstico y las conversaciones. Nada se aplica sin tu aprobación.</p>
               <button id="optimizar-agentes" class="boton compacto" type="button">Optimizar agentes con IA</button>
+              <span class="costo-ia" data-costo="optimizar" hidden></span>
             </div>
             <div id="propuestas" class="propuestas"></div>
             <div class="form-grid">
@@ -814,6 +818,7 @@
                 <textarea class="chat-texto" rows="2" maxlength="2000" placeholder="Por ejemplo: ¿qué atiendo primero este mes? Ctrl+Enter para enviar." aria-label="Orden para el orquestador"></textarea>
                 <button class="boton compacto" type="submit">Enviar</button>
               </form>
+              <p class="costo-ia" data-costo="orden" hidden></p>
             </section>
           </section>
         </section>
@@ -857,6 +862,7 @@
               <div class="campo ancho"><label for="ia-publico">¿A quién va dirigida? (opcional)</label><input id="ia-publico" type="text" maxlength="200" placeholder="Si lo dejas vacío, el agente lo decide según tu negocio"></div>
               <div class="acciones-inline ancho">
                 <button id="ia-generar" class="boton" type="submit">Construir campaña</button>
+                <span class="costo-ia" data-costo="campana" hidden></span>
                 <span id="ia-mensaje" class="mensaje-estado" role="status"></span>
               </div>
             </form>
@@ -1132,18 +1138,23 @@
               <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Tokens este mes</span><span id="uso-total" class="kpi-valor">0</span></div></div>
               <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Llamadas</span><span id="uso-llamadas" class="kpi-valor">0</span></div></div>
               <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Límite mensual</span><span id="uso-limite" class="kpi-valor chico">Sin límite</span></div></div>
+              <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Gasto este mes</span><span id="uso-pesos" class="kpi-valor">$0</span></div></div>
               <div class="kpi"><div class="kpi-texto"><span class="kpi-etiqueta">Hoy</span><span id="uso-hoy" class="kpi-valor">0</span></div></div>
             </div>
             <div class="uso-barra"><span id="uso-relleno"></span></div>
             <p id="uso-aviso" class="subtitulo"></p>
             <p id="uso-ahorro" class="subtitulo"></p>
+            <p id="uso-costo-nota" class="subtitulo"></p>
             <div class="form-grid">
               <div class="campo"><label for="cfg-limite">Límite mensual de tokens (0 = sin límite)</label><input id="cfg-limite" type="number" min="0" step="1000" value="0"></div>
               <div class="campo"><label for="cfg-limite-diario">Límite diario de tokens (0 = sin límite; sugerido: 150,000)</label><input id="cfg-limite-diario" type="number" min="0" step="1000" value="0"></div>
-              <div class="campo"><span class="etiqueta-campo">Por agente este mes</span><ul id="uso-agentes" class="lista-datos compacta"></ul></div>
+              <div class="campo ancho"><label for="cfg-tipo-cambio">Tipo de cambio (pesos por dólar; vacío = 18.50)</label><input id="cfg-tipo-cambio" type="number" min="0" step="0.01" placeholder="18.50"></div>
+              <div class="campo"><label for="cfg-precio-entrada">Precio de entrada (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-entrada" type="number" min="0" step="0.01" value="0"></div>
+              <div class="campo"><label for="cfg-precio-salida">Precio de salida (dólares por millón de tokens; 0 = de lista)</label><input id="cfg-precio-salida" type="number" min="0" step="0.01" value="0"></div>
+              <div class="campo ancho"><span class="etiqueta-campo">Por agente este mes</span><ul id="uso-agentes" class="lista-datos compacta"></ul></div>
             </div>
             <div class="acciones-inline">
-              <button id="uso-guardar" class="boton" type="button">Guardar límite</button>
+              <button id="uso-guardar" class="boton" type="button">Guardar límites y precios</button>
               <span id="uso-mensaje" class="mensaje-estado" role="status"></span>
             </div>
           </section>

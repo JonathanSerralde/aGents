@@ -41,6 +41,7 @@ export function sanitizarConfiguracion(entrada) {
   const e = entrada && typeof entrada === 'object' ? entrada : {};
   const proveedor = PROVEEDORES.includes(e.proveedor) ? e.proveedor : 'ninguno';
   const tope = (v) => Math.min(1e9, Math.max(0, Math.round(Number(v) || 0)));
+  const decimal = (v, max) => Math.min(max, Math.max(0, Math.round((Number(v) || 0) * 10000) / 10000));
   return {
     proveedor,
     anthropicKey: limpiar(e.anthropicKey, MAX_CLAVE),
@@ -54,6 +55,9 @@ export function sanitizarConfiguracion(entrada) {
     usarLotes: e.usarLotes === undefined ? true : !(e.usarLotes === false || e.usarLotes === 'false' || e.usarLotes === 0), // piloto por Batches (50% de descuento)
     limiteMensualTokens: tope(e.limiteMensualTokens), // 0 = sin límite
     limiteDiarioTokens: tope(e.limiteDiarioTokens), // 0 = sin límite
+    tipoCambio: decimal(e.tipoCambio, 1000), // pesos por dólar; 0 = el sugerido (src/precios.js)
+    precioEntradaUsd: decimal(e.precioEntradaUsd, 10000), // dólares por millón de tokens; 0 = precio de lista
+    precioSalidaUsd: decimal(e.precioSalidaUsd, 10000),
     permisos: sanitizarPermisos(e.permisos),
   };
 }
@@ -74,6 +78,9 @@ export function enmascarar(cfg) {
     usarLotes: cfg.usarLotes !== false,
     limiteMensualTokens: cfg.limiteMensualTokens || 0,
     limiteDiarioTokens: cfg.limiteDiarioTokens || 0,
+    tipoCambio: cfg.tipoCambio || 0,
+    precioEntradaUsd: cfg.precioEntradaUsd || 0,
+    precioSalidaUsd: cfg.precioSalidaUsd || 0,
     tieneClaveAnthropic: Boolean(cfg.anthropicKey),
     tieneClaveOpenAI: Boolean(cfg.openaiKey),
     permisos: sanitizarPermisos(cfg.permisos),
@@ -167,6 +174,9 @@ export function configuracionEfectiva(base, guardada) {
     usarLotes: g.usarLotes !== false,
     limiteMensualTokens: g.limiteMensualTokens || 0,
     limiteDiarioTokens: g.limiteDiarioTokens || 0,
+    tipoCambio: g.tipoCambio || 0,
+    precioEntradaUsd: g.precioEntradaUsd || 0,
+    precioSalidaUsd: g.precioSalidaUsd || 0,
     permisos: sanitizarPermisos(g.permisos),
   };
 }

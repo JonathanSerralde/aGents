@@ -733,6 +733,8 @@ input[type="color"] { padding: 2px; }
 .vacio-card .acciones-inline { margin-top: 22px; }
 
 .mensaje-estado { font-size: 0.88rem; color: var(--texto-suave); }
+.costo-ia { margin: 6px 0 0; font-size: 0.8rem; color: var(--texto-suave); }
+span.costo-ia { margin: 0; align-self: center; }
 .mensaje-estado.ok { color: var(--verde); }
 .mensaje-estado.error { color: #ff86b5; }
 
