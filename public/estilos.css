@@ -145,6 +145,56 @@ code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.85em; col
 .chip.ok { color: var(--verde); border-color: rgba(46, 240, 181, 0.45); background: rgba(46, 240, 181, 0.07); }
 .chip.ok::before { content: ""; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 10px var(--verde); animation: latir 2.4s ease-in-out infinite; }
 
+/* ---------- Menú plegable (escritorio) ---------- */
+.app { transition: grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.menu-plegar { margin-left: auto; display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; color: var(--texto-suave); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--borde); border-radius: 10px; cursor: pointer; transition: color 0.2s ease, border-color 0.2s ease, transform 0.28s ease; }
+.menu-plegar:hover { color: #fff; border-color: var(--cian); }
+.menu-plegar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+@media (min-width: 961px) {
+  body.menu-plegado .app { grid-template-columns: 78px minmax(0, 1fr); }
+  body.menu-plegado .menu { padding-left: 10px; padding-right: 10px; }
+  body.menu-plegado .menu-marca { flex-direction: column; gap: 10px; padding: 0; }
+  body.menu-plegado .menu-marca > div, body.menu-plegado .menu-grupo, body.menu-plegado .menu-item span, body.menu-plegado .menu-pie p { display: none; }
+  body.menu-plegado .menu-plegar { margin-left: 0; transform: rotate(180deg); }
+  body.menu-plegado .menu-item { justify-content: center; padding: 11px 0; }
+  body.menu-plegado .menu-nav { gap: 6px; }
+  body.menu-plegado .menu-pie { justify-content: center; padding: 10px 0; }
+}
+@media (max-width: 960px) { .menu-plegar { display: none; } }
+
+/* ---------- Esqueleto de carga ---------- */
+.carga { display: none; gap: 20px; order: 0; }
+body.cargando .carga { display: grid; }
+body.cargando #dashboard-vacio, body.cargando #vista-resultados > *, body.cargando #primeros-pasos, body.cargando #informe-card, body.cargando #permisos-card { display: none !important; }
+.hueso { position: relative; overflow: hidden; height: 108px; border-radius: 18px; background: rgba(139, 92, 246, 0.1); border: 1px solid var(--borde); }
+.hueso::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.2), transparent); animation: barrido 1.4s ease-in-out infinite; }
+.hueso-escena { height: clamp(380px, 56vh, 620px); border-radius: var(--radio); }
+.hueso-alto { height: 220px; }
+.carga-fila { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1000px) { .carga-fila { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.carga-dos { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) { .carga-dos { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); } }
+@keyframes barrido { to { transform: translateX(100%); } }
+/* Al terminar la carga, el contenido entra una sola vez. */
+body.recien-cargado #vista-dashboard > *, body.recien-cargado #vista-resultados > * { animation: entrar 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes entrar { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Estados vacíos ---------- */
+.vacio-estado { list-style: none; display: grid; justify-items: center; gap: 8px; padding: 30px 20px; text-align: center; border-radius: 18px; border: 1px dashed var(--borde-fuerte); background: rgba(139, 92, 246, 0.05); }
+.vacio-estado .vacio-icono { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; color: var(--cian); background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(37, 226, 255, 0.1)); border: 1px solid var(--borde-fuerte); box-shadow: var(--brillo); }
+.vacio-estado .vacio-icono svg { width: 26px; height: 26px; }
+.vacio-estado strong { font-family: var(--display); font-size: 1.12rem; font-weight: 600; }
+.vacio-estado p { max-width: 52ch; color: var(--texto-suave); font-size: 0.9rem; }
+.vacio-estado .boton { margin-top: 6px; }
+
+/* ---------- Gráficas animadas ---------- */
+#radar .radar-datos { transform-origin: 150px 150px; animation: radar-abrir 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+#radar .radar-punto { animation: aparecer 0.4s ease 0.6s both; cursor: help; }
+@keyframes radar-abrir { from { transform: scale(0.05); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Solo se oculta para trazarse si hay animación; con movimiento reducido la línea se ve completa desde el inicio. */
+@media (prefers-reduced-motion: no-preference) { #avance-serie .serie-linea { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trazar 0.9s ease-out 0.15s forwards; } }
+@keyframes trazar { to { stroke-dashoffset: 0; } }
+
 /* ---------- Tarjetas ---------- */
 .tarjeta {
   position: relative;

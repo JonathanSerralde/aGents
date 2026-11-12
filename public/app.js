@@ -181,6 +181,38 @@ function conNegritas(texto) {
 ]+)**/g).map((parte, i) => (i % 2 ? crearElemento('strong', {}, parte) : document.createTextNode(parte)));
 }
 
+// Estado vacío: dice qué va aquí y qué hacer para llenarlo. `accion` es opcional: { texto, alHacer }.
+function estadoVacio({ icono: nombreIcono = 'layers', titulo, texto, accion = null, etiqueta = 'li' }) {
+  const caja = crearElemento(etiqueta, { class: 'vacio-estado' });
+  const marco = crearElemento('span', { class: 'vacio-icono', 'aria-hidden': 'true' });
+  marco.append(icono(nombreIcono));
+  caja.append(marco, crearElemento('strong', {}, titulo), crearElemento('p', {}, texto));
+  if (accion) {
+    const boton = crearElemento('button', { class: 'boton secundario compacto', type: 'button' }, accion.texto);
+    boton.addEventListener('click', accion.alHacer);
+    caja.append(boton);
+  }
+  return caja;
+}
+
+// Lleva un número hasta su valor nuevo contando (0.6 s). Con movimiento reducido lo pone de una vez.
+const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
+function animarNumero(el, hasta, { decimales = 0, pintar = (v) => { el.textContent = v; } } = {}) {
+  const fmt = (n) => n.toFixed(decimales).replace(/\.0+$/, '');
+  const desde = Number(el.dataset.valor ?? 0) || 0;
+  el.dataset.valor = String(hasta);
+  cancelAnimationFrame(Number(el.dataset.cuadro || 0));
+  if (sinMovimiento.matches || desde === hasta) { pintar(fmt(hasta)); return; }
+  const inicio = performance.now();
+  const paso = (ahora) => {
+    const t = Math.min(1, (ahora - inicio) / 600);
+    const suave = 1 - (1 - t) ** 3;
+    pintar(fmt(desde + (hasta - desde) * suave));
+    if (t < 1) el.dataset.cuadro = String(requestAnimationFrame(paso));
+  };
+  el.dataset.cuadro = String(requestAnimationFrame(paso));
+}
+
 // Aviso flotante breve: confirma acciones sin obligar a buscar el mensaje en la página.
 function aviso(texto, tipo = '') {
   const caja = $('#avisos');
@@ -303,6 +335,7 @@ function irASeccionAgentes(id) {
 
 function manejarMenu(evento) {
   const vista = evento.currentTarget.dataset.vista;
+  estado.navego = true; // si la persona ya eligió una vista, el arranque no la regresa al dashboard
   if (vista === 'asistente') renderPaso();
   if (vista === 'agentes') prepararAgentes();
   if (vista === 'reportes') cargarReportes();
@@ -385,7 +418,7 @@ async function cargarActividad() {
   for (const t of r.trabajando) trabajosEnCurso.set(t.id, t);
   pintarTrabajando();
   const visibles = r.eventos.filter((e) => !['permisos_cambiados'].includes(e.tipo));
-  $('#act-lista').replaceChildren(...(visibles.length ? visibles.map(filaActividad) : [crearElemento('li', { class: 'act-item' }, 'Sin actividad registrada todavía. Da una orden a un agente o lanza una investigación.')]));
+  $('#act-lista').replaceChildren(...(visibles.length ? visibles.map(filaActividad) : [estadoVacio({ icono: 'signal', titulo: 'Todavía no hay actividad', texto: 'Aquí aparece cada orden, consulta entre agentes, búsqueda y tarea automática, con su hora y su resultado.', accion: { texto: 'Hablar con un agente', alHacer: () => irASeccionAgentes('hablar') } })]));
   cargarSituacion();
 }
 
@@ -2402,9 +2435,10 @@ function madurez(distritos) {
 function renderKpis(resultado, cuenta) {
   const evaluadas = cuenta.rojo + cuenta.amarillo + cuenta.verde;
   $('#kpi-evaluadas').textContent = `${evaluadas} / ${Object.keys(resultado.distritos).length}`;
-  $('#kpi-acciones').textContent = String(resultado.plan.length);
+  animarNumero($('#kpi-acciones'), resultado.plan.length);
   const nivel = madurez(resultado.distritos);
-  $('#kpi-madurez').replaceChildren(String(nivel), crearElemento('small', {}, ' / 5'));
+  const madurezEl = $('#kpi-madurez');
+  animarNumero(madurezEl, nivel, { decimales: 1, pintar: (v) => madurezEl.replaceChildren(v, crearElemento('small', {}, ' / 5')) });
   const nota = (id, texto) => { const el = $(id); el.textContent = texto; el.hidden = !texto; };
   nota('#kpi-evaluadas-nota', cuenta.rojo ? `${cuenta.rojo} en atención` : cuenta.amarillo ? `${cuenta.amarillo} por revisar` : evaluadas ? 'Todas bien' : '');
   const inmediatas = resultado.plan.filter((p) => p.color === 'rojo').length;
@@ -2415,7 +2449,7 @@ function renderKpis(resultado, cuenta) {
 
 // Dial de madurez sobre la ciudad (0 a 5).
 function pintarDial(nivel) {
-  $('#dial-valor').textContent = String(nivel);
+  animarNumero($('#dial-valor'), nivel, { decimales: 1 });
   $('#dial-arco').setAttribute('stroke-dasharray', `${Math.max(0, Math.min(100, (nivel / 5) * 100)).toFixed(1)} 100`);
 }
 
@@ -2548,13 +2582,18 @@ function renderRadar(distritos) {
   svg.append(defs);
   svg.append(svgEl('polygon', {
     points: datos.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-    fill: 'url(#gradiente-radar)', stroke: '#25e2ff', 'stroke-width': '2', 'stroke-linejoin': 'round',
+    class: 'radar-datos', fill: 'url(#gradiente-radar)', stroke: '#25e2ff', 'stroke-width': '2', 'stroke-linejoin': 'round',
   }));
   // Cada vértice lleva el color del semáforo de su área.
   const COLOR_PUNTO = { verde: '#2ef0b5', amarillo: '#ffb23e', rojo: '#ff3d8b' };
   ORDEN_AREAS.forEach((id, i) => {
     const color = COLOR_PUNTO[distritos[id]?.color];
-    if (color) svg.append(svgEl('circle', { cx: datos[i].x.toFixed(1), cy: datos[i].y.toFixed(1), r: '4', fill: color, stroke: '#0d0930', 'stroke-width': '1.5' }));
+    if (!color) return;
+    const punto = svgEl('circle', { class: 'radar-punto', cx: datos[i].x.toFixed(1), cy: datos[i].y.toFixed(1), r: '4.5', fill: color, stroke: '#0d0930', 'stroke-width': '1.5' });
+    const titulo = svgEl('title');
+    titulo.textContent = `${distritos[id].nombre}: ${ETIQUETA_COLOR[distritos[id].color]}`;
+    punto.append(titulo);
+    svg.append(punto);
   });
 }
 
@@ -2605,7 +2644,7 @@ async function renderHistorial() {
   const lista = $('#historial');
   lista.replaceChildren();
   const diagnosticos = await listarDiagnosticos();
-  $('#kpi-guardados').textContent = String(diagnosticos.length);
+  animarNumero($('#kpi-guardados'), diagnosticos.length);
   if (!diagnosticos.length) {
     lista.append(crearElemento('li', {}, 'Aún no hay diagnósticos guardados.'));
     return;
@@ -3423,7 +3462,7 @@ async function cargarReportes() {
   lista.replaceChildren();
   const diagnosticos = await listarDiagnosticos();
   if (!diagnosticos.length) {
-    lista.append(crearElemento('li', { class: 'subtitulo' }, 'Aún no hay diagnósticos guardados.'));
+    lista.append(estadoVacio({ icono: 'doc', titulo: 'Aún no hay diagnósticos', texto: 'Cada diagnóstico que hagas queda aquí, con su reporte en Word y PDF. El exprés toma unos cinco minutos.', accion: { texto: 'Empezar diagnóstico', alHacer: () => reiniciar() } }));
     return;
   }
   for (const d of diagnosticos) {
@@ -3588,7 +3627,7 @@ function pintarSerieAvance(serie, c) {
   defs.append(grad);
   svg.append(defs);
   for (const v of [0, 2.5, 5]) svg.append(svgEl('line', { x1: 14, x2: ancho - 14, y1: y(v), y2: y(v), stroke: 'rgba(167,139,250,0.18)', 'stroke-dasharray': v === 0 ? '' : '3 6' }));
-  svg.append(svgEl('polyline', { points: serie.map((s, i) => `${x(i).toFixed(1)},${y(s.madurez).toFixed(1)}`).join(' '), fill: 'none', stroke: 'url(#grad-avance)', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  svg.append(svgEl('polyline', { points: serie.map((s, i) => `${x(i).toFixed(1)},${y(s.madurez).toFixed(1)}`).join(' '), class: 'serie-linea', pathLength: '1', fill: 'none', stroke: 'url(#grad-avance)', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
   serie.forEach((s, i) => {
     const comparado = s.id === c.anterior.id || s.id === c.actual.id;
     const punto = svgEl('circle', { cx: x(i).toFixed(1), cy: y(s.madurez).toFixed(1), r: comparado ? '5.5' : '3', fill: comparado ? '#fff' : '#8b5cf6', stroke: '#0d0930', 'stroke-width': '1.5' });
@@ -3943,6 +3982,19 @@ async function iniciar() {
   $('#equipo-filtro').addEventListener('input', filtrarEquipo);
   $('#form-campana').addEventListener('submit', descargarPiezaActual);
   $('#form-campana-ia').addEventListener('submit', generarCampanaIA);
+  // Menú plegable: se recuerda en este navegador. Plegado, cada botón dice su nombre al pasar el cursor.
+  for (const b of document.querySelectorAll('.menu-item')) b.title = b.querySelector('span')?.textContent || '';
+  const plegarMenu = (plegado) => {
+    document.body.classList.toggle('menu-plegado', plegado);
+    const boton = $('#menu-plegar');
+    boton.setAttribute('aria-expanded', String(!plegado));
+    boton.title = plegado ? 'Desplegar el menú' : 'Plegar el menú';
+    try { localStorage.setItem('menu-plegado', plegado ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  };
+  let menuPlegado = false;
+  try { menuPlegado = localStorage.getItem('menu-plegado') === '1'; } catch { /* sin almacenamiento */ }
+  plegarMenu(menuPlegado);
+  $('#menu-plegar').addEventListener('click', () => plegarMenu(!document.body.classList.contains('menu-plegado')));
   $('#modo-diagnostico').addEventListener('click', (e) => {
     const boton = e.target.closest('[data-modo-diag]');
     if (boton) cambiarModoDiagnostico(boton.dataset.modoDiag);
@@ -3983,10 +4035,20 @@ async function iniciar() {
   const [reciente] = await listarDiagnosticos();
   if (reciente) {
     try {
-      renderResultados(await obtenerDiagnostico(reciente.id), { scroll: false });
+      const registro = await obtenerDiagnostico(reciente.id);
+      const vistaElegida = estado.navego ? estado.vista : null;
+      renderResultados(registro, { scroll: false });
+      if (vistaElegida) mostrarVista(vistaElegida, { scroll: false }); // pintar el diagnóstico no saca a la persona de donde ya estaba
     } catch { /* si el archivo ya no existe, el dashboard muestra cómo empezar */ }
   }
-  mostrarVista(hayBorrador ? 'asistente' : 'dashboard', { scroll: false });
+  if (!estado.navego) mostrarVista(hayBorrador ? 'asistente' : 'dashboard', { scroll: false });
 }
 
-iniciar();
+// Quita el esqueleto de carga pase lo que pase, y deja entrar el contenido una sola vez.
+function terminarCarga() {
+  document.body.classList.remove('cargando');
+  document.body.classList.add('recien-cargado');
+  setTimeout(() => document.body.classList.remove('recien-cargado'), 700);
+}
+
+iniciar().catch((err) => { console.error(err); aviso('No se pudo cargar la oficina. Revisa que la aplicación siga abierta y recarga la página.', 'error'); }).finally(terminarCarga);

@@ -7,7 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2325e2ff'/%3E%3Cstop offset='.6' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e24bf2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M16 7l9 5-9 5-9-5zM7 17l9 5 9-5' fill='none' stroke='%230a0626' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="estilos.css">
 </head>
-<body>
+<body class="cargando">
   <div class="fondo-vivo" aria-hidden="true"></div>
   <div class="app">
     <aside class="menu">
@@ -21,9 +21,12 @@
           <p class="menu-titulo">aGents</p>
           <p class="menu-subtitulo">Oficina de agentes</p>
         </div>
+        <button id="menu-plegar" class="menu-plegar" type="button" aria-expanded="true" aria-controls="menu-principal" title="Plegar el menú">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
       </div>
 
-      <nav class="menu-nav" aria-label="Principal">
+      <nav id="menu-principal" class="menu-nav" aria-label="Principal">
         <p class="menu-grupo">Tu negocio</p>
         <button class="menu-item activo" type="button" data-vista="dashboard">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l4-2v13M10 20V4l4 2v14M16 20v-9l4-2v11M2 20h20"/></svg>
@@ -92,6 +95,11 @@
       <main class="contenedor">
         <!-- ===================== DASHBOARD ===================== -->
         <section id="vista-dashboard" data-vista-panel>
+          <div id="carga" class="carga" aria-hidden="true">
+            <div class="hueso hueso-escena"></div>
+            <div class="carga-fila"><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div><div class="hueso"></div></div>
+            <div class="carga-dos"><div class="hueso hueso-alto"></div><div class="hueso hueso-alto"></div></div>
+          </div>
           <section id="primeros-pasos" class="tarjeta" hidden>
             <div class="panel-encabezado">
               <h3>Primeros pasos</h3>
@@ -126,7 +134,7 @@
             <div class="orbe" aria-hidden="true"><span class="orbe-nucleo"></span><span class="orbe-anillo"></span><span class="orbe-anillo dos"></span></div>
             <div class="vacio-texto">
               <h2>Tu ciudad aún no existe</h2>
-              <p class="subtitulo">Responde el diagnóstico guiado (unos 15 minutos). Con tus respuestas se levanta una ciudad en 3D donde cada edificio es un área de tu negocio, con su semáforo y su plan de acción.</p>
+              <p class="subtitulo">Responde el diagnóstico exprés (unos cinco minutos). Con tus respuestas se levanta una ciudad en 3D donde cada edificio es un área de tu negocio, con su semáforo y su plan de acción.</p>
               <div class="acciones-inline">
                 <button id="vacio-empezar" class="boton" type="button">Empezar diagnóstico</button>
               </div>

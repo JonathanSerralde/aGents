@@ -94,6 +94,7 @@ Doble clic, sin cuentas, sin servidores de nadie: 11 áreas de negocio + 33 agen
 - **Ciudad 3D nocturna** (`public/oficina.js`): cada área es un edificio de cristal cuyo aro, aristas y acentos muestran su semáforo; las áreas en atención llevan una baliza. En la plaza vive el núcleo del Orquestador, enlazado con cada edificio (el enlace se enciende cuando ese agente trabaja). Cámaras isométrica, panorámica y aérea, órbita, rayos X y acercamiento; arrastrar gira, Mayús + arrastrar desplaza, Ctrl + rueda acerca.
 - **Simulador de escenarios** sobre la ciudad: cambia el color de cada área (o usa un escenario) y recalcula la madurez con la misma fórmula del dashboard. Solo en pantalla: nunca modifica el diagnóstico guardado.
 - **Red de agentes** (`public/red.js`): mapa radial de la jerarquía real con el estado operativo de cada agente (`/api/jerarquia` + `/api/situacion`), quién está bloqueado y el último movimiento. Sin IA.
+- Menú plegable en escritorio (se recuerda en el navegador), esqueleto de carga mientras llega la información, estados vacíos con su acción, cifras que cuentan y gráficas que se trazan al entrar. Todo respeta la preferencia de movimiento reducido.
 - Tema "cromo líquido" (`public/estilos.css`) con tipografías del sistema: sigue sin cargar nada de internet.
 
 ### Control y ahorro
